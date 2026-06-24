@@ -63,6 +63,23 @@ Follow-up requirements from the user, now under research (`w47yrab2o`):
 - `build:puzzles` -> `python scripts/build_puzzles_db.py` (CSV.zst -> puzzles.sqlite)
 - `smoke_engine.mjs` -> raw-UCI A4 smoke test
 
+## DONE — Analysis board + app shell (2026-06-24)
+- chessground + chessops analysis workbench: drag/click moves, legal dots, last-move/check highlight,
+  promotion picker, eval bar (Win% sigmoid, flips), MultiPV engine panel (live IPC stream, click-to-play),
+  variation move tree (figurine<->letter toggle), flip + first/prev/next/last + keyboard nav, FEN load/copy.
+- App shell: left rail nav + bottom profile chip (avatar + username), contextual topbar, routing.
+- Settings (real): profile (username + avatar upload), theme light/dark, 4 board color themes (CSS-gradient),
+  legal-dots / coordinates / animation / sound toggles — localStorage-backed, applied app-wide.
+- **Visually verified** via preview inspect: dark theme + Inter, 648px board w/ 33 cburnett pieces,
+  eval bar height-matched, accent colors correct. typecheck + build green.
+
+## Expanded scope from user (2026-06-24, "build everything"):
+- GM-STYLE bots (Tal/Fischer/etc.): opening book (their games) + style-weighted MultiPV selection + peak-Elo cap.
+- Polished HOME dashboard (progress + continue-where-you-left-off per activity + recent games + both ratings).
+- Full SETTINGS parity with top sites (board styles, behaviors) — base done, expand.
+- Profile (rail) + opponent/level in topbar during play.
+- Famous games under Lessons.
+
 ## Next — remaining FOUNDATION (v0), ordered
 1. Repo hygiene + DEV-containment redirect (done: hygiene; pending: code).  2. App shell + security baseline + typed IPC.
 3. Reconcile schema + persistence.  4. Native Stockfish integration (fetch + UCI wrapper, 2 instances, Windows-safe kill).
