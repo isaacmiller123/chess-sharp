@@ -80,7 +80,24 @@ Follow-up requirements from the user, now under research (`w47yrab2o`):
 - Profile (rail) + opponent/level in topbar during play.
 - Famous games under Lessons.
 
-## Next — remaining FOUNDATION (v0), ordered
+## Loop 2 + Loop 3 — FEATURE-COMPLETE (2026-06-24)
+All requested features built, integrated, verified (typecheck + build + `electron .` boot green throughout):
+- Home dashboard · Play vs engine (any Elo) + **GM personas with real opening books** · Analysis
+  (eval bar, MultiPV, move tree) + **game review** (accuracy/blunders/brilliants, eval graph, est-Elo band)
+  + **live coach** · Puzzles (4.7M, Glicko-2 rating, hints, coach) · **Lessons** (54-lesson curriculum +
+  interactive player) · **Famous games** (30 validated, viewer + analyze) · Openings explorer · Progress/My Games ·
+  Settings (themes, 3 piece sets, sound, profile).
+- Backends via node:sqlite (no native build). Engines bundled (Stockfish). Open assets only. No emojis.
+- Built by many parallel agent fleets (research → implement → adversarial-verify → harden), lead-integrated.
+- Commit trail: scaffold → engine → db → b1(play/puzzles/home) → b2 backend → wide wave → wave2 →
+  persona books → live coaching → interactive lessons.
+
+## Remaining
+- Hardening pass (in progress: 6-dimension adversarial review) → fix findings.
+- Packaging: installer + GitHub release (deferred per user). Decision needed: puzzle-DB size for the
+  shippable installer (full 2.1 GB vs lean ~450 MB to fit GitHub's 2 GB asset limit).
+
+## (historical) Next — remaining FOUNDATION (v0), ordered
 1. Repo hygiene + DEV-containment redirect (done: hygiene; pending: code).  2. App shell + security baseline + typed IPC.
 3. Reconcile schema + persistence.  4. Native Stockfish integration (fetch + UCI wrapper, 2 instances, Windows-safe kill).
 5. Puzzle DB build pipeline (theme-aware prune).  6. Analysis board.  7. FEN/PGN load.  8. Openings name lookup.
