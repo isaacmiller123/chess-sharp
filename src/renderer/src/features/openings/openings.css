@@ -1,0 +1,245 @@
+/* ============================================================
+   Openings explorer — feature-scoped styles. Tokens only (tokens.css).
+   Reuses global primitives (.board-area .board-stage .board-wrap
+   .board-controls .nav-group .icon-btn .panel .panel-head .panel-title
+   .eval-chip .seg .move .move-num .move-san) and adds layout + the
+   explorer list / banner on top.
+   ============================================================ */
+
+.openings-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: var(--space-7);
+  align-items: start;
+}
+
+/* ---- Live opening banner (under the board) ---- */
+.opening-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: min(72vh, 100%);
+  max-width: 720px;
+  box-sizing: border-box;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.opening-banner-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.opening-banner-text {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.opening-banner-name {
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-md);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.opening-banner-name.muted {
+  font-weight: var(--fw-medium);
+  color: var(--text-muted);
+}
+.opening-eco {
+  flex: none;
+}
+
+/* ---- Sidebar ---- */
+.openings-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+/* ---- Explorer panel ---- */
+.openings-explorer {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.explorer-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.explorer-search-icon {
+  position: absolute;
+  left: calc(var(--space-4) + var(--space-2));
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.explorer-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-3) var(--space-8) var(--space-3) var(--space-9);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--fs-sm);
+  transition:
+    border-color var(--dur-fast),
+    box-shadow var(--dur-fast);
+}
+.explorer-search-input::placeholder {
+  color: var(--text-muted);
+}
+.explorer-search-input:focus {
+  outline: none;
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.explorer-search-clear {
+  position: absolute;
+  right: calc(var(--space-4) + var(--space-1));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast),
+    color var(--dur-fast);
+}
+.explorer-search-clear:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.explorer-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.explorer-groups .seg {
+  flex: 0 0 auto;
+}
+
+.explorer-list {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 52vh;
+  overflow-y: auto;
+}
+
+.explorer-empty {
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.explorer-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  padding: var(--space-3);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast),
+    border-color var(--dur-fast);
+}
+.explorer-item:hover {
+  background: var(--surface-2);
+}
+.explorer-item.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.explorer-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1;
+}
+.explorer-item-name {
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-base);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.explorer-item-line {
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  font-feature-settings: var(--num-feature);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.explorer-item-eco {
+  flex: none;
+}
+
+/* ---- Played-line preview ---- */
+.opening-moves {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-4);
+}
+.opening-moves-empty {
+  padding: var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.opening-move-slot {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+.opening-move {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+@media (max-width: 980px) {
+  .openings-view {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .explorer-list {
+    max-height: 40vh;
+  }
+}

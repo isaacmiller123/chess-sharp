@@ -7,6 +7,8 @@ import { SettingsView } from './features/settings/SettingsView'
 import HomeView from './features/home/HomeView'
 import PlayView from './features/play/PlayView'
 import PuzzlesView from './features/puzzles/PuzzlesView'
+import OpeningsView from './features/openings/OpeningsView'
+import ProgressView from './features/progress/ProgressView'
 
 const TITLES: Record<ViewKey, string> = {
   home: 'Home',
@@ -27,6 +29,10 @@ function CurrentView({ view, onNavigate }: { view: ViewKey; onNavigate: (v: View
       return <PlayView />
     case 'puzzles':
       return <PuzzlesView />
+    case 'openings':
+      return <OpeningsView />
+    case 'progress':
+      return <ProgressView onNavigate={onNavigate} />
     case 'analysis':
       return <AnalysisView />
     case 'settings':

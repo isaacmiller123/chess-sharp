@@ -7,6 +7,9 @@ import { registerGames } from './games.ipc'
 import { registerOpenings } from './openings.ipc'
 import { registerCoach } from './coach.ipc'
 import { registerReview } from './review.ipc'
+import { registerFamous } from './famous.ipc'
+import { registerCurriculum } from './curriculum.ipc'
+import { registerPersonas } from './personas.ipc'
 
 // Composes every IPC domain. Called once from main after `whenReady`.
 export function registerIpc(): void {
@@ -19,4 +22,7 @@ export function registerIpc(): void {
   registerOpenings()
   registerCoach()
   registerReview()
+  registerFamous()
+  registerCurriculum()
+  registerPersonas()
 }

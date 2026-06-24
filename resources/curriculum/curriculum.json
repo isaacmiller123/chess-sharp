@@ -1,0 +1,910 @@
+{
+  "version": "1.0.0",
+  "puzzleDbSnapshot": "lichess_db_puzzle 2026-06-03",
+  "bands": [
+    {
+      "id": "B0_600",
+      "order": 0,
+      "label": "Absolute Beginner (0-600)",
+      "ratingFloor": 0,
+      "ratingRange": [0, 600],
+      "goal": "Know the rules, never hang a piece for free, and deliver the basic checkmates.",
+      "units": [
+        {
+          "id": "B0_600.rules",
+          "order": 0,
+          "title": "The Board & The Pieces",
+          "goal": "Move every piece legally and understand the special rules.",
+          "lessons": [
+            {
+              "id": "B0_600.rules.how_pieces_move",
+              "title": "How the Pieces Move",
+              "summary": "Learn the movement of every piece and how captures work on the board.",
+              "objectives": [
+                "Move each piece legally",
+                "Capture an enemy piece",
+                "Recognise an illegal move"
+              ],
+              "linkedThemes": [],
+              "ratingRange": [0, 600],
+              "kind": "concept"
+            },
+            {
+              "id": "B0_600.rules.special_moves",
+              "title": "Special Moves",
+              "summary": "Castling, en passant, and pawn promotion - the rules beyond the basics.",
+              "objectives": [
+                "Castle on both sides legally",
+                "Capture en passant",
+                "Promote a pawn to a queen"
+              ],
+              "linkedThemes": ["castling", "enPassant", "promotion"],
+              "ratingRange": [600, 900],
+              "kind": "concept"
+            },
+            {
+              "id": "B0_600.rules.check_mate_stalemate",
+              "title": "Check, Checkmate & Stalemate",
+              "summary": "Tell apart the three king situations that decide every game.",
+              "objectives": [
+                "Get out of check three different ways",
+                "Distinguish checkmate from stalemate",
+                "Avoid stalemate when you are winning"
+              ],
+              "linkedThemes": ["mate", "mateIn1"],
+              "ratingRange": [600, 800],
+              "kind": "concept"
+            },
+            {
+              "id": "B0_600.rules.values_and_trades",
+              "title": "Piece Values & Trades",
+              "summary": "Count material with the standard point values and avoid bad trades.",
+              "objectives": [
+                "Assign point values to each piece",
+                "Tell a good trade from a bad one",
+                "Refuse to give up a piece for nothing"
+              ],
+              "linkedThemes": ["hangingPiece"],
+              "ratingRange": [600, 800],
+              "kind": "concept"
+            }
+          ]
+        },
+        {
+          "id": "B0_600.mate",
+          "order": 1,
+          "title": "First Checkmates",
+          "goal": "Deliver mate in one and finish with king-and-major-piece against a lone king.",
+          "lessons": [
+            {
+              "id": "B0_600.mate.mate_in_one",
+              "title": "Mate in One",
+              "summary": "Spot the single move that ends the game on the spot.",
+              "objectives": [
+                "Find a forced mate in one",
+                "Check the king has no escape squares",
+                "Confirm the checking piece is defended"
+              ],
+              "linkedThemes": ["mateIn1", "oneMove"],
+              "ratingRange": [600, 800],
+              "kind": "tactics"
+            },
+            {
+              "id": "B0_600.mate.overkill_mates",
+              "title": "Overkill Mates (K+Q, K+2R)",
+              "summary": "Use a large material edge to corner and mate a lone king.",
+              "objectives": [
+                "Mate with king and queen",
+                "Mate with king and two rooks (the ladder)",
+                "Drive the king to the edge without stalemate"
+              ],
+              "linkedThemes": ["mate", "endgame"],
+              "ratingRange": [600, 900],
+              "kind": "endgame"
+            },
+            {
+              "id": "B0_600.mate.k_r_vs_k",
+              "title": "King & Rook vs King",
+              "summary": "The box and ladder technique to mate with a single rook.",
+              "objectives": [
+                "Shrink the king's box with the rook",
+                "Use the king to take the opposition",
+                "Deliver the back-rank mate"
+              ],
+              "linkedThemes": ["endgame", "rookEndgame"],
+              "ratingRange": [700, 950],
+              "kind": "endgame"
+            }
+          ]
+        },
+        {
+          "id": "B0_600.safety",
+          "order": 2,
+          "title": "Don't Hang Pieces",
+          "goal": "See free captures for both sides and defend what is attacked.",
+          "lessons": [
+            {
+              "id": "B0_600.safety.free_capture",
+              "title": "Spot a Free Capture",
+              "summary": "Find undefended enemy pieces you can simply take for free.",
+              "objectives": [
+                "Identify an undefended enemy piece",
+                "Win a hanging piece in one move",
+                "Check your own pieces are not hanging"
+              ],
+              "linkedThemes": ["hangingPiece", "oneMove"],
+              "ratingRange": [600, 850],
+              "kind": "tactics"
+            },
+            {
+              "id": "B0_600.safety.fork_intro",
+              "title": "The Fork (Introduction)",
+              "summary": "One piece attacks two targets at once - your first real tactic.",
+              "objectives": [
+                "Attack two pieces with one move",
+                "Choose a fork that wins material",
+                "Recognise a knight fork pattern"
+              ],
+              "linkedThemes": ["fork"],
+              "ratingRange": [700, 950],
+              "kind": "tactics"
+            },
+            {
+              "id": "B0_600.safety.defend_hanging",
+              "title": "Defend a Hanging Piece",
+              "summary": "Save an attacked piece by defending, moving, or counter-attacking.",
+              "objectives": [
+                "Add a defender to an attacked piece",
+                "Move an attacked piece to safety",
+                "Block or capture the attacker"
+              ],
+              "linkedThemes": ["hangingPiece", "defensiveMove"],
+              "ratingRange": [700, 950],
+              "kind": "tactics"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "B600_1000",
+      "order": 1,
+      "label": "Beginner (600-1000)",
+      "ratingFloor": 600,
+      "ratingRange": [600, 1000],
+      "goal": "Master the core tactical motifs, opening principles, a first opening, and basic king-and-pawn ideas.",
+      "units": [
+        {
+          "id": "B600_1000.tactics",
+          "order": 0,
+          "title": "Pins, Skewers & Forks",
+          "goal": "Recognise and execute the four foundational tactical motifs.",
+          "lessons": [
+            {
+              "id": "B600_1000.tactics.pin",
+              "title": "The Pin",
+              "summary": "A piece cannot move without exposing a more valuable one behind it.",
+              "objectives": [
+                "Pin an enemy piece to its king or queen",
+                "Pile up on a pinned piece",
+                "Avoid leaving your own pieces pinned"
+              ],
+              "linkedThemes": ["pin"],
+              "ratingRange": [700, 1050],
+              "kind": "tactics"
+            },
+            {
+              "id": "B600_1000.tactics.skewer",
+              "title": "The Skewer",
+              "summary": "Attack a valuable piece so that moving it exposes a lesser one behind.",
+              "objectives": [
+                "Skewer a king or queen to win the piece behind",
+                "Distinguish a skewer from a pin",
+                "Set up a skewer with a check"
+              ],
+              "linkedThemes": ["skewer"],
+              "ratingRange": [750, 1100],
+              "kind": "tactics"
+            },
+            {
+              "id": "B600_1000.tactics.forks",
+              "title": "Knight & Pawn Forks",
+              "summary": "Use knight geometry and pawn pushes to attack two pieces at once.",
+              "objectives": [
+                "Win material with a knight fork",
+                "Spot the royal fork (king and queen)",
+                "Fork two pieces with a pawn"
+              ],
+              "linkedThemes": ["fork"],
+              "ratingRange": [700, 1050],
+              "kind": "tactics"
+            },
+            {
+              "id": "B600_1000.tactics.discovered_attack",
+              "title": "Discovered Attack",
+              "summary": "Move one piece to unleash an attack from a long-range piece behind it.",
+              "objectives": [
+                "Uncover an attack by moving a blocker",
+                "Combine a discovery with a threat",
+                "Recognise a discovered check"
+              ],
+              "linkedThemes": ["discoveredAttack"],
+              "ratingRange": [800, 1150],
+              "kind": "tactics"
+            }
+          ]
+        },
+        {
+          "id": "B600_1000.mating",
+          "order": 1,
+          "title": "Back-Rank & Mating Nets",
+          "goal": "Deliver the most common short forced mates.",
+          "lessons": [
+            {
+              "id": "B600_1000.mating.back_rank",
+              "title": "Back-Rank Mate",
+              "summary": "Mate a king trapped on its back rank by its own pawns.",
+              "objectives": [
+                "Deliver a back-rank mate",
+                "Create luft to avoid being mated",
+                "Remove the defender of the back rank"
+              ],
+              "linkedThemes": ["backRankMate", "mateIn1"],
+              "ratingRange": [700, 1050],
+              "kind": "tactics"
+            },
+            {
+              "id": "B600_1000.mating.mate_in_two",
+              "title": "Mate in Two (Introduction)",
+              "summary": "Force mate over two moves with a quiet or checking first move.",
+              "objectives": [
+                "Calculate a forced mate in two",
+                "Find the key first move",
+                "Confirm every black reply is covered"
+              ],
+              "linkedThemes": ["mateIn2", "short"],
+              "ratingRange": [800, 1150],
+              "kind": "tactics"
+            },
+            {
+              "id": "B600_1000.mating.smothered_mate",
+              "title": "Smothered Mate (Introduction)",
+              "summary": "The knight mates a king hemmed in by its own pieces.",
+              "objectives": [
+                "Recognise the smothered-mate pattern",
+                "Set up the queen sacrifice that forces it",
+                "Deliver mate with the knight"
+              ],
+              "linkedThemes": ["smotheredMate"],
+              "ratingRange": [900, 1200],
+              "kind": "tactics"
+            }
+          ]
+        },
+        {
+          "id": "B600_1000.openings",
+          "order": 2,
+          "title": "Opening Principles",
+          "goal": "Open soundly with the center, development, and king safety - then learn a first opening.",
+          "lessons": [
+            {
+              "id": "B600_1000.openings.principles",
+              "title": "Center, Develop, Castle",
+              "summary": "The three opening priorities every game starts with.",
+              "objectives": [
+                "Fight for the center with a pawn",
+                "Develop knights and bishops quickly",
+                "Castle within the first ten moves"
+              ],
+              "linkedThemes": ["opening"],
+              "ratingRange": [700, 1000],
+              "kind": "opening"
+            },
+            {
+              "id": "B600_1000.openings.italian_game",
+              "title": "The Italian Game",
+              "summary": "A classical 1.e4 opening that reaches a sound, active setup.",
+              "objectives": [
+                "Reach a sound Italian setup",
+                "Develop the bishop to c4",
+                "Understand the key central break d4"
+              ],
+              "linkedThemes": ["opening"],
+              "ratingRange": [700, 1000],
+              "kind": "opening"
+            },
+            {
+              "id": "B600_1000.openings.london_system",
+              "title": "The London System",
+              "summary": "A solid 1.d4 system with the same setup against almost anything.",
+              "objectives": [
+                "Build the London pawn triangle",
+                "Develop the dark-squared bishop outside the chain",
+                "Know the standard plan for both sides"
+              ],
+              "linkedThemes": ["opening"],
+              "ratingRange": [700, 1000],
+              "kind": "opening"
+            }
+          ]
+        },
+        {
+          "id": "B600_1000.endgame",
+          "order": 3,
+          "title": "King & Pawn Basics",
+          "goal": "Win and draw the most fundamental pawn endgames.",
+          "lessons": [
+            {
+              "id": "B600_1000.endgame.opposition",
+              "title": "The Opposition",
+              "summary": "Use the opposition to control key squares with your king.",
+              "objectives": [
+                "Take the direct opposition",
+                "Outflank the enemy king",
+                "Use opposition to escort a pawn"
+              ],
+              "linkedThemes": ["endgame", "pawnEndgame"],
+              "ratingRange": [800, 1100],
+              "kind": "endgame"
+            },
+            {
+              "id": "B600_1000.endgame.promoting_a_pawn",
+              "title": "Promoting a Pawn",
+              "summary": "Shepherd a passed pawn to the eighth rank and queen it.",
+              "objectives": [
+                "Calculate whether a pawn queens in a race",
+                "Use the king to support promotion",
+                "Avoid stalemate after queening"
+              ],
+              "linkedThemes": ["promotion", "pawnEndgame"],
+              "ratingRange": [800, 1150],
+              "kind": "endgame"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "B1000_1400",
+      "order": 2,
+      "label": "Intermediate Beginner (1000-1400)",
+      "ratingFloor": 1000,
+      "ratingRange": [1000, 1400],
+      "goal": "Build combinations, calculate cleanly, master king-and-pawn technique, and learn first strategy.",
+      "units": [
+        {
+          "id": "B1000_1400.combos",
+          "order": 0,
+          "title": "Removing Defenders & Combinations",
+          "goal": "Chain motifs together to win material with combinations.",
+          "lessons": [
+            {
+              "id": "B1000_1400.combos.deflection",
+              "title": "Deflection",
+              "summary": "Distract a piece from a defensive duty, then strike.",
+              "objectives": [
+                "Deflect a defender off a key square",
+                "Win material after the deflection",
+                "Spot overworked defenders"
+              ],
+              "linkedThemes": ["deflection"],
+              "ratingRange": [1050, 1400],
+              "kind": "tactics"
+            },
+            {
+              "id": "B1000_1400.combos.attraction",
+              "title": "Attraction",
+              "summary": "Lure an enemy piece to a square where it can be punished.",
+              "objectives": [
+                "Attract the king into a mating net",
+                "Sacrifice to drag a piece to a fork square",
+                "Combine attraction with a follow-up tactic"
+              ],
+              "linkedThemes": ["attraction"],
+              "ratingRange": [1050, 1400],
+              "kind": "tactics"
+            },
+            {
+              "id": "B1000_1400.combos.capturing_defender",
+              "title": "Capturing the Defender",
+              "summary": "Remove the piece that guards another, then take the prize.",
+              "objectives": [
+                "Identify the critical defender",
+                "Trade or take the defender first",
+                "Collect the now-undefended piece"
+              ],
+              "linkedThemes": ["capturingDefender"],
+              "ratingRange": [1050, 1400],
+              "kind": "tactics"
+            },
+            {
+              "id": "B1000_1400.combos.intermezzo",
+              "title": "Intermezzo (Zwischenzug)",
+              "summary": "Insert a forcing in-between move before the expected reply.",
+              "objectives": [
+                "Find an in-between check or threat",
+                "Improve the result by changing move order",
+                "Avoid auto-recapturing too soon"
+              ],
+              "linkedThemes": ["intermezzo"],
+              "ratingRange": [1100, 1450],
+              "kind": "tactics"
+            }
+          ]
+        },
+        {
+          "id": "B1000_1400.mating",
+          "order": 1,
+          "title": "Forced Mates",
+          "goal": "Calculate longer forced mates and sacrificial attacks on the king.",
+          "lessons": [
+            {
+              "id": "B1000_1400.mating.mate_in_two",
+              "title": "Mate in Two",
+              "summary": "Sharpen calculation on clean two-move forced mates.",
+              "objectives": [
+                "Calculate forced mate in two reliably",
+                "Eliminate every defensive try",
+                "Choose between several mating ideas"
+              ],
+              "linkedThemes": ["mateIn2"],
+              "ratingRange": [1000, 1350],
+              "kind": "tactics"
+            },
+            {
+              "id": "B1000_1400.mating.sacrificial_attacks",
+              "title": "Sacrificial Mating Attacks",
+              "summary": "Sacrifice material to tear open the king and force mate.",
+              "objectives": [
+                "Sacrifice to expose the enemy king",
+                "Bring reserves into the attack",
+                "Judge when a sacrifice is sound"
+              ],
+              "linkedThemes": ["sacrifice", "kingsideAttack"],
+              "ratingRange": [1100, 1450],
+              "kind": "tactics"
+            }
+          ]
+        },
+        {
+          "id": "B1000_1400.endgame",
+          "order": 2,
+          "title": "Essential King & Pawn",
+          "goal": "Convert and hold the key pawn endgames with correct technique.",
+          "lessons": [
+            {
+              "id": "B1000_1400.endgame.kp_vs_k",
+              "title": "K+P vs K (Key Squares)",
+              "summary": "The key-square rule that decides king-and-pawn vs king.",
+              "objectives": [
+                "Find the pawn's key squares",
+                "Win with the king in front of the pawn",
+                "Hold the draw as the defender"
+              ],
+              "linkedThemes": ["pawnEndgame"],
+              "ratingRange": [1000, 1350],
+              "kind": "endgame"
+            },
+            {
+              "id": "B1000_1400.endgame.outside_passed_pawn",
+              "title": "The Outside Passed Pawn",
+              "summary": "Use a distant passer to decoy the king and win on the other wing.",
+              "objectives": [
+                "Create an outside passed pawn",
+                "Use it to divert the enemy king",
+                "Convert the resulting material edge"
+              ],
+              "linkedThemes": ["pawnEndgame", "advancedPawn"],
+              "ratingRange": [1100, 1400],
+              "kind": "endgame"
+            }
+          ]
+        },
+        {
+          "id": "B1000_1400.strategy",
+          "order": 3,
+          "title": "First Strategy",
+          "goal": "Make positional decisions about squares, files, and bishops.",
+          "lessons": [
+            {
+              "id": "B1000_1400.strategy.weak_squares_outposts",
+              "title": "Weak Squares & Outposts",
+              "summary": "Plant a piece on a protected square the enemy cannot challenge.",
+              "objectives": [
+                "Identify a weak square in the enemy camp",
+                "Place a knight on a protected outpost",
+                "Trade to keep your outpost knight"
+              ],
+              "linkedThemes": ["middlegame"],
+              "ratingRange": [1000, 1400],
+              "kind": "strategy"
+            },
+            {
+              "id": "B1000_1400.strategy.open_files",
+              "title": "Open Files for Rooks",
+              "summary": "Seize open and half-open files to activate your rooks.",
+              "objectives": [
+                "Occupy an open file with a rook",
+                "Double rooks on a file",
+                "Invade the seventh rank"
+              ],
+              "linkedThemes": ["middlegame"],
+              "ratingRange": [1000, 1400],
+              "kind": "strategy"
+            },
+            {
+              "id": "B1000_1400.strategy.good_vs_bad_bishop",
+              "title": "Good vs Bad Bishop",
+              "summary": "Recognise when a bishop is hemmed in by its own pawns.",
+              "objectives": [
+                "Tell a good bishop from a bad one",
+                "Fix enemy pawns on the bishop's colour",
+                "Trade off your bad bishop"
+              ],
+              "linkedThemes": ["middlegame"],
+              "ratingRange": [1000, 1400],
+              "kind": "strategy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "B1400_1800",
+      "order": 3,
+      "label": "Intermediate (1400-1800)",
+      "ratingFloor": 1400,
+      "ratingRange": [1400, 1800],
+      "goal": "Handle advanced motifs, theoretical rook endgames, calculation discipline, and a deeper repertoire.",
+      "units": [
+        {
+          "id": "B1400_1800.tactics",
+          "order": 0,
+          "title": "Advanced Motifs",
+          "goal": "Add the subtle, harder-to-spot tactical ideas to your toolkit.",
+          "lessons": [
+            {
+              "id": "B1400_1800.tactics.interference",
+              "title": "Interference",
+              "summary": "Block the line between a defender and what it protects.",
+              "objectives": [
+                "Cut a defensive line with an interposing move",
+                "Sacrifice to interfere with coordination",
+                "Win material once the defence is severed"
+              ],
+              "linkedThemes": ["interference"],
+              "ratingRange": [1450, 1800],
+              "kind": "tactics"
+            },
+            {
+              "id": "B1400_1800.tactics.xray_battery",
+              "title": "X-Ray & Battery",
+              "summary": "Attack or defend through a piece along a line, and stack pieces on it.",
+              "objectives": [
+                "Set up a battery on an open line",
+                "Use an x-ray to win material",
+                "Defend a piece through an enemy attacker"
+              ],
+              "linkedThemes": ["xRayAttack"],
+              "ratingRange": [1450, 1800],
+              "kind": "tactics"
+            },
+            {
+              "id": "B1400_1800.tactics.quiet_move",
+              "title": "The Quiet Move",
+              "summary": "A non-checking, non-capturing move that creates a decisive threat.",
+              "objectives": [
+                "Find the quiet move inside a combination",
+                "Resist the urge to check or capture",
+                "Verify the threat is unstoppable"
+              ],
+              "linkedThemes": ["quietMove"],
+              "ratingRange": [1500, 1850],
+              "kind": "tactics"
+            },
+            {
+              "id": "B1400_1800.tactics.overloaded_pieces",
+              "title": "Overloaded Pieces",
+              "summary": "Exploit a piece that is the sole defender of two things at once.",
+              "objectives": [
+                "Spot a piece guarding two targets",
+                "Attack one duty to break the other",
+                "Convert the resulting win of material"
+              ],
+              "linkedThemes": ["deflection"],
+              "ratingRange": [1450, 1800],
+              "kind": "tactics"
+            }
+          ]
+        },
+        {
+          "id": "B1400_1800.endgame",
+          "order": 1,
+          "title": "Theoretical Rook Endgames",
+          "goal": "Know the must-know winning and drawing rook-endgame methods.",
+          "lessons": [
+            {
+              "id": "B1400_1800.endgame.lucena",
+              "title": "The Lucena Position",
+              "summary": "Build a bridge to promote a pawn with rook and king.",
+              "objectives": [
+                "Set up the bridge with the rook",
+                "Shelter the king from checks",
+                "Promote the pawn cleanly"
+              ],
+              "linkedThemes": ["rookEndgame"],
+              "ratingRange": [1450, 1800],
+              "kind": "endgame"
+            },
+            {
+              "id": "B1400_1800.endgame.philidor",
+              "title": "The Philidor Position",
+              "summary": "Hold the draw a pawn down with the third-rank defence.",
+              "objectives": [
+                "Set up the third-rank defence",
+                "Switch to checking from behind",
+                "Avoid losing the drawn position"
+              ],
+              "linkedThemes": ["rookEndgame"],
+              "ratingRange": [1450, 1800],
+              "kind": "endgame"
+            },
+            {
+              "id": "B1400_1800.endgame.rook_on_seventh",
+              "title": "Rook on the Seventh Rank",
+              "summary": "Activate a rook on the seventh to harvest pawns and confine the king.",
+              "objectives": [
+                "Invade with the rook on the seventh",
+                "Combine the seventh rank with a passed pawn",
+                "Coordinate two rooks on the seventh"
+              ],
+              "linkedThemes": ["rookEndgame", "advancedPawn"],
+              "ratingRange": [1500, 1850],
+              "kind": "endgame"
+            }
+          ]
+        },
+        {
+          "id": "B1400_1800.calc",
+          "order": 2,
+          "title": "Calculation & Visualization",
+          "goal": "Calculate forcing lines accurately and select candidate moves.",
+          "lessons": [
+            {
+              "id": "B1400_1800.calc.forcing_moves_first",
+              "title": "Forcing Moves First",
+              "summary": "Look at checks, captures, and threats before anything else.",
+              "objectives": [
+                "List all checks, captures, and threats",
+                "Calculate the most forcing line first",
+                "Visualise the position several moves ahead"
+              ],
+              "linkedThemes": ["short", "long"],
+              "ratingRange": [1500, 1850],
+              "kind": "tactics"
+            },
+            {
+              "id": "B1400_1800.calc.candidate_moves",
+              "title": "Candidate Moves & Elimination",
+              "summary": "Generate candidate moves, then prune to the best one.",
+              "objectives": [
+                "Generate two or three candidate moves",
+                "Compare lines and eliminate the worst",
+                "Commit to the move you calculated"
+              ],
+              "linkedThemes": ["long"],
+              "ratingRange": [1500, 1850],
+              "kind": "strategy"
+            }
+          ]
+        },
+        {
+          "id": "B1400_1800.openings",
+          "order": 3,
+          "title": "Repertoire Deepening",
+          "goal": "Carry a coherent opening repertoire for both colours into the middlegame.",
+          "lessons": [
+            {
+              "id": "B1400_1800.openings.white_repertoire",
+              "title": "A White Repertoire (1.e4 / 1.d4)",
+              "summary": "Pick a main first move and learn the resulting middlegame plans.",
+              "objectives": [
+                "Choose a consistent first move as White",
+                "Learn the key tabiyas of your opening",
+                "Know the typical middlegame plan"
+              ],
+              "linkedThemes": ["opening"],
+              "ratingRange": [1400, 1800],
+              "kind": "opening"
+            },
+            {
+              "id": "B1400_1800.openings.black_vs_e4",
+              "title": "Black Defences vs 1.e4",
+              "summary": "Build a reliable answer to the most common White first move.",
+              "objectives": [
+                "Choose a sound defence to 1.e4",
+                "Reach a comfortable structure",
+                "Avoid early opening traps"
+              ],
+              "linkedThemes": ["opening"],
+              "ratingRange": [1400, 1800],
+              "kind": "opening"
+            },
+            {
+              "id": "B1400_1800.openings.black_vs_d4",
+              "title": "Black Defences vs 1.d4",
+              "summary": "Round out the repertoire with a system against 1.d4.",
+              "objectives": [
+                "Choose a sound defence to 1.d4",
+                "Coordinate it with your anti-e4 setup",
+                "Understand the central pawn breaks"
+              ],
+              "linkedThemes": ["opening"],
+              "ratingRange": [1400, 1800],
+              "kind": "opening"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "B1800_2000",
+      "order": 4,
+      "label": "Advanced (1800-2000)",
+      "ratingFloor": 1800,
+      "ratingRange": [1800, 2000],
+      "goal": "Apply prophylaxis, deep endgame theory, conversion technique, and long forced sequences.",
+      "units": [
+        {
+          "id": "B1800_2000.strategy",
+          "order": 0,
+          "title": "Prophylaxis & Maneuvering",
+          "goal": "Anticipate the opponent's plans and improve slowly when no tactic exists.",
+          "lessons": [
+            {
+              "id": "B1800_2000.strategy.prophylactic_thinking",
+              "title": "Prophylactic Thinking",
+              "summary": "Ask what the opponent wants and stop it before improving your own position.",
+              "objectives": [
+                "Identify the opponent's intended plan",
+                "Play a move that prevents it",
+                "Balance prevention with your own ideas"
+              ],
+              "linkedThemes": ["middlegame"],
+              "ratingRange": [1800, 2000],
+              "kind": "strategy"
+            },
+            {
+              "id": "B1800_2000.strategy.zugzwang_triangulation",
+              "title": "Zugzwang & Triangulation",
+              "summary": "Force the opponent to ruin their own position by losing a tempo.",
+              "objectives": [
+                "Recognise a zugzwang position",
+                "Triangulate to pass the move",
+                "Set up reciprocal zugzwang in the endgame"
+              ],
+              "linkedThemes": ["zugzwang", "endgame"],
+              "ratingRange": [1800, 2050],
+              "kind": "endgame"
+            }
+          ]
+        },
+        {
+          "id": "B1800_2000.endgame",
+          "order": 1,
+          "title": "Higher Endgame Theory",
+          "goal": "Handle major-piece endgames and convert won positions with technique.",
+          "lessons": [
+            {
+              "id": "B1800_2000.endgame.r2_vs_r",
+              "title": "R+2 vs R",
+              "summary": "Convert the extra pawns in a double-rook-pawn endgame.",
+              "objectives": [
+                "Coordinate rook and pawns against the lone rook",
+                "Avoid the standard drawing fortresses",
+                "Make progress without blundering a pawn"
+              ],
+              "linkedThemes": ["rookEndgame"],
+              "ratingRange": [1800, 2050],
+              "kind": "endgame"
+            },
+            {
+              "id": "B1800_2000.endgame.queen_endgames",
+              "title": "Queen Endgames",
+              "summary": "Use checks, the king's shelter, and passed pawns in queen endings.",
+              "objectives": [
+                "Shelter the king from perpetual checks",
+                "Escort a passed pawn with the queen",
+                "Judge perpetual-check draws"
+              ],
+              "linkedThemes": ["queenEndgame"],
+              "ratingRange": [1800, 2050],
+              "kind": "endgame"
+            },
+            {
+              "id": "B1800_2000.endgame.conversion_technique",
+              "title": "Conversion Technique",
+              "summary": "Win won positions: simplify, avoid counterplay, and convert cleanly.",
+              "objectives": [
+                "Trade into a clearly winning endgame",
+                "Shut down enemy counterplay",
+                "Convert a decisive advantage without rushing"
+              ],
+              "linkedThemes": ["advantage", "crushing"],
+              "ratingRange": [1800, 2050],
+              "kind": "endgame"
+            }
+          ]
+        },
+        {
+          "id": "B1800_2000.tactics",
+          "order": 2,
+          "title": "Long & Very-Long Combinations",
+          "goal": "Calculate deep forced mates and lengthy forcing sequences.",
+          "lessons": [
+            {
+              "id": "B1800_2000.tactics.mate_in_four_five",
+              "title": "Mate in Four to Five",
+              "summary": "Calculate deeper forced mates without losing the thread.",
+              "objectives": [
+                "Calculate a forced mate in four or five",
+                "Track the king through every escape",
+                "Choose the most forcing move order"
+              ],
+              "linkedThemes": ["mateIn4", "mateIn5"],
+              "ratingRange": [1800, 2050],
+              "kind": "tactics"
+            },
+            {
+              "id": "B1800_2000.tactics.very_long_lines",
+              "title": "Very-Long Forced Lines",
+              "summary": "Hold an extended forcing sequence accurately to the end.",
+              "objectives": [
+                "Calculate a long forced line to its conclusion",
+                "Keep the evaluation in mind at the end",
+                "Spot the resource that holds it together"
+              ],
+              "linkedThemes": ["veryLong"],
+              "ratingRange": [1850, 2100],
+              "kind": "tactics"
+            }
+          ]
+        },
+        {
+          "id": "B1800_2000.attack",
+          "order": 3,
+          "title": "The Attacking Game",
+          "goal": "Conduct dynamic attacks and sound sacrifices for the initiative.",
+          "lessons": [
+            {
+              "id": "B1800_2000.attack.opposite_castling",
+              "title": "Opposite-Side Castling Races",
+              "summary": "Storm pawns toward the enemy king when kings sit on opposite wings.",
+              "objectives": [
+                "Launch a pawn storm against the castled king",
+                "Open files faster than the opponent",
+                "Judge who is winning the race"
+              ],
+              "linkedThemes": ["kingsideAttack", "queensideAttack"],
+              "ratingRange": [1800, 2050],
+              "kind": "tactics"
+            },
+            {
+              "id": "B1800_2000.attack.sacrifice_for_initiative",
+              "title": "Sacrifices for the Initiative",
+              "summary": "Give up material for lasting pressure rather than a forced win.",
+              "objectives": [
+                "Sacrifice for long-term initiative",
+                "Keep the opponent on the defensive",
+                "Judge compensation without a forced line"
+              ],
+              "linkedThemes": ["sacrifice"],
+              "ratingRange": [1800, 2050],
+              "kind": "tactics"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

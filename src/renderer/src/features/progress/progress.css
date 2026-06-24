@@ -1,0 +1,379 @@
+/* ============================================================
+   Progress / My games — feature-scoped styles. Tokens only.
+   ============================================================ */
+
+.progress-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+  max-width: 1100px;
+}
+
+/* The global .card caps width at ~560px; lift it for the progress layout. */
+.progress-view .progress-card {
+  max-width: none;
+}
+
+/* ---- Header ---- */
+.progress-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.progress-title {
+  margin: 0;
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  color: var(--text-primary);
+}
+.progress-sub {
+  margin: 0;
+  font-size: var(--fs-base);
+}
+
+/* ---- Card title primitives (mirror home/.panel-title look) ---- */
+.progress-card .card-title {
+  margin: 0 0 var(--space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+.progress-card .card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+.progress-card .card-title-row .card-title {
+  margin: 0;
+}
+
+/* ---- Top grid (ratings + totals + trend) ---- */
+.progress-grid {
+  display: grid;
+  gap: var(--space-6);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  align-items: start;
+}
+
+/* ============================================================
+   Rating card
+   ============================================================ */
+.rating-rows {
+  display: flex;
+  flex-direction: column;
+}
+.rating-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'head figures'
+    'bar  bar'
+    'range range';
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-5) 0;
+  border-top: 1px solid var(--border);
+}
+.rating-row:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.rating-row:last-child {
+  padding-bottom: 0;
+}
+.rating-head {
+  grid-area: head;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+}
+.rating-label {
+  font-size: var(--fs-sm);
+}
+.rating-figures {
+  grid-area: figures;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  justify-self: end;
+}
+.rating-num {
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  color: var(--text-primary);
+  font-feature-settings: var(--num-feature);
+}
+.rating-num.muted {
+  color: var(--text-muted);
+  font-weight: var(--fw-medium);
+}
+.rating-band {
+  color: var(--text-secondary);
+  font-feature-settings: var(--num-feature);
+  white-space: nowrap;
+}
+.rating-prov {
+  font-style: italic;
+}
+.rating-range {
+  grid-area: range;
+  font-feature-settings: var(--num-feature);
+}
+
+/* Confidence bar (reused look from home strength card) */
+.rd-bar {
+  grid-area: bar;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.rd-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+  transition: width var(--dur-base) var(--ease-out);
+}
+
+/* ============================================================
+   Headline totals
+   ============================================================ */
+.headline-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+.headline-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.headline-value {
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  color: var(--text-primary);
+  font-feature-settings: var(--num-feature);
+}
+.headline-label {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.headline-sub {
+  font-feature-settings: var(--num-feature);
+}
+
+@media (max-width: 520px) {
+  .headline-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-5);
+  }
+}
+
+/* ============================================================
+   Trend / sparkline
+   ============================================================ */
+.trend-empty {
+  margin: 0;
+}
+.trend-spark {
+  width: 100%;
+}
+.sparkline {
+  display: block;
+  width: 100%;
+  overflow: visible;
+  color: var(--accent);
+}
+.sparkline.trend-up {
+  color: var(--success);
+}
+.sparkline.trend-down {
+  color: var(--danger);
+}
+.spark-baseline {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.spark-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.spark-area {
+  fill: currentColor;
+  opacity: 0.12;
+  stroke: none;
+}
+.spark-dot {
+  fill: currentColor;
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+.trend-legend {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  font-feature-settings: var(--num-feature);
+}
+.trend-tally {
+  font-weight: var(--fw-semibold);
+}
+.trend-tally.win {
+  color: var(--success);
+}
+.trend-tally.loss {
+  color: var(--danger);
+}
+.trend-tally.draw {
+  color: var(--text-secondary);
+}
+
+/* ============================================================
+   My games table
+   ============================================================ */
+.games-loading {
+  padding: var(--space-5) 0;
+}
+.games-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+}
+.games-empty p {
+  margin: 0;
+}
+
+.games-pager {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.games-range {
+  font-feature-settings: var(--num-feature);
+  margin-right: var(--space-1);
+}
+
+.games-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+.games-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-base);
+}
+.games-table th {
+  text-align: left;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 0 var(--space-3) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.games-table td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+.games-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.games-table .num {
+  font-feature-settings: var(--num-feature);
+  white-space: nowrap;
+}
+.games-table .col-date,
+.games-table .col-elo,
+.games-table .col-acc {
+  color: var(--text-secondary);
+}
+.games-table .col-opp {
+  width: 99%;
+}
+.opp-label {
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  max-width: 220px;
+}
+
+.col-color {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+.color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  flex: none;
+  border: 1px solid var(--border-strong);
+}
+.color-dot.white {
+  background: var(--eval-white);
+}
+.color-dot.black {
+  background: var(--eval-black);
+}
+
+.games-table tr.row-clickable {
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+.games-table tr.row-clickable:hover td {
+  background: var(--surface-2);
+}
+.games-table tr.row-clickable:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* Result chip — local copy (self-contained; matches home semantics) */
+.games-table .result-chip {
+  display: inline-block;
+  min-width: 48px;
+  text-align: center;
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-xs);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+}
+.games-table .result-chip.win {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.games-table .result-chip.loss {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.games-table .result-chip.draw,
+.games-table .result-chip.unknown {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}

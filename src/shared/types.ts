@@ -251,6 +251,77 @@ export interface ReviewProgress {
   total: number
 }
 
+// ---- Famous games / curriculum / personas (Batch 2 wide wave) ----
+
+export type FamousGroup = 'romantic' | 'classical' | 'modern'
+export type FamousResult = '1-0' | '0-1' | '1/2-1/2' | '*'
+export interface FamousGameMeta {
+  id: string
+  white: string
+  black: string
+  event: string
+  year: number
+  result: FamousResult
+  eco?: string
+  group: FamousGroup
+  plies: number
+  significance?: string
+}
+export interface FamousMove {
+  ply: number
+  color: 'white' | 'black'
+  san: string
+  uci: string
+  fenBefore: string
+  fenAfter: string
+}
+export interface FamousGameDetail {
+  game: FamousGameMeta
+  moves: FamousMove[]
+}
+
+export type LessonKind = 'concept' | 'tactics' | 'endgame' | 'opening' | 'strategy'
+export interface CurriculumLesson {
+  id: string
+  title: string
+  summary: string
+  objectives: string[]
+  linkedThemes: string[]
+  ratingRange: [number, number]
+  kind: LessonKind
+}
+export interface CurriculumUnit {
+  id: string
+  order: number
+  title: string
+  goal: string
+  lessons: CurriculumLesson[]
+}
+export interface CurriculumBand {
+  id: string
+  order: number
+  label: string
+  ratingFloor: number
+  ratingRange: [number, number]
+  goal: string
+  units: CurriculumUnit[]
+}
+
+export interface PersonaStyle {
+  aggression: number
+  risk: number
+  prefersAttack: boolean
+  prefersSolid: boolean
+}
+export interface Persona {
+  id: string
+  name: string
+  era: string
+  peakElo: number
+  style: PersonaStyle
+  bio: string
+}
+
 export interface Api {
   app: {
     ping(): Promise<PingResult>
@@ -318,6 +389,21 @@ export interface Api {
       low: number
       high: number
       accuracy: number
+    }>
+  }
+  famous: {
+    list(req?: { group?: string }): Promise<{ games: FamousGameMeta[] }>
+    get(id: string): Promise<{ game: FamousGameDetail | null }>
+  }
+  curriculum: {
+    tree(): Promise<{ bands: CurriculumBand[] }>
+    lesson(id: string): Promise<{ lesson: CurriculumLesson | null }>
+  }
+  personas: {
+    list(): Promise<{ personas: Persona[] }>
+    move(req: { fen: string; personaId: string; depth?: number; movetimeMs?: number }): Promise<{
+      bestmove: string
+      lineEval?: { cp?: number | null; mate?: number | null }
     }>
   }
 }

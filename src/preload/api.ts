@@ -65,5 +65,17 @@ export const api: Api = {
   },
   perf: {
     estimate: (req) => ipcRenderer.invoke('perf:estimate', req)
+  },
+  famous: {
+    list: (req) => ipcRenderer.invoke('famous:list', req ?? {}),
+    get: (id) => ipcRenderer.invoke('famous:get', { id })
+  },
+  curriculum: {
+    tree: () => ipcRenderer.invoke('curriculum:tree', {}),
+    lesson: (id) => ipcRenderer.invoke('curriculum:lesson', { id })
+  },
+  personas: {
+    list: () => ipcRenderer.invoke('personas:list', {}),
+    move: (req) => ipcRenderer.invoke('personas:move', req)
   }
 }
