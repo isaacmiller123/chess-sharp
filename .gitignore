@@ -21,6 +21,7 @@ release/
 *.blockmap
 
 # ---- Local app/user data (kept INSIDE the project during dev, never committed) ----
+/.devdata/
 /.userdata/
 /.appdata/
 /.cache/
@@ -31,10 +32,17 @@ release/
 *.zst
 *.zip
 
-# ---- Large engine binaries & NNUE (fetched by scripts; not committed) ----
+# ---- Engine binaries, NNUE nets & neural weights (fetched by scripts; NEVER committed) ----
+/resources/engine/**/*.exe
+/resources/engine/**/*.dll
 /resources/engine/stockfish*
-/resources/engine/*.exe
 /resources/engine/*.nnue
+/resources/engine/**/*.nnue
+/resources/engine/weights/
+*.pb.gz
+# GPL/AGPL corresponding-source tarballs are fetched at setup and bundled at package time
+/resources/licenses/*-src-*.tar*
+/resources/licenses/*-src-*.zip
 
 # ---- Generated databases (built from raw datasets by ingest scripts) ----
 /resources/data/*.sqlite
@@ -50,6 +58,9 @@ yarn-error.log*
 .env
 .env.local
 .env.*.local
+
+# ---- Stray agent/tool scratch dumps in repo root (never commit) ----
+/_*.json
 
 # ---- Editor / OS junk ----
 .vscode/*

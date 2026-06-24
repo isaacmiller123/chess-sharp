@@ -1,0 +1,45 @@
+# Normalize line endings: text files stored as LF in the repo, checked out native.
+* text=auto
+
+# Force LF for shell/config/scripts regardless of platform (avoid CRLF breakage).
+*.sh        text eol=lf
+*.mjs       text eol=lf
+*.cjs       text eol=lf
+*.js        text eol=lf
+*.ts        text eol=lf
+*.tsx       text eol=lf
+*.json      text eol=lf
+*.md        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.css       text eol=lf
+*.html      text eol=lf
+
+# Treat these as binary (no EOL munging, no diff). These are normally gitignored
+# and fetched/built locally; this is a safety net so they never get corrupted if added.
+*.exe       binary
+*.dll       binary
+*.nnue      binary
+*.pb.gz     binary
+*.zst       binary
+*.sqlite    binary
+*.db        binary
+*.bin       binary
+*.woff2     binary
+*.woff      binary
+*.ttf       binary
+*.otf       binary
+*.png       binary
+*.jpg       binary
+*.gif       binary
+*.ico       binary
+*.wav       binary
+*.mp3       binary
+*.ogg       binary
+
+# NOTE on Git LFS: the foundation deliberately does NOT commit large binaries or
+# generated databases (engines, NNUE, Maia weights, puzzles.sqlite are gitignored
+# and produced by `npm run setup:*`). If a future iteration decides to commit a
+# prebuilt DB or asset pack, enable LFS here, e.g.:
+#   *.sqlite filter=lfs diff=lfs merge=lfs -text
+# and run `git lfs install` BEFORE staging the file.
