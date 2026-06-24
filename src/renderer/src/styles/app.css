@@ -122,14 +122,18 @@
   height: 100%;
 }
 
-/* Flat 2-color board themes (override chessground's embedded brown SVG) */
+/* Flat 2-color board themes (override chessground's embedded brown SVG).
+   A conic-gradient tile = a 2x2 checker; background-size 25% repeats it into the
+   full 8x8 grid. (light at top-left = a8, dark at a1 — standard orientation.) */
 .board-wrap[class*='board-'] cg-board {
   background-color: var(--sq-light);
-  background-image:
-    linear-gradient(45deg, var(--sq-dark) 25%, transparent 0, transparent 75%, var(--sq-dark) 0),
-    linear-gradient(45deg, var(--sq-dark) 25%, transparent 0, transparent 75%, var(--sq-dark) 0);
+  background-image: conic-gradient(
+    var(--sq-dark) 90deg,
+    var(--sq-light) 90deg 180deg,
+    var(--sq-dark) 180deg 270deg,
+    var(--sq-light) 270deg
+  );
   background-size: 25% 25%;
-  background-position: 0 0, 12.5% 12.5%;
 }
 
 /* ---- Eval bar ---- */
