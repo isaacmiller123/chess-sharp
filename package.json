@@ -20,6 +20,7 @@
     "build:openings": "node scripts/build-openings.mjs",
     "build:famous": "node scripts/build-famous.mjs",
     "setup": "npm run setup:engines && npm run setup:puzzles && npm run build:puzzles && npm run build:openings",
+    "dist:exe": "electron-vite build && electron-builder --dir",
     "package": "electron-vite build && electron-builder"
   },
   "dependencies": {
@@ -37,6 +38,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "^42.5.0",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "typescript": "^6.0.3",
     "vite": "^7.3.5"

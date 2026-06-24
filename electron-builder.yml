@@ -2,21 +2,19 @@ appId: org.offlinechess.trainer
 productName: Offline Chess Trainer
 directories:
   output: release
-  buildResources: build
+asar: true
 files:
   - "out/**"
-asar: true
-asarUnpack:
-  - "**/node_modules/better-sqlite3/**"
-  - "out/main/**/*.node"
 extraResources:
-  - from: "resources"
-    to: "."
+  # Engine ships now (analysis board uses it). The ~2 GB puzzles.sqlite is added
+  # here once the Puzzles UI consumes it, to keep the current exe fast/small:
+  #   - { from: "resources/data", to: "data" }
+  - from: "resources/engine"
+    to: "engine"
 win:
   target:
     - nsis
     - portable
-  icon: build/icon.ico
 nsis:
   oneClick: false
   perMachine: false
