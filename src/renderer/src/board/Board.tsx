@@ -3,6 +3,7 @@ import { Chessground } from 'chessground'
 import type { Api } from 'chessground/api'
 import type { Config } from 'chessground/config'
 import type { Key } from 'chessground/types'
+import type { DrawShape } from 'chessground/draw'
 import type { Color } from '../chess/chess'
 
 export interface BoardProps {
@@ -17,10 +18,26 @@ export interface BoardProps {
   showDests?: boolean
   animation?: boolean
   coordinates?: boolean
+  /** Programmatic shapes (e.g. engine top-line arrows). Rendered as chessground
+   *  auto-shapes — they never interfere with, and are not erased by, the user's
+   *  own right-click drawings. */
+  shapes?: DrawShape[]
   /** Bump to force the board to re-sync to `fen` even when fen is unchanged (e.g. cancelled promotion / illegal move). */
   syncNonce?: number
   onMove?: (orig: Key, dest: Key) => void
 }
+
+/** Stable signature for an auto-shape list so the sync effect only fires when it changes. */
+function shapesKey(shapes?: DrawShape[]): string {
+  if (!shapes || shapes.length === 0) return ''
+  return shapes.map((s) => `${s.orig}${s.dest ?? ''}${s.brush ?? ''}`).join('|')
+}
+
+// Preview-harness only: the browser test harness (opened with `?mock`) drives the
+// board with synthetic events, which chessground rejects by default (isTrusted).
+// This NEVER activates in the packaged app — its URL has no `?mock`.
+const TRUST_ALL_EVENTS =
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('mock')
 
 export function Board(props: BoardProps) {
   const elRef = useRef<HTMLDivElement>(null)
@@ -30,26 +47,39 @@ export function Board(props: BoardProps) {
 
   const config = (): Config => {
     const p = propsRef.current
+    const interactive = !(p.viewOnly ?? false)
     return {
       fen: p.fen,
       orientation: p.orientation,
       turnColor: p.turnColor,
       coordinates: p.coordinates ?? true,
-      viewOnly: p.viewOnly ?? false,
+      // IMPORTANT: never create the board as chessground-`viewOnly`. chessground
+      // only binds its drag/click listeners ONCE, at creation, and skips them when
+      // viewOnly is true (events.ts: `if (s.viewOnly) return`). A board that mounts
+      // view-only (e.g. a puzzle while loading) would then stay dead even after we
+      // flip it interactive via set(). Instead we keep the board "live" and gate
+      // interaction through movable/draggable/selectable, which chessground honours
+      // at event time. This is what fixes "can't move pieces in puzzles".
+      viewOnly: false,
+      trustAllEvents: TRUST_ALL_EVENTS,
       check: p.check,
       lastMove: p.lastMove,
       highlight: { lastMove: true, check: true },
       animation: { enabled: p.animation ?? true, duration: 200 },
       movable: {
         free: false,
-        color: p.viewOnly ? undefined : (p.movableColor ?? p.turnColor),
-        dests: p.dests,
+        color: interactive ? (p.movableColor ?? p.turnColor) : undefined,
+        dests: interactive ? p.dests : new Map(),
         showDests: p.showDests ?? true,
         events: {
           after: (orig, dest) => propsRef.current.onMove?.(orig as Key, dest as Key)
         }
       },
-      drawable: { enabled: true, visible: true }
+      draggable: { enabled: interactive },
+      selectable: { enabled: interactive },
+      // eraseOnClick: a plain left-click clears the user's own drawings (lichess
+      // behaviour). autoShapes carry engine arrows and are managed separately.
+      drawable: { enabled: true, visible: true, eraseOnClick: true, autoShapes: p.shapes ?? [] }
     }
   }
 
@@ -75,7 +105,9 @@ export function Board(props: BoardProps) {
     props.showDests,
     props.coordinates,
     props.check,
+    props.dests,
     props.lastMove?.join(''),
+    shapesKey(props.shapes),
     props.syncNonce
   ])
 

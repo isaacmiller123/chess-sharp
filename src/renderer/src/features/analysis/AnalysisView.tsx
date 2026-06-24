@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Role } from 'chessops/types'
+import type { Key } from 'chessground/types'
+import type { DrawShape } from 'chessground/draw'
 import {
   ChevronLeft,
   ChevronRight,
@@ -95,6 +97,25 @@ export function AnalysisView() {
   const { lines, depth } = useAnalysis(fen, engineOn, multipv)
   const best = lines.find((l) => l.multipv === 1) ?? lines[0]
   const score = best ? toWhite({ cp: best.scoreCp, mate: best.mate }, turn) : { cp: 0 }
+
+  // Engine top-line arrows on the board: best move is a solid green arrow, the
+  // 2nd/3rd lines are progressively fainter. Re-derived as the engine streams.
+  const engineShapes = useMemo<DrawShape[]>(() => {
+    if (!engineOn) return []
+    const brushByRank = ['green', 'paleBlue', 'paleGrey'] as const
+    const out: DrawShape[] = []
+    for (const l of lines) {
+      const uci = l.pv?.[0]
+      if (!uci || uci.length < 4) continue
+      const rank = (l.multipv ?? 1) - 1
+      out.push({
+        orig: uci.slice(0, 2) as Key,
+        dest: uci.slice(2, 4) as Key,
+        brush: brushByRank[Math.min(rank, brushByRank.length - 1)]
+      })
+    }
+    return out
+  }, [lines, engineOn])
 
   // Per-ply badge map for the move list (only meaningful once a review exists).
   const badges = useMemo(() => {
@@ -284,6 +305,7 @@ export function AnalysisView() {
               dests={dests}
               lastMove={lastMove}
               check={check}
+              shapes={engineShapes}
               showDests={settings.showLegal}
               coordinates={settings.coordinates}
               animation={settings.animation}

@@ -60,7 +60,12 @@ export function AnnotationsLayer({ boardEl, orientation, store }: AnnotationsLay
       e.button === 2 || ((e.button === 0 || e.button === 2) && (e.shiftKey || e.ctrlKey))
 
     const onMouseDown = (e: MouseEvent) => {
-      if (!isDrawGesture(e)) return
+      if (!isDrawGesture(e)) {
+        // Plain left-click clears this node's drawings (lichess behaviour). The
+        // event is NOT swallowed, so chessground still selects / moves the piece.
+        if (e.button === 0 && ref.current.store.current.length > 0) ref.current.store.clear()
+        return
+      }
       const orig = keyAt(e)
       if (!orig) return
       // Capture-phase + stopPropagation so chessground's own (ephemeral) drawing

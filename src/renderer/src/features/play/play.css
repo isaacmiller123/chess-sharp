@@ -215,14 +215,28 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) 344px;
   gap: var(--space-7);
-  align-items: start;
+  align-items: stretch;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  /* A square board that always fits without page scroll: bounded by the column
+     width, a sensible max, and the viewport height minus the chips/clocks/
+     controls and content padding stacked above & below it. */
+  --play-board: min(100%, 680px, calc(100vh - 332px));
 }
 .play-board-area {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   align-items: center;
+  justify-content: center;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+.play-board-area .board-wrap {
+  width: var(--play-board);
+  max-width: 100%;
 }
 .play-sidebar {
   display: flex;
@@ -237,7 +251,7 @@
   align-items: stretch;
   gap: var(--space-3);
   width: 100%;
-  max-width: min(72vh, 720px);
+  max-width: var(--play-board, min(72vh, 720px));
 }
 .play-chip-row .player-chip {
   flex: 1;
@@ -249,7 +263,7 @@
   align-items: center;
   gap: var(--space-3);
   width: 100%;
-  max-width: min(72vh, 720px);
+  max-width: var(--play-board, min(72vh, 720px));
   padding: var(--space-3) var(--space-4);
   background: var(--surface);
   border: 1px solid var(--border);
@@ -404,7 +418,7 @@
 
 /* ---- Result banner ---- */
 .result-banner {
-  max-width: min(72vh, 720px);
+  max-width: var(--play-board, min(72vh, 720px));
   width: 100%;
   padding: var(--space-5);
   box-shadow: var(--shadow-md);

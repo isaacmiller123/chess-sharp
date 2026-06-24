@@ -151,19 +151,24 @@ export default function OpeningsView() {
   }, [first, prev, next, last])
 
   // ---- Filtered opening list ----
+  // Precompute a lowercased haystack per opening once (the full book is ~3.7k
+  // entries, so we avoid rebuilding search strings on every keystroke).
+  const haystacks = useMemo(
+    () => OPENINGS.map((o) => `${o.name}\n${o.eco}\n${o.group}\n${o.line.join(' ')}`.toLowerCase()),
+    []
+  )
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return OPENINGS.filter((o) => {
+    return OPENINGS.filter((o, i) => {
       if (group !== ALL_GROUPS && o.group !== group) return false
       if (!q) return true
-      return (
-        o.name.toLowerCase().includes(q) ||
-        o.eco.toLowerCase().includes(q) ||
-        o.group.toLowerCase().includes(q) ||
-        o.line.join(' ').toLowerCase().includes(q)
-      )
+      return haystacks[i].includes(q)
     })
-  }, [query, group])
+  }, [query, group, haystacks])
+
+  // The book is large; render a capped window and tell the user to refine.
+  const VISIBLE_CAP = 250
+  const shown = filtered.slice(0, VISIBLE_CAP)
 
   // Jump a clicked move in the line preview to the right cursor.
   const moveListRef = useRef<HTMLDivElement>(null)
@@ -290,7 +295,7 @@ export default function OpeningsView() {
 
           <ul className="explorer-list">
             {filtered.length === 0 && <li className="explorer-empty">No openings match your search.</li>}
-            {filtered.map((o) => (
+            {shown.map((o) => (
               <li key={o.id}>
                 <button
                   className={`explorer-item ${activeId === o.id ? 'is-active' : ''}`}
@@ -305,6 +310,11 @@ export default function OpeningsView() {
                 </button>
               </li>
             ))}
+            {filtered.length > VISIBLE_CAP && (
+              <li className="explorer-more">
+                Showing {VISIBLE_CAP} of {filtered.length} — refine your search to narrow it down.
+              </li>
+            )}
           </ul>
         </div>
 

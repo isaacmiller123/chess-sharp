@@ -97,7 +97,16 @@
   align-items: start;
 }
 .lessons-layout.has-detail {
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr) 420px;
+}
+
+/* Famous-games shortcut in the header (icon + label + chevron, neatly spaced). */
+.lessons-famous-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+  flex: none;
 }
 
 /* ---- Vertical band track ---- */
@@ -330,11 +339,20 @@
   font-weight: var(--fw-semibold);
 }
 
-/* ---- Detail panel ---- */
+/* ---- Detail panel ----
+   Pinned beside the track and independently scrollable: the head stays put
+   while .lesson-detail-body scrolls within the viewport. Without this the panel
+   grew unbounded and you had to scroll the whole page to reach its bottom. */
 .lesson-detail {
   position: sticky;
-  top: var(--space-5);
+  top: 0;
   align-self: start;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 132px);
+}
+.lesson-detail > .panel-head {
+  flex: none;
 }
 .lesson-detail-close {
   margin-left: auto;
@@ -346,6 +364,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  overflow-y: auto;
+  min-height: 0;
 }
 .lesson-detail-crumb {
   font-size: var(--fs-xs);
@@ -454,12 +474,16 @@
 }
 
 /* ---- Responsive: collapse the detail rail under the track ---- */
-@media (max-width: 980px) {
+@media (max-width: 1040px) {
   .lessons-layout.has-detail {
     grid-template-columns: minmax(0, 1fr);
   }
   .lesson-detail {
     position: static;
+    max-height: none;
+  }
+  .lesson-detail-body {
+    overflow-y: visible;
   }
 }
 
@@ -470,9 +494,34 @@
 }
 .lesson-example .board-wrap {
   width: 100%;
-  max-width: 300px;
+  max-width: 340px;
   margin: 0 auto var(--space-3);
   box-shadow: var(--shadow-sm);
+}
+
+/* Interactive "try it" board inside a lesson example. */
+.lesson-example-board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.lesson-example-board .board-wrap {
+  width: 100%;
+  max-width: 340px;
+  margin: 0 auto;
+  box-shadow: var(--shadow-sm);
+}
+.lesson-example-board-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.lesson-example-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
 }
 .lesson-example-title {
   margin: 0 0 var(--space-2);

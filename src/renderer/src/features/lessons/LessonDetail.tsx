@@ -1,16 +1,11 @@
 import { useEffect, useState, type JSX } from 'react'
 import { Target, Dumbbell, X, Lightbulb, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react'
-import type { Key } from 'chessground/types'
 import type { CurriculumLesson, LessonContent } from '../../../../shared/types'
-import { Board } from '../../board/Board'
-import { pieceSetClass } from '../../board/pieceSets'
-import { useSettings } from '../../state/settings'
 import { formatRatingRange, kindLabel, themeLabel } from './format'
 import LessonDrill from './LessonDrill'
+import LessonExampleBoard from './LessonExampleBoard'
 
 type DetailMode = 'read' | 'drill'
-
-const NO_DESTS = new Map<Key, Key[]>()
 
 export interface LessonDetailProps {
   lesson: CurriculumLesson
@@ -27,7 +22,6 @@ export default function LessonDetail({
   onClose,
   onTrain
 }: LessonDetailProps): JSX.Element {
-  const { settings } = useSettings()
   const [content, setContent] = useState<LessonContent | null>(null)
   const [loading, setLoading] = useState(true)
   const [exampleIdx, setExampleIdx] = useState(0)
@@ -136,18 +130,7 @@ export default function LessonDetail({
 
         {mode === 'read' && exampleFen && (
           <section className="lesson-detail-section lesson-example">
-            <div className={`board-wrap board-${settings.boardTheme} ${pieceSetClass(settings.pieceSet)}`}>
-              <Board
-                fen={exampleFen}
-                orientation="white"
-                turnColor={exampleFen.split(' ')[1] === 'b' ? 'black' : 'white'}
-                dests={NO_DESTS}
-                viewOnly
-                showDests={false}
-                coordinates={settings.coordinates}
-                animation={settings.animation}
-              />
-            </div>
+            <LessonExampleBoard startFen={exampleFen} />
             {example?.title && <h4 className="lesson-example-title">{example.title}</h4>}
             {example?.explanation && <p className="lesson-example-text">{example.explanation}</p>}
             {examples.length > 1 && (
