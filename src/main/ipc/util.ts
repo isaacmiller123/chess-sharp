@@ -1,13 +1,17 @@
 import { app, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import type { z } from 'zod'
 
-// Origin allowlist: only our own renderer (dev server in dev, app:// in prod).
+// Origin allowlist: only our own LOCAL renderer. Remote navigation is blocked by
+// hardenWindow, so the sender can only be the Vite dev server (dev) or the
+// bundled renderer loaded via loadFile (file://) or a registered app:// protocol.
 export function senderAllowed(e: IpcMainInvokeEvent): boolean {
   const url = e.senderFrame?.url ?? ''
-  if (!app.isPackaged) {
-    return url.startsWith('http://localhost') || url.startsWith('app://')
-  }
-  return url.startsWith('app://')
+  return (
+    url.startsWith('http://localhost') ||
+    url.startsWith('http://127.0.0.1') ||
+    url.startsWith('app://') ||
+    url.startsWith('file://')
+  )
 }
 
 // Every handler: assert sender origin, then zod-validate the payload before work.
