@@ -1,10 +1,19 @@
 import { app, type WebContents } from 'electron'
 import { z } from 'zod'
+import { parseFen, makeFen } from 'chessops/fen'
 import { handle } from './util'
 import { StockfishPool } from '../engine/StockfishPool'
 import type { BestMove, InfoLine, UciEngine } from '../engine/UciEngine'
 
 const pool = new StockfishPool()
+
+// Parse + re-serialize any FEN before it reaches the engine, so a malicious
+// renderer payload can't smuggle newlines/extra UCI commands into stdin.
+function safeFen(fen: string): string {
+  const setup = parseFen(fen)
+  if (setup.isErr) throw new Error('engine: invalid FEN')
+  return makeFen(setup.value)
+}
 
 const limitSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('depth'), value: z.number().int().positive() }),
@@ -67,6 +76,7 @@ export function registerEngine(): void {
   )
 
   handle('engine:analyze', analyzeSchema, async ({ fen, multipv, limit }, e) => {
+    const safe = safeFen(fen) // validate/normalize before any allocation
     const eng = await pool.getAnalysis()
     clearActive()
     const handleId = nextHandle++
@@ -81,12 +91,13 @@ export function registerEngine(): void {
     active = { handleId, eng, onInfo, onBest }
     eng.on('info', onInfo)
     eng.once('bestmove', onBest)
-    await eng.search(fen, limit, multipv)
+    await eng.search(safe, limit, multipv)
     return { handleId }
   })
 
-  handle('engine:stop', z.object({ handleId: z.number() }).strict(), async () => {
-    if (active) {
+  handle('engine:stop', z.object({ handleId: z.number() }).strict(), async ({ handleId }) => {
+    // Only stop the search the caller actually started (a stale id is a no-op).
+    if (active && active.handleId === handleId) {
       await active.eng.stop()
       clearActive()
     }
@@ -94,6 +105,7 @@ export function registerEngine(): void {
   })
 
   handle('engine:play', playSchema, async ({ fen, level, limit }) => {
+    const safe = safeFen(fen)
     const eng = await pool.getPlay()
     eng.setOption('MultiPV', 1)
     if (level.uciElo !== undefined) {
@@ -102,8 +114,12 @@ export function registerEngine(): void {
     } else if (level.skill !== undefined) {
       eng.setOption('UCI_LimitStrength', false)
       eng.setOption('Skill Level', level.skill)
+    } else {
+      // Neither given: never answer at full strength — cap to a club default.
+      eng.setOption('UCI_LimitStrength', true)
+      eng.setOption('UCI_Elo', 1500)
     }
-    return eng.bestMove(fen, limit)
+    return eng.bestMove(safe, limit)
   })
 
   // Windows-safe lifecycle: kill all engine children when the app quits.

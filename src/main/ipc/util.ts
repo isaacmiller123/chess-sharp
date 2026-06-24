@@ -5,13 +5,19 @@ import type { z } from 'zod'
 // hardenWindow, so the sender can only be the Vite dev server (dev) or the
 // bundled renderer loaded via loadFile (file://) or a registered app:// protocol.
 export function senderAllowed(e: IpcMainInvokeEvent): boolean {
-  const url = e.senderFrame?.url ?? ''
-  return (
-    url.startsWith('http://localhost') ||
-    url.startsWith('http://127.0.0.1') ||
-    url.startsWith('app://') ||
-    url.startsWith('file://')
-  )
+  const raw = e.senderFrame?.url
+  if (!raw) return false
+  let u: URL
+  try {
+    u = new URL(raw)
+  } catch {
+    return false
+  }
+  // Bundled renderer (loadFile) or the future app:// protocol.
+  if (u.protocol === 'app:' || u.protocol === 'file:') return true
+  // Dev server only — exact host match (prefix matching would accept localhost.evil.com).
+  if (u.protocol === 'http:' && (u.hostname === 'localhost' || u.hostname === '127.0.0.1')) return true
+  return false
 }
 
 // Every handler: assert sender origin, then zod-validate the payload before work.

@@ -24,7 +24,10 @@ export function registerGames(): void {
 
   handle(
     'games:list',
-    z.object({ limit: z.number().int().optional(), offset: z.number().int().optional() }).strict(),
+    z.object({
+      limit: z.number().int().min(1).max(200).optional(),
+      offset: z.number().int().min(0).optional()
+    }).strict(),
     ({ limit, offset }) => ({ games: listGames(limit ?? 25, offset ?? 0) })
   )
 

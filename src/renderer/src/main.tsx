@@ -1,6 +1,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 // chessground board + cburnett pieces (embedded, fully offline)
 import 'chessground/assets/chessground.base.css'
@@ -14,6 +15,8 @@ import './styles/pieces.css'
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 )

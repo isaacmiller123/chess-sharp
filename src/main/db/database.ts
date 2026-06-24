@@ -35,7 +35,9 @@ export function getAppDb(): DatabaseSync {
 function migrate(db: DatabaseSync): void {
   const row = db.prepare('PRAGMA user_version').get() as { user_version: number }
   if (row.user_version < 1) {
-    db.exec(`
+    db.exec('BEGIN')
+    try {
+      db.exec(`
       CREATE TABLE game(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         created_at INTEGER NOT NULL,
@@ -98,7 +100,12 @@ function migrate(db: DatabaseSync): void {
     )
     seed.run('puzzle', 1200, 350, 0.06, now)
     seed.run('vs-bot', 1200, 350, 0.06, now)
-    db.exec('PRAGMA user_version = 1')
+      db.exec('PRAGMA user_version = 1')
+      db.exec('COMMIT')
+    } catch (err) {
+      db.exec('ROLLBACK')
+      throw err
+    }
   }
 }
 

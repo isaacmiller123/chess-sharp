@@ -89,23 +89,44 @@ export class UciEngine extends EventEmitter {
   private proc: ChildProcessWithoutNullStreams | null = null
   private buf = ''
   private searching = false
-  private waiter: { token: string; resolve: () => void } | null = null
+  private waiter: { token: string; resolve: () => void; reject: (e: Error) => void } | null = null
+  // In-flight bestmove waiters' rejectors, so a crash/exit/timeout never hangs them.
+  private pendingRejectors = new Set<(e: Error) => void>()
 
   constructor(private readonly exePath: string) {
     super()
   }
 
+  // Reject the handshake waiter + all in-flight bestmove waiters (on exit/error).
+  private failPending(err: Error): void {
+    const w = this.waiter
+    this.waiter = null
+    if (w) w.reject(err)
+    for (const reject of [...this.pendingRejectors]) reject(err)
+    this.pendingRejectors.clear()
+  }
+
   async start(): Promise<void> {
     const proc = spawn(this.exePath, [], { stdio: ['pipe', 'pipe', 'pipe'] })
+    this.proc = proc
     proc.stdout.setEncoding('utf-8')
     proc.stdout.on('data', (chunk: string) => this.onData(chunk))
+    // Spawn/runtime failure (missing exe, EACCES, crash): never let the child's
+    // 'error' event become an uncaught exception that takes down the main process.
+    proc.on('error', (err: Error) => {
+      this.searching = false
+      this.proc = null
+      this.failPending(err)
+      this.emit('engineError', err)
+    })
     proc.on('exit', () => {
       this.searching = false
+      this.proc = null
+      this.failPending(new Error('engine process exited'))
       this.emit('exit')
     })
-    this.proc = proc
-    await this.expect('uci', 'uciok')
-    await this.isready()
+    await this.expect('uci', 'uciok', 10000)
+    await this.expect('isready', 'readyok', 10000)
   }
 
   private onData(chunk: string): void {
@@ -135,18 +156,65 @@ export class UciEngine extends EventEmitter {
   }
 
   private write(cmd: string): void {
-    this.proc?.stdin.write(cmd + '\n')
+    const proc = this.proc
+    if (!proc || proc.killed || !proc.stdin.writable) return
+    try {
+      proc.stdin.write(cmd + '\n')
+    } catch {
+      /* engine gone between checks — ignore */
+    }
   }
 
-  private expect(cmd: string, token: string): Promise<void> {
-    return new Promise((resolve) => {
-      this.waiter = { token, resolve }
+  private expect(cmd: string, token: string, timeoutMs = 10000): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        if (this.waiter && this.waiter.token === token) this.waiter = null
+        reject(new Error(`UCI timeout waiting for "${token}"`))
+      }, timeoutMs)
+      this.waiter = {
+        token,
+        resolve: () => {
+          clearTimeout(timer)
+          resolve()
+        },
+        reject: (e: Error) => {
+          clearTimeout(timer)
+          reject(e)
+        }
+      }
       this.write(cmd)
     })
   }
 
+  // Resolve on the next 'bestmove'; reject on timeout or engine exit/error.
+  private waitForBestmove(timeoutMs: number): Promise<BestMove> {
+    return new Promise<BestMove>((resolve, reject) => {
+      let done = false
+      const onBest = (bm: BestMove): void => {
+        if (done) return
+        done = true
+        cleanup()
+        resolve(bm)
+      }
+      const rej = (e: Error): void => {
+        if (done) return
+        done = true
+        cleanup()
+        reject(e)
+      }
+      const timer = setTimeout(() => rej(new Error('engine bestmove timeout')), timeoutMs)
+      const cleanup = (): void => {
+        clearTimeout(timer)
+        this.off('bestmove', onBest)
+        this.pendingRejectors.delete(rej)
+      }
+      this.once('bestmove', onBest)
+      this.pendingRejectors.add(rej)
+    })
+  }
+
   isready(): Promise<void> {
-    return this.expect('isready', 'readyok')
+    return this.expect('isready', 'readyok', 10000)
   }
 
   setOption(name: string, value: string | number | boolean): void {
@@ -167,20 +235,22 @@ export class UciEngine extends EventEmitter {
     this.write(`go ${goArgs(limit)}`)
   }
 
-  /** Search and resolve with the engine's chosen move. */
-  bestMove(fen: string, limit: GoLimit): Promise<BestMove> {
-    return new Promise((resolve) => {
-      this.once('bestmove', (bm: BestMove) => resolve(bm))
-      void this.search(fen, limit, 1)
-    })
+  /** Search and resolve with the engine's chosen move (rejects on timeout/exit). */
+  async bestMove(fen: string, limit: GoLimit, timeoutMs = 60000): Promise<BestMove> {
+    const result = this.waitForBestmove(timeoutMs)
+    await this.search(fen, limit, 1)
+    return result
   }
 
-  stop(): Promise<void> {
-    if (!this.searching) return Promise.resolve()
-    return new Promise((resolve) => {
-      this.once('bestmove', () => resolve())
-      this.write('stop')
-    })
+  async stop(): Promise<void> {
+    if (!this.searching) return
+    const settled = this.waitForBestmove(5000)
+    this.write('stop')
+    try {
+      await settled
+    } catch {
+      /* engine already idle or gone — nothing to stop */
+    }
   }
 
   /** Graceful quit, then hard kill as a Windows-safe fallback. */

@@ -42,10 +42,17 @@ export function getPuzzle(id: string): Puzzle | null {
   return r ? toPuzzle(r) : null
 }
 
+let themesCache: { key: string; count: number }[] | null = null
+
 export function listThemes(): { key: string; count: number }[] {
-  return getPuzzlesDb()
-    .prepare('SELECT Theme AS key, COUNT(*) AS count FROM puzzle_themes GROUP BY Theme ORDER BY count DESC')
-    .all() as { key: string; count: number }[]
+  // The bundled puzzle DB is read-only/static, so this GROUP BY over ~21M
+  // junction rows is computed once per process and cached.
+  if (!themesCache) {
+    themesCache = getPuzzlesDb()
+      .prepare('SELECT Theme AS key, COUNT(*) AS count FROM puzzle_themes GROUP BY Theme ORDER BY count DESC')
+      .all() as { key: string; count: number }[]
+  }
+  return themesCache
 }
 
 // Fast, indexed, randomized selection (no ORDER BY RANDOM): seek a small window

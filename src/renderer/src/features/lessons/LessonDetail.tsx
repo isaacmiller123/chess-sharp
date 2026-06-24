@@ -5,7 +5,6 @@ import type { CurriculumLesson, LessonContent } from '../../../../shared/types'
 import { Board } from '../../board/Board'
 import { pieceSetClass } from '../../board/pieceSets'
 import { useSettings } from '../../state/settings'
-import { turnColor } from '../../chess/chess'
 import { formatRatingRange, kindLabel, themeLabel } from './format'
 
 const NO_DESTS = new Map<Key, Key[]>()
@@ -102,7 +101,7 @@ export default function LessonDetail({
               <Board
                 fen={exampleFen}
                 orientation="white"
-                turnColor={turnColor(exampleFen)}
+                turnColor={exampleFen.split(' ')[1] === 'b' ? 'black' : 'white'}
                 dests={NO_DESTS}
                 viewOnly
                 showDests={false}
