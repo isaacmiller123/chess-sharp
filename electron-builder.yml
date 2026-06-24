@@ -13,6 +13,12 @@ extraResources:
     to: "engine"
   - from: "resources/openings"
     to: "openings"
+  - from: "resources/famous"
+    to: "famous"
+  - from: "resources/curriculum"
+    to: "curriculum"
+  - from: "resources/personas"
+    to: "personas"
 win:
   target:
     - nsis

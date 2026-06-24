@@ -24,6 +24,7 @@ import type { Color, Move, Role } from 'chessops/types'
 import { UciEngine, type InfoLine } from '../engine/UciEngine'
 import { stockfishPath } from '../engine/paths'
 import { getPersona, type Persona } from './personas'
+import { bookMove } from './book'
 
 // ---- Engine strength band (feature-addendum §1) ----------------------------------
 
@@ -354,6 +355,11 @@ export async function selectMove(args: SelectMoveArgs): Promise<SelectMoveResult
   if (!pos) throw new Error('Invalid FEN')
   // Normalize the FEN the engine sees (defensive against odd whitespace).
   const fen = makeFen(pos.toSetup())
+
+  // Opening book: while in this persona's real repertoire, play their move and
+  // skip the engine entirely — so Tal plays Tal's openings, Fischer plays 1.e4, etc.
+  const booked = bookMove(args.personaId, fen)
+  if (booked) return { bestmove: booked }
 
   const engine = new UciEngine(stockfishPath())
   try {
