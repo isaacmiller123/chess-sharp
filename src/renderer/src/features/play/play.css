@@ -329,3 +329,100 @@
 .banner-new {
   margin-left: auto;
 }
+
+/* ============================================================
+   Coach (on-demand) — shared CoachHint component styles.
+   Namespaced .coachhint-* so they never collide with shared or
+   other-feature CSS. Mirrored in puzzles.css (component is used
+   in both features and shared app.css must not be edited).
+   ============================================================ */
+.coachhint-panel {
+  overflow: hidden;
+}
+.coachhint-toggle {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.coachhint-toggle .panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.coachhint-chevron {
+  color: var(--text-muted);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.coachhint-chevron.is-open {
+  transform: rotate(180deg);
+}
+.coachhint-panel-body {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.coachhint-lede {
+  margin: 0;
+}
+.coachhint {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.coachhint-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.coachhint-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.coachhint-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+}
+.coachhint-verdict {
+  align-self: flex-start;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--accent);
+}
+.coachhint-text {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+  color: var(--text-primary);
+}
+.coachhint-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.coachhint-tag {
+  font-size: var(--fs-xs);
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+.coachhint-empty {
+  margin: 0;
+}

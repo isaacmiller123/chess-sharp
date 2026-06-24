@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
-import { RotateCcw, ChevronRight } from 'lucide-react'
+import { RotateCcw, ChevronRight, GraduationCap, ChevronDown } from 'lucide-react'
 import { Board } from '../../board/Board'
 import { pieceSetClass } from '../../board/pieceSets'
 import { useSettings } from '../../state/settings'
@@ -11,6 +11,7 @@ import { RatingPanel } from './RatingPanel'
 import { StreakBadge } from './StreakBadge'
 import { HintLadder } from './HintLadder'
 import { ThemePicker } from './ThemePicker'
+import { CoachHint } from '../../components/CoachHint'
 import './puzzles.css'
 
 /**
@@ -21,6 +22,7 @@ import './puzzles.css'
 export default function PuzzlesView(): JSX.Element {
   const { settings } = useSettings()
   const s = usePuzzleSession()
+  const [coachOpen, setCoachOpen] = useState(false)
 
   const isSolving = s.phase === 'solving'
   const isDone = s.phase === 'solved' || s.phase === 'failed'
@@ -114,6 +116,33 @@ export default function PuzzlesView(): JSX.Element {
             </button>
           </div>
         </div>
+
+        {s.puzzle && (
+          <div className="panel coachhint-panel">
+            <button
+              type="button"
+              className="panel-head coachhint-toggle"
+              onClick={() => setCoachOpen((o) => !o)}
+              aria-expanded={coachOpen}
+            >
+              <span className="panel-title">
+                <GraduationCap size={15} /> Coach
+              </span>
+              <ChevronDown
+                size={16}
+                className={`coachhint-chevron${coachOpen ? ' is-open' : ''}`}
+              />
+            </button>
+            {coachOpen && (
+              <div className="coachhint-panel-body">
+                <p className="muted small coachhint-lede">
+                  Conceptual guidance for this position — no solution spoilers.
+                </p>
+                <CoachHint fen={s.fen} />
+              </div>
+            )}
+          </div>
+        )}
 
         {isEmpty && (
           <div className="panel pad puzzle-empty">

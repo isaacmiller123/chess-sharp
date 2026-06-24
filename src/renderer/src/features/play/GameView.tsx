@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import type { Role } from 'chessops/types'
 import type { Key } from 'chessground/types'
-import { FlipVertical2, Flag, RotateCcw } from 'lucide-react'
+import { FlipVertical2, Flag, RotateCcw, GraduationCap, ChevronDown } from 'lucide-react'
 import { Board } from '../../board/Board'
 import { PromotionPicker } from '../../board/PromotionPicker'
 import { MoveList } from '../../panels/MoveList'
+import { CoachHint, type CoachHintLastMove } from '../../components/CoachHint'
 import type { GameTree } from '../../state/gameTree'
 import type { BoardTheme } from '../../state/settings'
 import type { Color, GameResult } from '../../chess/chess'
@@ -85,6 +87,18 @@ export function GameView({
   onNewGame,
   onFlip
 }: GameViewProps) {
+  // Coach is opt-in: off by default so it never intrudes on the game loop.
+  const [coachOpen, setCoachOpen] = useState(false)
+
+  // Derive the "judge the last move" context from the current tree node: its
+  // parent FEN is the position before the move, and current.move.uci is what was
+  // played. Undefined at the root (no move yet) -> CoachHint shows position-only.
+  const node = tree.current
+  const coachLastMove: CoachHintLastMove | undefined =
+    node.move && node.parent
+      ? { fenBefore: node.parent.fen, played: node.move.uci, ply: node.ply }
+      : undefined
+
   return (
     <div className="play-view">
       <div className="play-board-area">
@@ -151,6 +165,28 @@ export function GameView({
             <span className="panel-title">Moves</span>
           </div>
           <MoveList root={tree.root} currentId={tree.current.id} figurineMode={false} onSelect={tree.goTo} />
+        </div>
+
+        <div className="panel coachhint-panel">
+          <button
+            type="button"
+            className="panel-head coachhint-toggle"
+            onClick={() => setCoachOpen((o) => !o)}
+            aria-expanded={coachOpen}
+          >
+            <span className="panel-title">
+              <GraduationCap size={15} /> Coach
+            </span>
+            <ChevronDown
+              size={16}
+              className={`coachhint-chevron${coachOpen ? ' is-open' : ''}`}
+            />
+          </button>
+          {coachOpen && (
+            <div className="coachhint-panel-body">
+              <CoachHint fen={fen} lastMove={coachLastMove} />
+            </div>
+          )}
         </div>
       </aside>
     </div>
