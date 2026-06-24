@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import type { JSX } from 'react'
 import { RotateCcw, ChevronRight } from 'lucide-react'
 import { Board } from '../../board/Board'
+import { pieceSetClass } from '../../board/pieceSets'
 import { useSettings } from '../../state/settings'
 import { usePuzzleSession } from './usePuzzleSession'
 import { HintArrow } from './HintArrow'
@@ -46,7 +47,7 @@ export default function PuzzlesView(): JSX.Element {
     <div className="puzzles-view">
       <div className="board-area">
         <div className="board-stage">
-          <div className={`board-wrap board-${settings.boardTheme}`}>
+          <div className={`board-wrap board-${settings.boardTheme} ${pieceSetClass(settings.pieceSet)}`}>
             <Board
               fen={s.fen}
               orientation={s.orientation}

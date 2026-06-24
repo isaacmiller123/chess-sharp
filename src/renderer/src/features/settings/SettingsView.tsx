@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { UserAvatar } from '../../components/Avatar'
 import { useSettings, type BoardTheme } from '../../state/settings'
+import { PIECE_SETS, getPieceSet, normalizePieceSet } from '../../board/pieceSets'
 
 const BOARD_THEMES: { key: BoardTheme; label: string; light: string; dark: string }[] = [
   { key: 'brown', label: 'Brown', light: '#f0d9b5', dark: '#b58863' },
@@ -105,13 +106,23 @@ export function SettingsView() {
           </div>
         </div>
         <div className="setting-row">
-          <span>Piece set</span>
+          <span>Pieces</span>
           <div className="segmented">
-            <button className="seg on">cburnett</button>
-            <button className="seg" disabled title="More sets coming">
-              more soon
-            </button>
+            {PIECE_SETS.map((p) => (
+              <button
+                key={p.id}
+                className={`seg${settings.pieceSet === p.id ? ' on' : ''}`}
+                onClick={() => update({ pieceSet: normalizePieceSet(p.id) })}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
+        </div>
+        <div className="setting-row setting-caption">
+          <span className="muted small">
+            {getPieceSet(settings.pieceSet).author} · {getPieceSet(settings.pieceSet).license}
+          </span>
         </div>
       </section>
 

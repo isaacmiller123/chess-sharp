@@ -1,4 +1,4 @@
-import { app, ipcMain, type IpcMainInvokeEvent } from 'electron'
+import { ipcMain, type IpcMainInvokeEvent } from 'electron'
 import type { z } from 'zod'
 
 // Origin allowlist: only our own LOCAL renderer. Remote navigation is blocked by

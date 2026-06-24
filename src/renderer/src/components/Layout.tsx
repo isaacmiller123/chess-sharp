@@ -20,6 +20,7 @@ export type ViewKey =
   | 'analysis'
   | 'puzzles'
   | 'lessons'
+  | 'famous'
   | 'openings'
   | 'progress'
   | 'settings'

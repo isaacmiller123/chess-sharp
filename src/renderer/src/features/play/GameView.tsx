@@ -31,12 +31,19 @@ export interface GameViewProps {
   pendingPromo: { orig: string; dest: string } | null
   nonce: number
   boardTheme: BoardTheme
+  /** Wrapper class for the active piece set, e.g. "pieces-merida". */
+  pieceSetClass: string
   showLegal: boolean
   coordinates: boolean
   animation: boolean
   userName: string
   userAvatar: string | null
-  elo: number
+  /** Opponent chip display name (Stockfish, or a persona's name). */
+  opponentName: string
+  /** Opponent chip sub-label, e.g. "2780 Elo". */
+  opponentSub: string
+  /** Optional opponent style line, e.g. "in the style of …". */
+  opponentStyleLine?: string
   tree: GameTree
   banner: GameViewBanner | null
   onMove: (orig: Key, dest: Key) => void
@@ -60,12 +67,15 @@ export function GameView({
   pendingPromo,
   nonce,
   boardTheme,
+  pieceSetClass,
   showLegal,
   coordinates,
   animation,
   userName,
   userAvatar,
-  elo,
+  opponentName,
+  opponentSub,
+  opponentStyleLine,
   tree,
   banner,
   onMove,
@@ -78,10 +88,16 @@ export function GameView({
   return (
     <div className="play-view">
       <div className="play-board-area">
-        <PlayerChip kind="engine" name="Stockfish" sub={`${elo} Elo`} thinking={thinking} />
+        <PlayerChip
+          kind="engine"
+          name={opponentName}
+          sub={opponentSub}
+          styleLine={opponentStyleLine}
+          thinking={thinking}
+        />
 
         <div className="board-stage">
-          <div className={`board-wrap board-${boardTheme}`}>
+          <div className={`board-wrap board-${boardTheme} ${pieceSetClass}`}>
             <Board
               fen={fen}
               orientation={orientation}

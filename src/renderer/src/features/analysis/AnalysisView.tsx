@@ -21,6 +21,8 @@ import type {
 import { Board } from '../../board/Board'
 import { EvalBar } from '../../board/EvalBar'
 import { PromotionPicker } from '../../board/PromotionPicker'
+import { pieceSetClass } from '../../board/pieceSets'
+import { useSound } from '../../sound'
 import { EnginePanel } from '../../panels/EnginePanel'
 import { MoveList } from '../../panels/MoveList'
 import { CoachPanel } from '../../panels/CoachPanel'
@@ -46,6 +48,7 @@ const ROLE_FROM_CHAR: Record<string, Role> = { q: 'queen', r: 'rook', b: 'bishop
 
 export function AnalysisView() {
   const { settings } = useSettings()
+  const { playMove } = useSound()
   const tree = useGameTree()
   const [orientation, setOrientation] = useState<Color>('white')
   const [engineOn, setEngineOn] = useState(true)
@@ -92,10 +95,12 @@ export function AnalysisView() {
   const commit = useCallback(
     (orig: string, dest: string, promotion?: Role) => {
       const m = applyMove(fen, orig, dest, promotion)
-      if (m) tree.addMove(m)
-      else setNonce((n) => n + 1) // illegal: re-sync board to truth
+      if (m) {
+        tree.addMove(m)
+        playMove(m)
+      } else setNonce((n) => n + 1) // illegal: re-sync board to truth
     },
-    [fen, tree]
+    [fen, tree, playMove]
   )
 
   const onMove = useCallback(
@@ -219,7 +224,7 @@ export function AnalysisView() {
         )}
         <div className="board-stage">
           <EvalBar score={score} orientation={orientation} />
-          <div className={`board-wrap board-${settings.boardTheme}`}>
+          <div className={`board-wrap board-${settings.boardTheme} ${pieceSetClass(settings.pieceSet)}`}>
             <Board
               fen={fen}
               orientation={orientation}

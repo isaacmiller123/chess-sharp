@@ -80,6 +80,118 @@
   flex: 1;
   text-align: center;
 }
+.mode-row {
+  display: flex;
+}
+.mode-row .seg {
+  flex: 1;
+  text-align: center;
+}
+
+/* ---- Persona gallery (Grandmaster style mode) ---- */
+.persona-gallery {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: var(--space-1);
+}
+.persona-empty {
+  padding: var(--space-5);
+  text-align: center;
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+}
+.persona-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  text-align: left;
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-primary);
+  transition:
+    border-color var(--dur-fast),
+    background var(--dur-fast);
+}
+.persona-card:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+.persona-card.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.persona-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.persona-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+.persona-card-name {
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.persona-card-era {
+  line-height: var(--lh-tight);
+}
+.persona-card-elo {
+  margin-left: auto;
+}
+.persona-card-bio {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+  color: var(--text-secondary);
+}
+.persona-card-style {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.persona-meter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.persona-meter-label {
+  flex: none;
+  width: 76px;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.persona-meter-track {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.persona-card.is-selected .persona-meter-track {
+  background: var(--surface);
+}
+.persona-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
 .setup-start {
   margin-top: var(--space-2);
   width: 100%;
@@ -135,6 +247,10 @@
 }
 .chip-sub {
   line-height: var(--lh-tight);
+}
+.chip-style {
+  line-height: var(--lh-tight);
+  font-style: italic;
 }
 .chip-thinking {
   margin-left: auto;

@@ -11,6 +11,7 @@ import {
   INITIAL_FEN,
   type Color
 } from '../../chess/chess'
+import { useSound } from '../../sound'
 
 const ROLE_FROM_CHAR: Record<string, Role> = { q: 'queen', r: 'rook', b: 'bishop', n: 'knight' }
 
@@ -93,6 +94,7 @@ function promoRole(uci: string): Role | undefined {
 
 export function usePuzzleSession(): PuzzleSession {
   const apiReady = typeof window !== 'undefined' && !!window.api
+  const { play, playMove } = useSound()
 
   const [phase, setPhase] = useState<Phase>('loading')
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null)
@@ -210,11 +212,12 @@ export function usePuzzleSession(): PuzzleSession {
         if (loadTokenRef.current !== token) return
         setFen(shown.fen)
         setLastMove(uciToLastMove(shown.uci))
+        playMove(shown) // lead-in move audible as it animates
         startMsRef.current = performance.now()
         setPhase('solving')
       }, LEADIN_MS)
     },
-    [clearTimers, schedule]
+    [clearTimers, schedule, playMove]
   )
   const startLeadInRef = useRef(startLeadIn)
   startLeadInRef.current = startLeadIn
@@ -346,6 +349,7 @@ export function usePuzzleSession(): PuzzleSession {
         setHintStage(0)
         setNonce((n) => n + 1)
         setPhase('failed')
+        play('gameEnd') // fail cue (no dedicated puzzle-fail sound in the union)
         recordAttempt(false, puzzle, Math.round(performance.now() - startMsRef.current))
         setStreak(0)
         return
@@ -360,6 +364,7 @@ export function usePuzzleSession(): PuzzleSession {
       }
       setFen(userMove.fen)
       setLastMove(uciToLastMove(userMove.uci))
+      playMove(userMove)
       setHintStage(0)
       const nextIdx = idx + 1
       solutionIdxRef.current = nextIdx
@@ -367,6 +372,7 @@ export function usePuzzleSession(): PuzzleSession {
       if (nextIdx >= puzzle.moves.length) {
         // Solved.
         setPhase('solved')
+        play('gameStart') // success cue (no dedicated puzzle-solve sound in the union)
         recordAttempt(true, puzzle, Math.round(performance.now() - startMsRef.current))
         setStreak((s) => {
           const ns = s + 1
@@ -397,10 +403,11 @@ export function usePuzzleSession(): PuzzleSession {
         }
         setFen(reply.fen)
         setLastMove(uciToLastMove(reply.uci))
+        playMove(reply)
         solutionIdxRef.current = nextIdx + 1
       }, AUTO_REPLY_MS)
     },
-    [phase, puzzle, fen, recordAttempt, schedule]
+    [phase, puzzle, fen, recordAttempt, schedule, play, playMove]
   )
 
   // ---- Retry (same puzzle, practice only — no new attempt) ----

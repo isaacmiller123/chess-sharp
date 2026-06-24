@@ -13,6 +13,8 @@ import {
 } from 'lucide-react'
 import { Board } from '../../board/Board'
 import { PromotionPicker } from '../../board/PromotionPicker'
+import { pieceSetClass } from '../../board/pieceSets'
+import { useSound } from '../../sound'
 import { useSettings } from '../../state/settings'
 import {
   INITIAL_FEN,
@@ -44,6 +46,7 @@ function formatLine(line: string[]): string {
 
 export default function OpeningsView() {
   const { settings } = useSettings()
+  const { playMove } = useSound()
 
   // Linear move history (each entry = a played ply). cursor is the number of
   // plies currently shown: 0 = starting position, history.length = end of line.
@@ -100,8 +103,9 @@ export default function OpeningsView() {
       setHistory((prev) => [...prev.slice(0, cursor), m])
       setCursor((c) => c + 1)
       setActiveId(null) // diverged from any curated line
+      playMove(m)
     },
-    [fen, cursor]
+    [fen, cursor, playMove]
   )
 
   const onMove = useCallback(
@@ -171,7 +175,7 @@ export default function OpeningsView() {
     <div className="openings-view">
       <div className="board-area">
         <div className="board-stage">
-          <div className={`board-wrap board-${settings.boardTheme}`}>
+          <div className={`board-wrap board-${settings.boardTheme} ${pieceSetClass(settings.pieceSet)}`}>
             <Board
               fen={fen}
               orientation={orientation}

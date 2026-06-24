@@ -1,0 +1,444 @@
+/* ============================================================
+   Famous games — feature-scoped styles. Tokens only (tokens.css).
+   Reuses global primitives (.card .panel .panel-head .panel-title
+   .board-area .board-stage .board-wrap .board-controls .nav-group
+   .icon-btn .btn .move .move-num .move-san .muted .small .num) and
+   adds the library/list, viewer layout, result chips, and self-
+   contained classification tones (fg-*). No emoji.
+   ============================================================ */
+
+.famous-view {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap: var(--space-7);
+  align-items: start;
+}
+
+/* ---- Self-contained classification tones (-> --class-*) ---- */
+.fg-tone-brilliant {
+  color: var(--class-brilliant);
+}
+.fg-tone-best {
+  color: var(--class-best);
+}
+.fg-tone-good {
+  color: var(--class-good);
+}
+.fg-tone-book {
+  color: var(--class-book);
+}
+.fg-tone-inaccuracy {
+  color: var(--class-inaccuracy);
+}
+.fg-tone-mistake {
+  color: var(--class-mistake);
+}
+.fg-tone-blunder {
+  color: var(--class-blunder);
+}
+
+/* ---- Result chip ---- */
+.fg-result-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  white-space: nowrap;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+.fg-result-white {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+.fg-result-black {
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  color: var(--text-inverse);
+}
+.fg-result-draw {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+  color: var(--text-secondary);
+}
+.fg-result-open {
+  background: var(--warning-soft);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+/* ============================================================
+   Library (left)
+   ============================================================ */
+.famous-library {
+  min-width: 0;
+}
+.famous-library-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.famous-list {
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+.famous-empty {
+  padding: var(--space-7) var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.famous-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.famous-section-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+}
+.famous-section-label {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.famous-section-blurb {
+  line-height: var(--lh-tight);
+}
+
+.famous-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Override .card defaults for the compact list-item form. */
+.famous-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  text-align: left;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  box-shadow: none;
+  transition:
+    background var(--dur-fast),
+    border-color var(--dur-fast),
+    box-shadow var(--dur-fast);
+}
+.famous-card:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+.famous-card.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: var(--shadow-sm);
+}
+
+.famous-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.famous-card-players {
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-base);
+  color: var(--text-primary);
+  line-height: var(--lh-tight);
+  min-width: 0;
+}
+.famous-vs {
+  font-weight: var(--fw-regular);
+}
+.famous-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.famous-card-event {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.famous-card-dot {
+  opacity: 0.6;
+}
+.famous-card-sig {
+  color: var(--text-secondary);
+  line-height: var(--lh-body);
+}
+
+/* ---- Library loading skeleton ---- */
+.famous-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+}
+.famous-skel-card {
+  height: 78px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  opacity: 0.7;
+  animation: famous-pulse 1.2s var(--ease-in-out) infinite;
+}
+@keyframes famous-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* ============================================================
+   Viewer (right)
+   ============================================================ */
+.famous-viewer {
+  min-width: 0;
+}
+
+.famous-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  text-align: center;
+  min-height: 60vh;
+  padding: var(--space-8);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--bg-subtle);
+}
+.famous-placeholder-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: var(--space-2);
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.famous-placeholder-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.famous-placeholder p {
+  margin: 0;
+}
+
+.famous-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--space-7);
+  align-items: start;
+}
+
+/* ---- Header above the board ---- */
+.famous-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(72vh, 100%);
+  max-width: 720px;
+  margin-bottom: var(--space-3);
+}
+.famous-header-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.famous-header-players {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  line-height: var(--lh-tight);
+  min-width: 0;
+}
+.famous-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.famous-ply {
+  margin-left: auto;
+  align-self: center;
+}
+
+/* ---- Sidebar ---- */
+.famous-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+/* ---- Review panel ---- */
+.famous-review-body {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.famous-review-intro {
+  margin: 0;
+  line-height: var(--lh-body);
+}
+.famous-analyze,
+.famous-rerun {
+  width: 100%;
+  justify-content: center;
+}
+.famous-analyze {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.famous-review-error {
+  margin: 0;
+  color: var(--danger);
+}
+
+.famous-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.famous-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-secondary);
+}
+.famous-bar {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.famous-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  transition: width var(--dur-base) var(--ease-out);
+}
+
+.famous-accuracy-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+.famous-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+}
+.famous-side-head {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.famous-side-acc {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+  line-height: var(--lh-tight);
+}
+.famous-side-cap {
+  margin-top: calc(-1 * var(--space-1));
+}
+.famous-side-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+/* ---- Moves panel ---- */
+.famous-moves {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-4);
+  max-height: 46vh;
+  overflow-y: auto;
+}
+.famous-moves-empty {
+  padding: var(--space-4);
+}
+.famous-move-slot {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+.fg-move {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: baseline;
+}
+.fg-badge {
+  margin-left: var(--space-1);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-xs);
+  letter-spacing: -0.03em;
+  user-select: none;
+}
+
+@media (max-width: 1180px) {
+  .famous-stage {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 980px) {
+  .famous-view {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .famous-list {
+    max-height: 44vh;
+  }
+}
