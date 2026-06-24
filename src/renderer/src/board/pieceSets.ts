@@ -41,6 +41,18 @@ export const PIECE_SETS: readonly PieceSet[] = [
     label: 'Chessnut',
     license: 'Apache-2.0',
     author: 'Alexis Luengas'
+  },
+  {
+    id: 'fantasy',
+    label: 'Fantasy',
+    license: 'MIT',
+    author: 'Maurizio Monge'
+  },
+  {
+    id: 'pirouetti',
+    label: 'Pirouetti',
+    license: 'AGPLv3+',
+    author: 'pirouetti'
   }
 ] as const
 

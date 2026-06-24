@@ -79,5 +79,19 @@ export function Board(props: BoardProps) {
     props.syncNonce
   ])
 
-  return <div className="cg-wrap" ref={elRef} />
+  // Announce the board as an interactive region. The label reflects orientation
+  // and, when playable, whose turn it is — so color is never the only signal.
+  const label = props.viewOnly
+    ? `Chess board, ${props.orientation} to play, view only`
+    : `Chess board, ${props.orientation} side, ${props.turnColor} to move`
+
+  return (
+    <div
+      className="cg-wrap"
+      ref={elRef}
+      role="group"
+      aria-label={label}
+      aria-roledescription="interactive chess board"
+    />
+  )
 }

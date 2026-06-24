@@ -6,6 +6,9 @@ import { Board } from '../../board/Board'
 import { pieceSetClass } from '../../board/pieceSets'
 import { useSettings } from '../../state/settings'
 import { formatRatingRange, kindLabel, themeLabel } from './format'
+import LessonDrill from './LessonDrill'
+
+type DetailMode = 'read' | 'drill'
 
 const NO_DESTS = new Map<Key, Key[]>()
 
@@ -28,6 +31,12 @@ export default function LessonDetail({
   const [content, setContent] = useState<LessonContent | null>(null)
   const [loading, setLoading] = useState(true)
   const [exampleIdx, setExampleIdx] = useState(0)
+  const [mode, setMode] = useState<DetailMode>('read')
+
+  // Reset to the reading view whenever a different lesson is opened.
+  useEffect(() => {
+    setMode('read')
+  }, [lesson.id])
 
   useEffect(() => {
     let cancelled = false
@@ -85,8 +94,38 @@ export default function LessonDetail({
 
         <p className="lesson-detail-summary">{lesson.summary}</p>
 
+        {/* Read / Drill toggle */}
+        <div className="lesson-mode-tabs" role="tablist" aria-label="Lesson mode">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'read'}
+            className={`lesson-mode-tab ${mode === 'read' ? 'is-active' : ''}`}
+            onClick={() => setMode('read')}
+          >
+            <BookOpen size={14} aria-hidden /> Learn
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'drill'}
+            className={`lesson-mode-tab ${mode === 'drill' ? 'is-active' : ''}`}
+            onClick={() => setMode('drill')}
+            disabled={lesson.linkedThemes.length === 0}
+            title={
+              lesson.linkedThemes.length === 0
+                ? 'No linked puzzle themes for this lesson'
+                : 'Practise this lesson on puzzles'
+            }
+          >
+            <Dumbbell size={14} aria-hidden /> Drill
+          </button>
+        </div>
+
+        {mode === 'drill' && <LessonDrill lesson={lesson} />}
+
         {/* Interactive teaching content */}
-        {content?.intro && (
+        {mode === 'read' && content?.intro && (
           <section className="lesson-detail-section">
             <h3 className="lesson-detail-subhead">
               <BookOpen size={15} aria-hidden /> Lesson
@@ -95,7 +134,7 @@ export default function LessonDetail({
           </section>
         )}
 
-        {exampleFen && (
+        {mode === 'read' && exampleFen && (
           <section className="lesson-detail-section lesson-example">
             <div className={`board-wrap board-${settings.boardTheme} ${pieceSetClass(settings.pieceSet)}`}>
               <Board
@@ -137,7 +176,7 @@ export default function LessonDetail({
           </section>
         )}
 
-        {content && content.keyPoints.length > 0 && (
+        {mode === 'read' && content && content.keyPoints.length > 0 && (
           <section className="lesson-detail-section">
             <h3 className="lesson-detail-subhead">
               <Lightbulb size={15} aria-hidden /> Key points
@@ -150,9 +189,11 @@ export default function LessonDetail({
           </section>
         )}
 
-        {loading && <div className="muted small lesson-content-loading">Loading lesson…</div>}
+        {mode === 'read' && loading && (
+          <div className="muted small lesson-content-loading">Loading lesson…</div>
+        )}
 
-        {lesson.objectives.length > 0 && (
+        {mode === 'read' && lesson.objectives.length > 0 && (
           <section className="lesson-detail-section">
             <h3 className="lesson-detail-subhead">
               <Target size={15} aria-hidden /> Objectives
@@ -165,7 +206,7 @@ export default function LessonDetail({
           </section>
         )}
 
-        {lesson.linkedThemes.length > 0 && (
+        {mode === 'read' && lesson.linkedThemes.length > 0 && (
           <section className="lesson-detail-section">
             <h3 className="lesson-detail-subhead">
               <Dumbbell size={15} aria-hidden /> Linked puzzle themes
@@ -176,17 +217,22 @@ export default function LessonDetail({
                   key={t}
                   type="button"
                   className="theme-chip theme-chip-train"
-                  onClick={onTrain}
-                  title={`Train ${themeLabel(t)} puzzles`}
+                  onClick={() => setMode('drill')}
+                  title={`Drill ${themeLabel(t)} puzzles`}
                 >
                   <span className="theme-chip-label">{themeLabel(t)}</span>
-                  <span className="theme-chip-train-cta">Train</span>
+                  <span className="theme-chip-train-cta">Drill</span>
                 </button>
               ))}
             </div>
-            <button type="button" className="btn lesson-train-all" onClick={onTrain}>
-              <Dumbbell size={15} aria-hidden /> Train these themes
-            </button>
+            <div className="lesson-train-row">
+              <button type="button" className="btn lesson-train-all" onClick={() => setMode('drill')}>
+                <Dumbbell size={15} aria-hidden /> Drill these themes
+              </button>
+              <button type="button" className="btn ghost lesson-train-open" onClick={onTrain}>
+                Open full trainer
+              </button>
+            </div>
           </section>
         )}
       </div>

@@ -5,7 +5,11 @@ export interface ProgressData {
   summary: ProgressSummary | null
   puzzleRating: RatingValue | null
   vsBotRating: RatingValue | null
-  /** A wider, recent window of games used only for the trend sparkline. */
+  /**
+   * A wider, recent window of games (newest-first) used for the analytics:
+   * the form sparkline, rating/accuracy line charts, streaks, and the W/D/L
+   * breakdown. Capped at TREND_WINDOW.
+   */
   trendGames: GameRow[]
 }
 

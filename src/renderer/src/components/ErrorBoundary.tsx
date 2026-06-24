@@ -24,12 +24,12 @@ export class ErrorBoundary extends Component<Props, State> {
   render(): ReactNode {
     if (this.state.error) {
       return (
-        <div className="app-error">
+        <div className="app-error" role="alert" aria-labelledby="app-error-title">
           <div className="card">
-            <h2>Something went wrong</h2>
+            <h2 id="app-error-title">Something went wrong</h2>
             <p className="muted">A screen hit an unexpected error. Your data is safe.</p>
             <pre className="app-error-detail">{this.state.error.message}</pre>
-            <button className="btn" onClick={() => this.setState({ error: null })}>
+            <button type="button" className="btn" onClick={() => this.setState({ error: null })}>
               Try again
             </button>
           </div>

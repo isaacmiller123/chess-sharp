@@ -2,6 +2,9 @@ import type { JSX } from 'react'
 import RatingCard from './RatingCard'
 import HeadlineStats from './HeadlineStats'
 import TrendCard from './TrendCard'
+import StreaksCard from './StreaksCard'
+import AnalyticsCard from './AnalyticsCard'
+import ResultsBreakdown from './ResultsBreakdown'
 import GamesTable from './GamesTable'
 import { useProgressData } from './useProgressData'
 import './progress.css'
@@ -27,7 +30,9 @@ export default function ProgressView({ onNavigate }: ProgressViewProps = {}): JS
     <div className="progress-view">
       <header className="progress-header">
         <h1 className="progress-title">Progress</h1>
-        <p className="progress-sub muted">Your ratings, totals, and game history.</p>
+        <p className="progress-sub muted">
+          Your ratings, trends, streaks, and game history.
+        </p>
       </header>
 
       <div className="progress-grid">
@@ -38,6 +43,12 @@ export default function ProgressView({ onNavigate }: ProgressViewProps = {}): JS
         />
         <HeadlineStats summary={data.summary} />
         <TrendCard games={data.trendGames} />
+        <StreaksCard games={data.trendGames} summary={data.summary} />
+      </div>
+
+      <div className="progress-grid analytics-grid">
+        <AnalyticsCard games={data.trendGames} summary={data.summary} />
+        <ResultsBreakdown games={data.trendGames} />
       </div>
 
       <GamesTable onOpenGame={openGame} />

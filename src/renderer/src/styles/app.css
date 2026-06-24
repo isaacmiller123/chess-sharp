@@ -26,13 +26,23 @@
   cursor: pointer;
   color: var(--text-primary);
   font: inherit;
-  transition: background var(--dur-fast), border-color var(--dur-fast);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 .profile-chip:hover {
   background: var(--surface-2);
 }
 .profile-chip.is-active {
   border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.profile-chip .profile-gear {
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.profile-chip:hover .profile-gear {
+  transform: rotate(30deg);
 }
 .profile-name {
   flex: 1;
@@ -191,7 +201,11 @@
   background: var(--surface-2);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background var(--dur-fast), color var(--dur-fast);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-instant) var(--ease-out);
 }
 .nav-group .icon-btn {
   background: transparent;
@@ -200,9 +214,13 @@
   background: var(--surface);
   color: var(--text-primary);
 }
+.icon-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
 .icon-btn.active {
   background: var(--accent-soft);
   color: var(--accent);
+  border-color: var(--accent);
 }
 .icon-btn:disabled {
   opacity: 0.4;
@@ -221,6 +239,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   overflow: hidden;
+  animation: fade-rise var(--dur-base) var(--ease-out) both;
 }
 .panel-head {
   display: flex;
@@ -257,11 +276,15 @@
   font-size: var(--fs-xs);
   font-weight: var(--fw-semibold);
   cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
 }
 .toggle-pill.on {
   background: var(--accent-soft);
   color: var(--accent);
-  border-color: transparent;
+  border-color: var(--accent);
 }
 .engine-lines {
   display: flex;
@@ -284,8 +307,16 @@
 .engine-line:last-child {
   border-bottom: 0;
 }
+.engine-line {
+  transition: background var(--dur-fast) var(--ease-out);
+}
 .engine-line:hover {
   background: var(--surface-2);
+}
+.engine-line:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
 }
 .eval-chip {
   flex: none;
@@ -295,6 +326,7 @@
   font-size: var(--fs-sm);
   padding: 2px var(--space-2);
   border-radius: var(--radius-sm);
+  animation: chip-pop var(--dur-fast) var(--ease-out) both;
 }
 .eval-chip.pos {
   background: var(--success-soft);
@@ -337,14 +369,28 @@
 .move-list.empty {
   line-height: var(--lh-body);
 }
+/* Move tokens are real <button>s for keyboard/AT support, but must read as
+   inline text inside the flowing move list. Reset button chrome and lay them out
+   inline; the figurine/SAN run keeps its natural wrapping. */
 .move {
   display: inline;
   padding: 1px var(--space-2);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
   border-radius: var(--radius-sm);
   cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 .move:hover {
   background: var(--surface-2);
+}
+.move:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
 }
 .move.is-current {
   background: var(--accent-soft);
@@ -411,10 +457,16 @@
   font: inherit;
   font-weight: var(--fw-medium);
   cursor: pointer;
-  transition: background var(--dur-fast);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    transform var(--dur-instant) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 .btn:hover {
   background: var(--accent-hover);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 .btn.ghost {
   background: transparent;
@@ -439,6 +491,7 @@
   align-items: center;
   justify-content: center;
   z-index: var(--z-board-overlay);
+  animation: fade-rise var(--dur-fast) var(--ease-out) both;
 }
 .promo-card {
   display: flex;
@@ -448,6 +501,7 @@
   border-radius: var(--radius-md);
   padding: var(--space-3);
   box-shadow: var(--shadow-lg);
+  animation: chip-pop var(--dur-base) var(--ease-out) both;
 }
 .promo-choice {
   width: 56px;
@@ -456,10 +510,17 @@
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-instant) var(--ease-out);
 }
 .promo-choice:hover {
   background: var(--accent-soft);
   border-color: var(--accent);
+}
+.promo-choice:active {
+  transform: scale(0.94);
 }
 .promo-glyph {
   font-size: 36px;
@@ -528,6 +589,10 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   font: inherit;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 .seg.on {
   background: var(--surface);
@@ -551,9 +616,19 @@
   padding: 0;
   cursor: pointer;
   overflow: hidden;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-instant) var(--ease-out);
+}
+.swatch:hover {
+  border-color: var(--border-strong);
+}
+.swatch:active {
+  transform: scale(0.94);
 }
 .swatch.on {
   border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 .swatch-grid {
   display: grid;
@@ -588,6 +663,11 @@
   transform: translateX(18px);
 }
 
+/* ---- Card entrance (placeholder, error, generic surfaces) ---- */
+.card {
+  animation: fade-rise var(--dur-base) var(--ease-out) both;
+}
+
 /* ---- Placeholder ---- */
 .placeholder {
   display: grid;
@@ -597,4 +677,40 @@
 .placeholder .card {
   text-align: center;
   max-width: 460px;
+}
+
+/* ---- Error boundary fallback (classes referenced by ErrorBoundary.tsx) ---- */
+.app-error {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: var(--space-7);
+}
+.app-error .card {
+  max-width: 460px;
+}
+.app-error-detail {
+  margin: var(--space-4) 0 var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: auto;
+  max-height: 180px;
+}
+
+/* ---- Board host (interactive region announced to assistive tech) ----
+   A gentle entrance so a freshly-mounted board settles in without jarring; the
+   chessground piece animations are handled internally and respect the same
+   reduced-motion guard. */
+.board-wrap {
+  animation: fade-rise var(--dur-slow) var(--ease-out) both;
+}
+.board-wrap:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }

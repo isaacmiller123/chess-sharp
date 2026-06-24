@@ -349,7 +349,7 @@ export function usePuzzleSession(): PuzzleSession {
         setHintStage(0)
         setNonce((n) => n + 1)
         setPhase('failed')
-        play('gameEnd') // fail cue (no dedicated puzzle-fail sound in the union)
+        play('puzzleFailed') // soft, non-punishing error cue
         recordAttempt(false, puzzle, Math.round(performance.now() - startMsRef.current))
         setStreak(0)
         return
@@ -372,7 +372,7 @@ export function usePuzzleSession(): PuzzleSession {
       if (nextIdx >= puzzle.moves.length) {
         // Solved.
         setPhase('solved')
-        play('gameStart') // success cue (no dedicated puzzle-solve sound in the union)
+        play('puzzleSolved') // pleasant success cue
         recordAttempt(true, puzzle, Math.round(performance.now() - startMsRef.current))
         setStreak((s) => {
           const ns = s + 1

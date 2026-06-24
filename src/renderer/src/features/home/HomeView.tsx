@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 import { useHomeData } from './useHomeData'
 import QuickActions from './QuickActions'
+import InsightsStrip from './InsightsStrip'
 import StrengthCard from './StrengthCard'
 import ContinueCard from './ContinueCard'
 import RecentGamesCard from './RecentGamesCard'
@@ -20,12 +21,19 @@ export interface HomeViewProps {
 }
 
 export default function HomeView({ onNavigate }: HomeViewProps): JSX.Element {
-  const { data } = useHomeData()
+  const { data, sessionBaseline } = useHomeData()
   const lastGame = data.games.length > 0 ? data.games[0] : null
 
   return (
     <div className="home-view">
       <QuickActions onNavigate={onNavigate} />
+      <InsightsStrip
+        summary={data.summary}
+        games={data.games}
+        bands={data.bands}
+        sessionBaseline={sessionBaseline}
+        onNavigate={onNavigate}
+      />
       <div className="home-grid">
         <StrengthCard puzzle={data.puzzleRating} vsBot={data.vsBotRating} fallback={data.summary} />
         <ContinueCard lastGame={lastGame} onNavigate={onNavigate} />

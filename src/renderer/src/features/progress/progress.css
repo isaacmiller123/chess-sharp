@@ -246,6 +246,271 @@
 }
 
 /* ============================================================
+   Streaks & form card
+   ============================================================ */
+.streaks-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+.streak-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.streak-stat .streak-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  margin-bottom: var(--space-1);
+}
+.streak-stat.tone-success .streak-icon {
+  color: var(--success);
+}
+.streak-stat.tone-danger .streak-icon {
+  color: var(--danger);
+}
+.streak-stat .streak-value {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  color: var(--text-primary);
+  font-feature-settings: var(--num-feature);
+}
+.streak-stat.tone-success .streak-value {
+  color: var(--success);
+}
+.streak-stat.tone-danger .streak-value {
+  color: var(--danger);
+}
+.streak-stat .streak-label {
+  line-height: var(--lh-tight);
+}
+.streaks-foot {
+  margin: var(--space-5) 0 0;
+}
+
+@media (max-width: 520px) {
+  .streaks-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-5);
+  }
+}
+
+/* ============================================================
+   Analytics row (charts + breakdown)
+   ============================================================ */
+.analytics-grid {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+}
+@media (max-width: 860px) {
+  .analytics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.solverate-inline {
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
+}
+
+/* ---- Chart blocks (rating / accuracy) ---- */
+.analytics-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+}
+@media (max-width: 560px) {
+  .analytics-charts {
+    grid-template-columns: 1fr;
+    gap: var(--space-7);
+  }
+}
+.chart-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.chart-block-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.chart-block-titles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.chart-block-title {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.chart-block-hint {
+  line-height: var(--lh-tight);
+}
+.chart-block-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.chart-empty {
+  margin: 0;
+  padding: var(--space-6) 0;
+}
+
+.delta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.delta-pill.up {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.delta-pill.down {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* ---- Line chart (SVG) ---- */
+.linechart {
+  display: block;
+  width: 100%;
+  overflow: visible;
+  color: var(--accent);
+}
+.linechart.tone-success {
+  color: var(--success);
+}
+.lc-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.lc-caption {
+  fill: var(--text-muted);
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-feature-settings: var(--num-feature);
+}
+.lc-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.lc-area {
+  stroke: none;
+}
+.lc-dot {
+  fill: currentColor;
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+
+/* ============================================================
+   Results breakdown
+   ============================================================ */
+.breakdown-empty {
+  margin: 0;
+}
+.rb-groups {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.rb-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.rb-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.rb-group-label {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.rb-score {
+  color: var(--text-secondary);
+  font-feature-settings: var(--num-feature);
+}
+.rb-bar {
+  display: flex;
+  width: 100%;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.rb-seg {
+  display: block;
+  height: 100%;
+  transition: width var(--dur-base) var(--ease-out);
+}
+.rb-seg.win {
+  background: var(--success);
+}
+.rb-seg.draw {
+  background: var(--eval-mid);
+}
+.rb-seg.loss {
+  background: var(--danger);
+}
+.rb-tally {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-feature-settings: var(--num-feature);
+}
+.rb-count {
+  font-weight: var(--fw-semibold);
+}
+.rb-count.win {
+  color: var(--success);
+}
+.rb-count.draw {
+  color: var(--text-secondary);
+}
+.rb-count.loss {
+  color: var(--danger);
+}
+.rb-total {
+  margin-left: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-seg {
+    transition: none;
+  }
+}
+
+/* ============================================================
    My games table
    ============================================================ */
 .games-loading {

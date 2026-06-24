@@ -48,7 +48,11 @@ export function EvalGraph({ moveEvals, currentPly, onSeek }: EvalGraphProps) {
   }, [moveEvals, n, vbW])
 
   if (n === 0) {
-    return <div className="eval-graph empty muted small">Run a review to see the advantage chart.</div>
+    return (
+      <div className="eval-graph empty muted small" role="status">
+        Run a review to see the advantage chart.
+      </div>
+    )
   }
 
   return (

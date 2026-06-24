@@ -14,10 +14,14 @@ export interface MoveListProps {
 
 export function MoveList({ root, currentId, figurineMode, onSelect, badges }: MoveListProps) {
   if (root.children.length === 0) {
-    return <div className="move-list empty muted small">No moves yet — play on the board to start a line.</div>
+    return (
+      <div className="move-list empty muted small" role="status">
+        No moves yet — play on the board to start a line.
+      </div>
+    )
   }
   return (
-    <div className="move-list">
+    <div className="move-list" role="group" aria-label="Move list">
       <Line
         node={root}
         currentId={currentId}
@@ -106,16 +110,31 @@ function MoveToken({
   const num = Math.ceil(node.ply / 2)
   const prefix = isWhite ? `${num}.` : forceNum ? `${num}…` : ''
   const san = node.move ? displaySan(node.move.san, figurineMode) : ''
+  const rawSan = node.move?.san ?? ''
   const badge = badges?.get(node.ply)
+  const notableBadge = badge && isNotableBadge(badge) ? badge : undefined
+  // Spoken label uses the plain SAN (never the figurine glyph) plus move number
+  // and side, and appends the classification word so it is not color-only.
+  const label = `${num}${isWhite ? '. ' : '... '}${rawSan}${notableBadge ? `, ${notableBadge}` : ''}`
   return (
-    <span className={`move${current ? ' is-current' : ''}`} onClick={() => onSelect(node.id)}>
-      {prefix && <span className="move-num">{prefix}</span>}
-      <span className="move-san num">{san}</span>
-      {badge && isNotableBadge(badge) && (
-        <span className={`move-badge tone-${badgeTone(badge)}`} title={badge}>
-          {badgeAbbr(badge)}
+    <button
+      type="button"
+      className={`move${current ? ' is-current' : ''}`}
+      aria-current={current ? 'true' : undefined}
+      aria-label={label}
+      onClick={() => onSelect(node.id)}
+    >
+      {prefix && (
+        <span className="move-num" aria-hidden>
+          {prefix}
         </span>
       )}
-    </span>
+      <span className="move-san num">{san}</span>
+      {notableBadge && (
+        <span className={`move-badge tone-${badgeTone(notableBadge)}`} title={notableBadge} aria-hidden>
+          {badgeAbbr(notableBadge)}
+        </span>
+      )}
+    </button>
   )
 }

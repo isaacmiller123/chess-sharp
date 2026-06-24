@@ -37,10 +37,15 @@ export default function RecentGamesCard({ games, onNavigate }: RecentGamesCardPr
             const when = formatRelativeDate(g.created_at)
             return (
               <li key={g.id}>
-                <button className="game-row" onClick={() => onNavigate('analysis')}>
+                <button
+                  className="game-row"
+                  onClick={() => onNavigate('analysis')}
+                  aria-label={`Review game vs ${opponentLabelOf(g)}`}
+                >
                   <span className={`result-chip ${kind}`}>{resultChipLabel(kind)}</span>
                   <span className="game-opp">{opponentLabelOf(g)}</span>
-                  {when && <span className="game-date small muted">{when}</span>}
+                  <span className="game-date small muted">{when || ''}</span>
+                  <ChevronRight size={16} aria-hidden className="game-go" />
                 </button>
               </li>
             )

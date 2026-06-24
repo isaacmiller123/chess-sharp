@@ -23,6 +23,8 @@ export type SoundName =
   | 'gameStart'
   | 'gameEnd'
   | 'lowTime'
+  | 'puzzleSolved'
+  | 'puzzleFailed'
 
 export interface SoundManagerOptions {
   /** Master on/off. When false, play() is a no-op. Default: true. */
@@ -56,6 +58,15 @@ interface Tone {
   toFreq?: number
   /** Relative weight of this partial in the mix (0..1). */
   gain: number
+  /**
+   * Seconds to wait (from the sound's start) before this partial sounds. Lets a
+   * recipe stagger notes into a short arpeggio without a separate scheduler.
+   * Default 0 (sounds immediately, like every other partial). The partial then
+   * runs for `dur` seconds (or to the end of the recipe when `dur` is omitted).
+   */
+  delay?: number
+  /** Per-partial duration in seconds. Omit to run until the recipe ends. */
+  dur?: number
 }
 
 interface Recipe {
@@ -69,75 +80,118 @@ interface Recipe {
 }
 
 const RECIPES: Record<SoundName, Recipe> = {
-  // Soft wooden "tock" for a quiet move.
+  // move — soft, dry wooden "tock". Lowest, shortest, single triangle partial so
+  // it stays unobtrusive under rapid play and reads plainly as "a piece moved".
   move: {
-    partials: [{ type: 'triangle', freq: 320, toFreq: 220, gain: 1 }],
+    partials: [{ type: 'triangle', freq: 300, toFreq: 196, gain: 1 }],
     attack: 0.002,
-    duration: 0.09,
+    duration: 0.085,
     peak: 0.5
   },
-  // Brighter, slightly noisier knock for a capture.
+  // capture — harder, grittier knock. A square sub-tone adds a percussive thud
+  // the plain move lacks, and a quick bright triangle "click" rides on top.
   capture: {
     partials: [
-      { type: 'square', freq: 200, toFreq: 130, gain: 0.7 },
-      { type: 'triangle', freq: 440, toFreq: 300, gain: 0.4 }
+      { type: 'square', freq: 180, toFreq: 110, gain: 0.6 },
+      { type: 'triangle', freq: 520, toFreq: 320, gain: 0.45 }
     ],
     attack: 0.001,
-    duration: 0.12,
+    duration: 0.13,
     peak: 0.55
   },
-  // Two-tone alert for check.
+  // check — bright, attention-getting two-tone in a high register (clear fifth),
+  // the second note delayed so it reads as a deliberate "ding-ding" alert.
   check: {
     partials: [
-      { type: 'sine', freq: 660, gain: 0.8 },
-      { type: 'sine', freq: 990, gain: 0.4 }
-    ],
-    attack: 0.003,
-    duration: 0.16,
-    peak: 0.5
-  },
-  // Rolling double-thunk for castling.
-  castle: {
-    partials: [
-      { type: 'triangle', freq: 260, toFreq: 180, gain: 0.8 },
-      { type: 'sine', freq: 380, toFreq: 300, gain: 0.3 }
+      { type: 'sine', freq: 880, gain: 0.8, dur: 0.09 },
+      { type: 'sine', freq: 1320, gain: 0.45, delay: 0.07, dur: 0.11 }
     ],
     attack: 0.002,
-    duration: 0.17,
+    duration: 0.2,
     peak: 0.5
   },
-  // Upward chime for a promotion.
+  // castle — low rolling "thunk-thunk": two staggered triangle hits suggest the
+  // king and rook settling. Deliberately bassy so it never reads like a capture.
+  castle: {
+    partials: [
+      { type: 'triangle', freq: 240, toFreq: 175, gain: 0.85, dur: 0.1 },
+      { type: 'triangle', freq: 200, toFreq: 150, gain: 0.7, delay: 0.085, dur: 0.12 },
+      { type: 'sine', freq: 360, toFreq: 300, gain: 0.22 }
+    ],
+    attack: 0.003,
+    duration: 0.22,
+    peak: 0.5
+  },
+  // promote — celebratory rising triad (C5-E5-G5-ish). Sequential sine notes give
+  // an unmistakable "level up" flourish distinct from the single-note move/check.
   promote: {
     partials: [
-      { type: 'sine', freq: 520, toFreq: 880, gain: 0.8 },
-      { type: 'triangle', freq: 1040, toFreq: 1320, gain: 0.25 }
+      { type: 'sine', freq: 523, gain: 0.7, delay: 0, dur: 0.1 },
+      { type: 'sine', freq: 659, gain: 0.7, delay: 0.08, dur: 0.1 },
+      { type: 'sine', freq: 784, toFreq: 988, gain: 0.75, delay: 0.16, dur: 0.16 },
+      { type: 'triangle', freq: 1568, gain: 0.18, delay: 0.16, dur: 0.16 }
     ],
     attack: 0.004,
-    duration: 0.26,
+    duration: 0.36,
     peak: 0.45
   },
-  // Gentle ascending pair for a new game.
+  // gameStart — warm ascending perfect-fourth fanfare (A4 -> D5). Two clean sine
+  // notes, gentle and inviting; lower and rounder than the puzzleSolved cue.
   gameStart: {
-    partials: [{ type: 'sine', freq: 440, toFreq: 660, gain: 1 }],
-    attack: 0.006,
-    duration: 0.3,
-    peak: 0.42
-  },
-  // Descending resolve for game end.
-  gameEnd: {
     partials: [
-      { type: 'sine', freq: 520, toFreq: 330, gain: 0.9 },
-      { type: 'triangle', freq: 260, toFreq: 196, gain: 0.3 }
+      { type: 'sine', freq: 440, gain: 0.9, delay: 0, dur: 0.16 },
+      { type: 'sine', freq: 587, gain: 0.9, delay: 0.12, dur: 0.2 },
+      { type: 'triangle', freq: 880, gain: 0.18, delay: 0.12, dur: 0.2 }
     ],
     attack: 0.006,
-    duration: 0.42,
+    duration: 0.34,
+    peak: 0.42
+  },
+  // gameEnd — settled descending resolve (G4 -> C4) with a soft low body. Reads
+  // as a calm "that's over", clearly the inverse of the gameStart rise.
+  gameEnd: {
+    partials: [
+      { type: 'sine', freq: 392, gain: 0.85, delay: 0, dur: 0.18 },
+      { type: 'sine', freq: 262, gain: 0.85, delay: 0.14, dur: 0.26 },
+      { type: 'triangle', freq: 196, gain: 0.3, delay: 0.14, dur: 0.26 }
+    ],
+    attack: 0.006,
+    duration: 0.44,
     peak: 0.45
   },
-  // Tense, repeating-feeling tick for low clock time.
+  // lowTime — tense, dry high tick. Square wave with a slight downward bend so a
+  // repeated train of these feels like an urgent countdown clock.
   lowTime: {
-    partials: [{ type: 'square', freq: 880, toFreq: 740, gain: 0.7 }],
+    partials: [{ type: 'square', freq: 920, toFreq: 760, gain: 0.7 }],
     attack: 0.001,
-    duration: 0.1,
+    duration: 0.09,
+    peak: 0.4
+  },
+  // puzzleSolved — pleasant, brighter-than-gameStart success arpeggio: a rising
+  // major triad (C5-E5-G5) capped by a high octave sparkle. Triangle bodies give
+  // it a chime-like shimmer that clearly says "correct!".
+  puzzleSolved: {
+    partials: [
+      { type: 'triangle', freq: 523, gain: 0.7, delay: 0, dur: 0.11 },
+      { type: 'triangle', freq: 659, gain: 0.7, delay: 0.09, dur: 0.11 },
+      { type: 'triangle', freq: 784, gain: 0.75, delay: 0.18, dur: 0.16 },
+      { type: 'sine', freq: 1047, gain: 0.4, delay: 0.26, dur: 0.18 }
+    ],
+    attack: 0.004,
+    duration: 0.46,
+    peak: 0.46
+  },
+  // puzzleFailed — soft, non-harsh error: a gentle descending minor second
+  // (F4 -> E4-ish) on a mellow triangle. Lower and rounder than the check alert,
+  // deliberately understated so a wrong answer never feels punishing.
+  puzzleFailed: {
+    partials: [
+      { type: 'triangle', freq: 349, gain: 0.8, delay: 0, dur: 0.13 },
+      { type: 'triangle', freq: 277, gain: 0.8, delay: 0.11, dur: 0.2 },
+      { type: 'sine', freq: 174, gain: 0.25, delay: 0.11, dur: 0.2 }
+    ],
+    attack: 0.005,
+    duration: 0.34,
     peak: 0.4
   }
 }
@@ -283,45 +337,60 @@ export class SoundManager {
   private playSynth(ctx: AudioContext, recipe: Recipe): void {
     if (!this.master) return
     const now = ctx.currentTime
-    const env = ctx.createGain()
-    const peak = recipe.peak
-    env.gain.setValueAtTime(0.0001, now)
-    env.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), now + recipe.attack)
-    env.gain.exponentialRampToValueAtTime(0.0001, now + recipe.duration)
-    env.connect(this.master)
+    const peak = Math.max(recipe.peak, 0.0002)
 
+    // Master bus for the whole sound — a single shared output node that we tear
+    // down once the longest partial has rung out.
+    const bus = ctx.createGain()
+    bus.gain.setValueAtTime(peak, now)
+    bus.connect(this.master)
+
+    let tailEnd = recipe.duration
     for (const p of recipe.partials) {
+      const start = now + (p.delay ?? 0)
+      // Per-partial length: explicit `dur`, else whatever's left of the recipe.
+      const span = p.dur ?? Math.max(recipe.duration - (p.delay ?? 0), recipe.attack + 0.01)
+      const stop = start + span
+      tailEnd = Math.max(tailEnd, (p.delay ?? 0) + span)
+
       const osc = ctx.createOscillator()
       osc.type = p.type
-      osc.frequency.setValueAtTime(p.freq, now)
+      osc.frequency.setValueAtTime(p.freq, start)
       if (p.toFreq && p.toFreq !== p.freq) {
-        osc.frequency.exponentialRampToValueAtTime(Math.max(p.toFreq, 1), now + recipe.duration)
+        osc.frequency.exponentialRampToValueAtTime(Math.max(p.toFreq, 1), stop)
       }
-      const partialGain = ctx.createGain()
-      partialGain.gain.setValueAtTime(p.gain, now)
-      osc.connect(partialGain)
-      partialGain.connect(env)
-      osc.start(now)
-      osc.stop(now + recipe.duration + 0.02)
+
+      // Each partial gets its own attack/decay so staggered notes read as
+      // distinct events rather than one smeared blob.
+      const env = ctx.createGain()
+      env.gain.setValueAtTime(0.0001, start)
+      env.gain.exponentialRampToValueAtTime(Math.max(p.gain, 0.0002), start + recipe.attack)
+      env.gain.exponentialRampToValueAtTime(0.0001, stop)
+
+      osc.connect(env)
+      env.connect(bus)
+      osc.start(start)
+      osc.stop(stop + 0.02)
       osc.onended = () => {
         try {
           osc.disconnect()
-          partialGain.disconnect()
+          env.disconnect()
         } catch {
           /* ignore */
         }
       }
     }
-    // Tear down the envelope node shortly after the tail.
+
+    // Tear down the shared bus shortly after the last partial's tail.
     window.setTimeout(
       () => {
         try {
-          env.disconnect()
+          bus.disconnect()
         } catch {
           /* ignore */
         }
       },
-      Math.ceil((recipe.duration + 0.05) * 1000)
+      Math.ceil((tailEnd + 0.05) * 1000)
     )
   }
 

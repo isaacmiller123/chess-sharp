@@ -52,25 +52,33 @@ export function Layout({
   return (
     <div className="app-shell">
       <nav className="rail" aria-label="Primary">
-        <div className="rail-brand" title="Offline Chess Trainer">
-          <Brain size={22} />
+        <div className="rail-brand" role="img" aria-label="Offline Chess Trainer" title="Offline Chess Trainer">
+          <Brain size={22} aria-hidden />
         </div>
         <div className="rail-nav">
-          {NAV.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              className={`rail-item${active === key ? ' is-active' : ''}`}
-              onClick={() => onNavigate(key)}
-            >
-              <Icon size={20} aria-hidden />
-              <span>{label}</span>
-            </button>
-          ))}
+          {NAV.map(({ key, label, Icon }) => {
+            const isActive = active === key
+            return (
+              <button
+                key={key}
+                type="button"
+                className={`rail-item${isActive ? ' is-active' : ''}`}
+                aria-current={isActive ? 'page' : undefined}
+                onClick={() => onNavigate(key)}
+              >
+                <Icon className="rail-icon" size={20} aria-hidden />
+                <span>{label}</span>
+              </button>
+            )
+          })}
         </div>
         <button
+          type="button"
           className={`profile-chip${active === 'settings' ? ' is-active' : ''}`}
-          onClick={() => onNavigate('settings')}
+          aria-current={active === 'settings' ? 'page' : undefined}
+          aria-label={`Profile and settings — ${settings.username}`}
           title="Profile & settings"
+          onClick={() => onNavigate('settings')}
         >
           <UserAvatar src={settings.avatar} name={settings.username} size={32} />
           <span className="profile-name">{settings.username}</span>
@@ -83,7 +91,9 @@ export function Layout({
           <h1>{title}</h1>
           <div className="topbar-right">{topRight}</div>
         </header>
-        <main className="content">{children}</main>
+        <main className="content" id="main-content" tabIndex={-1}>
+          {children}
+        </main>
       </div>
     </div>
   )

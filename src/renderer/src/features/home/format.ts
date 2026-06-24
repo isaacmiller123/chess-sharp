@@ -1,6 +1,10 @@
 // Pure, React-free formatting helpers for the Home dashboard.
 // Type-only import from shared is allowed (we never edit shared files).
-import type { GameRow } from '../../../../shared/types'
+import type {
+  CurriculumBand,
+  CurriculumLesson,
+  GameRow
+} from '../../../../shared/types'
 
 /**
  * Compact relative date. Returns '' for null/invalid so callers can skip
@@ -87,6 +91,64 @@ export function opponentLabelOf(game: GameRow): string {
   const other = userColor === 'white' ? game.black_name : userColor === 'black' ? game.white_name : null
   if (other && other.trim()) return other.trim()
   return 'Opponent'
+}
+
+export interface BandPick {
+  band: CurriculumBand
+  /** True when the rating sits below the lowest band's floor (still placed in it). */
+  belowFloor: boolean
+}
+
+/**
+ * Pick the curriculum band a given rating belongs to. Bands are sorted by
+ * `order`; we choose the highest band whose `ratingFloor` the rating clears,
+ * falling back to the first band when the rating is below every floor. Returns
+ * null only for an empty tree. Tolerates unsorted input and NaN ratings.
+ */
+export function pickBand(bands: CurriculumBand[], rating: number): BandPick | null {
+  if (!bands || bands.length === 0) return null
+  const sorted = [...bands].sort((a, b) => a.order - b.order)
+  const r = Number.isFinite(rating) ? rating : 0
+  let chosen = sorted[0]
+  let belowFloor = r < sorted[0].ratingFloor
+  for (const band of sorted) {
+    if (r >= band.ratingFloor) {
+      chosen = band
+      belowFloor = false
+    }
+  }
+  return { band: chosen, belowFloor }
+}
+
+/**
+ * Suggest the next lesson within a band for a given rating: the first lesson
+ * (by unit order, then lesson position) whose rating range contains the rating,
+ * else the first lesson whose range starts at or above the rating, else the
+ * band's very first lesson. Returns null if the band has no lessons.
+ */
+export function suggestNextLesson(
+  band: CurriculumBand,
+  rating: number
+): CurriculumLesson | null {
+  const units = [...(band.units ?? [])].sort((a, b) => a.order - b.order)
+  const lessons: CurriculumLesson[] = []
+  for (const unit of units) lessons.push(...(unit.lessons ?? []))
+  if (lessons.length === 0) return null
+  const r = Number.isFinite(rating) ? rating : 0
+
+  const inRange = lessons.find((l) => r >= l.ratingRange[0] && r <= l.ratingRange[1])
+  if (inRange) return inRange
+
+  const ahead = lessons.find((l) => l.ratingRange[0] >= r)
+  if (ahead) return ahead
+
+  return lessons[0]
+}
+
+/** Title-case a curriculum lesson kind for display ('endgame' -> 'Endgame'). */
+export function lessonKindLabel(kind: string): string {
+  if (!kind) return ''
+  return kind.charAt(0).toUpperCase() + kind.slice(1)
 }
 
 /**

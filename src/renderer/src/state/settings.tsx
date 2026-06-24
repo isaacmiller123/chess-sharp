@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { DEFAULT_PIECE_SET, normalizePieceSet, type PieceSetId } from '../board/pieceSets'
 
-export type BoardTheme = 'brown' | 'green' | 'blue' | 'grey'
+export type BoardTheme = 'brown' | 'green' | 'blue' | 'grey' | 'purple' | 'wood' | 'slate' | 'ice'
 
 export interface AppSettings {
   theme: 'light' | 'dark'

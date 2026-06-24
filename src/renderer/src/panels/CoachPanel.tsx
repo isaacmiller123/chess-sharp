@@ -51,7 +51,7 @@ export function CoachPanel({ moveEval, figurineMode }: CoachPanelProps) {
   }, [moveEval])
 
   return (
-    <div className="panel coach-panel">
+    <section className="panel coach-panel" aria-label="Coach">
       <div className="panel-head">
         <span className="panel-title">Coach</span>
         {moveEval && (
@@ -76,7 +76,11 @@ export function CoachPanel({ moveEval, figurineMode }: CoachPanelProps) {
               )}
             </div>
 
-            {state.loading && <p className="muted small">Thinking…</p>}
+            {state.loading && (
+              <p className="muted small" role="status">
+                Thinking…
+              </p>
+            )}
 
             {!state.loading && state.result && (
               <>
@@ -103,7 +107,7 @@ export function CoachPanel({ moveEval, figurineMode }: CoachPanelProps) {
           </>
         )}
       </div>
-    </div>
+    </section>
   )
 }
 

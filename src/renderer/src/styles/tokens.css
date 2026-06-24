@@ -188,3 +188,19 @@
   --sq-light: #d8d8d8;
   --sq-dark: #8f8f8f;
 }
+.board-purple {
+  --sq-light: #e9e1f2;
+  --sq-dark: #9171b8;
+}
+.board-wood {
+  --sq-light: #e8c99b;
+  --sq-dark: #a16f43;
+}
+.board-slate {
+  --sq-light: #c7ccd2;
+  --sq-dark: #5d6b7a;
+}
+.board-ice {
+  --sq-light: #e4eef2;
+  --sq-dark: #7fa7b8;
+}

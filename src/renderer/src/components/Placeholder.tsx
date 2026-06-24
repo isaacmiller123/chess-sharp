@@ -29,13 +29,17 @@ const COPY: Partial<Record<ViewKey, { title: string; body: string }>> = {
 
 export function Placeholder({ view }: { view: ViewKey }) {
   const c = COPY[view] ?? { title: 'Coming soon', body: '' }
+  const headingId = `placeholder-${view}`
   return (
     <div className="placeholder">
-      <div className="card">
-        <h2>{c.title}</h2>
-        <p className="muted">{c.body}</p>
-        <p className="muted small">Under construction in the current build loop — the engine, board, and 4.7M-puzzle database are already live.</p>
-      </div>
+      <section className="card" role="region" aria-labelledby={headingId}>
+        <h2 id={headingId}>{c.title}</h2>
+        {c.body && <p className="muted">{c.body}</p>}
+        <p className="muted small">
+          Under construction in the current build loop — the engine, board, and 4.7M-puzzle database are
+          already live.
+        </p>
+      </section>
     </div>
   )
 }

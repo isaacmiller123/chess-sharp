@@ -20,17 +20,27 @@ export function EnginePanel(props: EnginePanelProps) {
   const stm = turnColor(fen)
 
   return (
-    <div className="panel engine-panel">
+    <section className="panel engine-panel" aria-label="Engine analysis">
       <div className="panel-head">
         <span className="panel-title">Engine</span>
         <span className="muted small num">{enabled ? `Stockfish 18 · depth ${depth}` : 'paused'}</span>
-        <button className={`toggle-pill ${enabled ? 'on' : ''}`} onClick={onToggle}>
+        <button
+          type="button"
+          className={`toggle-pill ${enabled ? 'on' : ''}`}
+          aria-pressed={enabled}
+          aria-label={`Engine ${enabled ? 'on' : 'off'}`}
+          onClick={onToggle}
+        >
           {enabled ? 'On' : 'Off'}
         </button>
       </div>
 
       <div className="engine-lines">
-        {enabled && lines.length === 0 && <div className="muted small pad">analyzing…</div>}
+        {enabled && lines.length === 0 && (
+          <div className="muted small pad" role="status">
+            analyzing…
+          </div>
+        )}
         {!enabled && <div className="muted small pad">Turn on the engine to see top lines.</div>}
         {enabled &&
           lines.map((l) => {
@@ -39,15 +49,22 @@ export function EnginePanel(props: EnginePanelProps) {
             const sans = pvToSan(fen, l.pv, 10)
               .map((s) => displaySan(s, figurineMode))
               .join(' ')
+            const scoreText = formatScore(score)
             return (
               <button
                 key={l.multipv}
+                type="button"
                 className="engine-line"
                 onClick={() => l.pv[0] && onPlayUci(l.pv[0])}
                 title="Play this move"
+                aria-label={`Line ${l.multipv}: evaluation ${scoreText} for ${positive ? 'White' : 'Black'}. Play this move.`}
               >
-                <span className={`eval-chip ${positive ? 'pos' : 'neg'} num`}>{formatScore(score)}</span>
-                <span className="pv num">{sans}</span>
+                <span className={`eval-chip ${positive ? 'pos' : 'neg'} num`} aria-hidden>
+                  {scoreText}
+                </span>
+                <span className="pv num" aria-hidden>
+                  {sans}
+                </span>
               </button>
             )
           })}
@@ -61,11 +78,15 @@ export function EnginePanel(props: EnginePanelProps) {
             min={1}
             max={5}
             value={multipv}
+            aria-label="Number of engine lines"
+            aria-valuetext={`${multipv} lines`}
             onChange={(e) => onMultipv(Number(e.target.value))}
           />
-          <span className="num">{multipv}</span>
+          <span className="num" aria-hidden>
+            {multipv}
+          </span>
         </label>
       </div>
-    </div>
+    </section>
   )
 }
