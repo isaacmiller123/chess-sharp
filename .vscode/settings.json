@@ -1,0 +1,12 @@
+{
+  "files.eol": "\n",
+  "editor.formatOnSave": false,
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/out": true,
+    "**/release": true,
+    "**/.devdata": true,
+    "data/raw": true
+  }
+}

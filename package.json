@@ -1,0 +1,44 @@
+{
+  "name": "offline-chess-trainer",
+  "version": "0.0.1",
+  "description": "Offline, local-first chess analysis & teaching desktop app powered by Stockfish, with bundled Lichess content and local coaching.",
+  "author": "Isaac Miller",
+  "license": "GPL-3.0-or-later",
+  "private": true,
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron-vite preview",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "setup:engines": "node scripts/fetch-engines.mjs",
+    "setup:puzzles": "node scripts/fetch-puzzles.mjs",
+    "build:puzzles": "python scripts/build_puzzles_db.py",
+    "build:openings": "node scripts/build-openings.mjs",
+    "build:famous": "node scripts/build-famous.mjs",
+    "setup": "npm run setup:engines && npm run setup:puzzles && npm run build:puzzles && npm run build:openings",
+    "package": "electron-vite build && electron-builder"
+  },
+  "dependencies": {
+    "chessground": "^9.2.1",
+    "chessops": "^0.15.0",
+    "lucide-react": "^1.21.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "ts-fsrs": "^5.4.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^42.5.0",
+    "electron-vite": "^5.0.0",
+    "typescript": "^6.0.3",
+    "vite": "^7.3.5"
+  }
+}

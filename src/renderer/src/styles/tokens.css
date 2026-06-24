@@ -1,0 +1,190 @@
+/* Design tokens (single source of visual truth) — from docs/ui-ux.md §6.
+   Light is :root; dark overrides under [data-theme="dark"]. No hard-coded
+   color/space/radius/shadow/font value should appear outside this file. */
+
+:root {
+  /* Backgrounds & surfaces */
+  --bg-page: #ffffff;
+  --bg-subtle: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #eef0f3;
+  --border: #e2e5ea;
+  --border-strong: #cfd4dc;
+
+  /* Text */
+  --text-primary: #1b1c1d;
+  --text-secondary: #5b6168;
+  --text-muted: #8a9099;
+  --text-inverse: #ffffff;
+
+  /* Accent */
+  --accent: #3893e8;
+  --accent-hover: #2f7fcc;
+  --accent-active: #2a72b8;
+  --accent-soft: #e7f1fc;
+  --on-accent: #ffffff;
+
+  /* Semantic */
+  --success: #629924;
+  --success-soft: #eaf3df;
+  --danger: #cc3333;
+  --danger-soft: #fbe9e9;
+  --warning: #e58f2a;
+  --warning-soft: #fdf1e3;
+  --info: #3893e8;
+
+  --focus-ring: #3893e8;
+
+  /* Eval bar */
+  --eval-white: #f0f0f0;
+  --eval-black: #403d39;
+  --eval-mid: #888888;
+
+  /* Move classification */
+  --class-brilliant: #1baca6;
+  --class-best: #649b3b;
+  --class-good: #7d9b58;
+  --class-book: #a88865;
+  --class-inaccuracy: #e0a44a;
+  --class-mistake: #e08a3c;
+  --class-blunder: #ca3431;
+
+  /* Board annotation brushes (right-click arrows/circles) */
+  --brush-green: #15781b;
+  --brush-red: #882020;
+  --brush-blue: #003088;
+  --brush-yellow: #e68f00;
+
+  /* Spacing scale (4px base) */
+  --space-0: 0;
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 8px;
+  --space-4: 12px;
+  --space-5: 16px;
+  --space-6: 20px;
+  --space-7: 24px;
+  --space-8: 32px;
+  --space-9: 40px;
+  --space-10: 48px;
+  --space-11: 64px;
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+  --radius-board: 4px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.14);
+
+  /* Typography */
+  --font-sans: 'Inter', 'Noto Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Roboto Mono', ui-monospace, monospace;
+  --font-figurine: 'Noto Sans Symbols 2', 'Inter', sans-serif;
+
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-base: 14px;
+  --fs-md: 16px;
+  --fs-lg: 18px;
+  --fs-xl: 22px;
+  --fs-2xl: 28px;
+  --fs-3xl: 36px;
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  --lh-tight: 1.2;
+  --lh-body: 1.5;
+
+  --num-feature: 'tnum' 1;
+
+  /* Motion */
+  --dur-instant: 80ms;
+  --dur-fast: 140ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --dur-board: 200ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Z-index scale */
+  --z-base: 0;
+  --z-board-overlay: 50;
+  --z-sticky: 100;
+  --z-rail: 200;
+  --z-dropdown: 300;
+  --z-tooltip: 400;
+  --z-modal: 500;
+  --z-toast: 600;
+}
+
+[data-theme='dark'] {
+  --bg-page: #161512;
+  --bg-subtle: #1f1d1a;
+  --surface: #262421;
+  --surface-2: #2e2b27;
+  --border: #3a3733;
+  --border-strong: #4a4641;
+
+  --text-primary: #c8c6c1;
+  --text-secondary: #9b9893;
+  --text-muted: #75726d;
+  --text-inverse: #161512;
+
+  --accent: #3893e8;
+  --accent-hover: #4ea0ef;
+  --accent-active: #5aa9f2;
+  --accent-soft: #1d2b3a;
+  --on-accent: #ffffff;
+
+  --success: #7bb33a;
+  --success-soft: #21311a;
+  --danger: #e06c6c;
+  --danger-soft: #3a1f1f;
+  --warning: #e0a44a;
+  --warning-soft: #36291a;
+  --info: #4ea0ef;
+
+  --focus-ring: #4ea0ef;
+
+  --eval-white: #e8e8e6;
+  --eval-black: #100f0d;
+  --eval-mid: #888888;
+
+  --class-brilliant: #2bc4bd;
+  --class-best: #79b94a;
+  --class-good: #8fae66;
+  --class-book: #b89a76;
+  --class-inaccuracy: #e6b25e;
+  --class-mistake: #e89a52;
+  --class-blunder: #e0504d;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* Board square colors (per-theme wrapper classes, independent of light/dark chrome) */
+.board-brown {
+  --sq-light: #f0d9b5;
+  --sq-dark: #b58863;
+}
+.board-green {
+  --sq-light: #eeeed2;
+  --sq-dark: #769656;
+}
+.board-blue {
+  --sq-light: #dee3e6;
+  --sq-dark: #8ca2ad;
+}
+.board-grey {
+  --sq-light: #d8d8d8;
+  --sq-dark: #8f8f8f;
+}
