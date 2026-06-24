@@ -27,6 +27,10 @@ import { EnginePanel } from '../../panels/EnginePanel'
 import { MoveList } from '../../panels/MoveList'
 import { CoachPanel } from '../../panels/CoachPanel'
 import { ReviewPanel } from './ReviewPanel'
+import { SharePanel } from './SharePanel'
+import { AnnotationsLayer } from './AnnotationsLayer'
+import { useAnnotations } from './annotations'
+import type { LoadedGame } from './shareGame'
 import { useGameTree } from '../../state/gameTree'
 import { useSettings } from '../../state/settings'
 import { useAnalysis } from '../../hooks/useAnalysis'
@@ -39,6 +43,7 @@ import {
   position,
   turnColor,
   uciToLastMove,
+  type AppliedMove,
   type Color
 } from '../../chess/chess'
 import { toWhite } from '../../chess/scores'
@@ -52,11 +57,23 @@ export function AnalysisView() {
   const tree = useGameTree()
   const [orientation, setOrientation] = useState<Color>('white')
   const [engineOn, setEngineOn] = useState(true)
-  const [multipv, setMultipv] = useState(3)
+  const [multipv, setMultipv] = useState(settings.analysisMultiPV)
   const [figurine, setFigurine] = useState(false)
   const [pendingPromo, setPendingPromo] = useState<{ orig: string; dest: string } | null>(null)
   const [nonce, setNonce] = useState(0)
   const [fenInput, setFenInput] = useState('')
+
+  // Board element (for the annotations overlay to attach right-click drawing).
+  const [boardEl, setBoardEl] = useState<HTMLDivElement | null>(null)
+
+  // Per-node user annotations (right-click arrows/circles); persist while
+  // navigating the line because they are keyed by the current node id.
+  const annotations = useAnnotations(tree.current.id)
+
+  // Queue used to load a pasted game's mainline into the tree across renders
+  // (gameTree.addMove advances from the rendered current node, so moves must be
+  // applied one render-tick at a time).
+  const loadQueue = useRef<{ moves: AppliedMove[]; index: number; expectFen: string } | null>(null)
 
   // ---- Review state ----
   const [review, setReview] = useState<GameReview | null>(null)
@@ -185,7 +202,7 @@ export function AnalysisView() {
   // Keyboard navigation (lichess-style).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       if (e.key === 'ArrowLeft') tree.prev()
       else if (e.key === 'ArrowRight') tree.next()
       else if (e.key === 'ArrowUp') tree.first()
@@ -210,7 +227,39 @@ export function AnalysisView() {
     }
   }
 
+  // ---- Load a pasted game into the tree (mainline) ----
+  const loadGame = useCallback(
+    (game: LoadedGame) => {
+      tree.reset(game.startFen)
+      setReview(null)
+      setReviewError(null)
+      // Defer move application to the queue effect: addMove must run one move
+      // per render so each call sees the freshly-selected current node.
+      loadQueue.current =
+        game.moves.length > 0 ? { moves: game.moves, index: 0, expectFen: game.startFen } : null
+    },
+    [tree]
+  )
+
+  // Drives the load queue: applies the next move once the board has settled on
+  // the previously-added position. Self-terminates when the line is exhausted.
+  useEffect(() => {
+    const q = loadQueue.current
+    if (!q) return
+    if (tree.currentFen !== q.expectFen) return // wait for the prior addMove to land
+    const m = q.moves[q.index]
+    if (!m) {
+      loadQueue.current = null
+      return
+    }
+    q.index += 1
+    q.expectFen = m.fen
+    if (q.index >= q.moves.length) loadQueue.current = null
+    tree.addMove(m)
+  }, [tree])
+
   const hasMoves = tree.root.children.length > 0
+  const currentPgn = useMemo(() => treeToPgn(tree.root, {}), [tree.root, tree.current.id])
 
   return (
     <div className="analysis-view">
@@ -224,7 +273,10 @@ export function AnalysisView() {
         )}
         <div className="board-stage">
           <EvalBar score={score} orientation={orientation} />
-          <div className={`board-wrap board-${settings.boardTheme} ${pieceSetClass(settings.pieceSet)}`}>
+          <div
+            ref={setBoardEl}
+            className={`board-wrap board-${settings.boardTheme} ${pieceSetClass(settings.pieceSet)}`}
+          >
             <Board
               fen={fen}
               orientation={orientation}
@@ -238,6 +290,7 @@ export function AnalysisView() {
               onMove={onMove}
               syncNonce={nonce}
             />
+            <AnnotationsLayer boardEl={boardEl} orientation={orientation} store={annotations} />
             {pendingPromo && (
               <PromotionPicker
                 color={turn}
@@ -331,10 +384,18 @@ export function AnalysisView() {
               Load
             </button>
           </div>
-          <button className="btn ghost copy-fen" onClick={() => navigator.clipboard.writeText(fen)}>
+          <button className="btn ghost copy-fen" onClick={() => navigator.clipboard?.writeText(fen)}>
             <ClipboardCopy size={14} /> Copy current FEN
           </button>
         </div>
+
+        <SharePanel
+          pgn={currentPgn}
+          fen={fen}
+          canClearAnnotations={annotations.hasAny}
+          onClearAnnotations={annotations.clear}
+          onLoadGame={loadGame}
+        />
       </aside>
     </div>
   )

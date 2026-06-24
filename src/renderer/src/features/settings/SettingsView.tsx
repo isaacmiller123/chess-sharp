@@ -1,7 +1,17 @@
 import { useRef } from 'react'
 import { UserAvatar } from '../../components/Avatar'
-import { useSettings, type BoardTheme } from '../../state/settings'
+import {
+  useSettings,
+  type BoardTheme,
+  ANALYSIS_MULTIPV_MIN,
+  ANALYSIS_MULTIPV_MAX,
+  ANALYSIS_DEPTH_MIN,
+  ANALYSIS_DEPTH_MAX,
+  PLAY_THINK_MS_MIN,
+  PLAY_THINK_MS_MAX
+} from '../../state/settings'
 import { PIECE_SETS, getPieceSet, normalizePieceSet } from '../../board/pieceSets'
+import './settings.css'
 
 /**
  * Selectable board square palettes. Keys map 1:1 to the `.board-<key>` wrapper
@@ -37,9 +47,61 @@ function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
   )
 }
 
+function Slider({
+  label,
+  value,
+  display,
+  min,
+  max,
+  step = 1,
+  hint,
+  onChange
+}: {
+  label: string
+  value: number
+  display: string
+  min: number
+  max: number
+  step?: number
+  hint?: string
+  onChange: (v: number) => void
+}) {
+  return (
+    <div className="setting-row setting-slider">
+      <span>{label}</span>
+      <span className="setting-value" aria-hidden>
+        {display}
+      </span>
+      <input
+        className="range"
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        aria-label={`${label}: ${display}`}
+        aria-valuetext={display}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
+      {hint && <p className="setting-hint">{hint}</p>}
+    </div>
+  )
+}
+
+// The depth slider exposes ANALYSIS_DEPTH_MIN..MAX plus one extra step at the top
+// that maps to the 'max' sentinel (run to the engine ceiling).
+const DEPTH_MAX_STEP = ANALYSIS_DEPTH_MAX + 1
+
 export function SettingsView() {
-  const { settings, update } = useSettings()
+  const { settings, update, resetDefaults } = useSettings()
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const depthIsMax = settings.analysisDepth === 'max'
+  // Inline the check so TS narrows analysisDepth to `number` in the else branch.
+  const depthSliderValue = settings.analysisDepth === 'max' ? DEPTH_MAX_STEP : settings.analysisDepth
+  const depthDisplay = depthIsMax ? 'Max' : String(settings.analysisDepth)
+  const onDepthChange = (v: number) =>
+    update({ analysisDepth: v >= DEPTH_MAX_STEP ? 'max' : v })
 
   const onPickAvatar = (file: File | undefined) => {
     if (!file) return
@@ -148,6 +210,50 @@ export function SettingsView() {
         <Toggle label="Board coordinates" on={settings.coordinates} onChange={(v) => update({ coordinates: v })} />
         <Toggle label="Piece animation" on={settings.animation} onChange={(v) => update({ animation: v })} />
         <Toggle label="Sound effects" on={settings.sound} onChange={(v) => update({ sound: v })} />
+      </section>
+
+      <section className="card settings-card">
+        <h2>Engine &amp; analysis</h2>
+        <Slider
+          label="Candidate lines"
+          value={settings.analysisMultiPV}
+          display={String(settings.analysisMultiPV)}
+          min={ANALYSIS_MULTIPV_MIN}
+          max={ANALYSIS_MULTIPV_MAX}
+          hint="How many alternative engine lines to show in Analysis."
+          onChange={(v) => update({ analysisMultiPV: v })}
+        />
+        <Slider
+          label="Analysis depth"
+          value={depthSliderValue}
+          display={depthDisplay}
+          min={ANALYSIS_DEPTH_MIN}
+          max={DEPTH_MAX_STEP}
+          hint="Higher depth is stronger but slower. Max runs to the engine's ceiling."
+          onChange={onDepthChange}
+        />
+        <Slider
+          label="Play move time"
+          value={settings.playThinkMs}
+          display={`${settings.playThinkMs} ms`}
+          min={PLAY_THINK_MS_MIN}
+          max={PLAY_THINK_MS_MAX}
+          step={50}
+          hint="Thinking time the engine spends per move in casual Play."
+          onChange={(v) => update({ playThinkMs: v })}
+        />
+      </section>
+
+      <section className="card settings-card">
+        <div className="settings-reset-row">
+          <span className="reset-copy">
+            <strong>Reset appearance &amp; engine to defaults</strong>
+            <span>Restores theme, board, pieces, and engine preferences. Your profile is kept.</span>
+          </span>
+          <button type="button" className="btn ghost" onClick={resetDefaults}>
+            Reset to defaults
+          </button>
+        </div>
       </section>
     </div>
   )

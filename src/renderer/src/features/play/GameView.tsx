@@ -11,6 +11,13 @@ import type { BoardTheme } from '../../state/settings'
 import type { Color, GameResult } from '../../chess/chess'
 import { PlayerChip } from './PlayerChip'
 import { ResultBanner } from './ResultBanner'
+import { Clock } from './Clock'
+
+/** Clock state for one side, passed down from the clock engine. */
+export interface ClockSide {
+  ms: number
+  active: boolean
+}
 
 export interface GameViewBanner {
   result: GameResult
@@ -46,6 +53,12 @@ export interface GameViewProps {
   opponentSub: string
   /** Optional opponent style line, e.g. "in the style of …". */
   opponentStyleLine?: string
+  /** Whether a clock is running for this game (Unlimited hides clocks). */
+  clockActive: boolean
+  /** Remaining time + active flag for the opponent (top chip). */
+  opponentClock: ClockSide
+  /** Remaining time + active flag for the user (bottom chip). */
+  userClock: ClockSide
   tree: GameTree
   banner: GameViewBanner | null
   onMove: (orig: Key, dest: Key) => void
@@ -78,6 +91,9 @@ export function GameView({
   opponentName,
   opponentSub,
   opponentStyleLine,
+  clockActive,
+  opponentClock,
+  userClock,
   tree,
   banner,
   onMove,
@@ -102,13 +118,18 @@ export function GameView({
   return (
     <div className="play-view">
       <div className="play-board-area">
-        <PlayerChip
-          kind="engine"
-          name={opponentName}
-          sub={opponentSub}
-          styleLine={opponentStyleLine}
-          thinking={thinking}
-        />
+        <div className="play-chip-row">
+          <PlayerChip
+            kind="engine"
+            name={opponentName}
+            sub={opponentSub}
+            styleLine={opponentStyleLine}
+            thinking={thinking}
+          />
+          {clockActive && (
+            <Clock ms={opponentClock.ms} active={opponentClock.active} over={over} label={opponentName} />
+          )}
+        </div>
 
         <div className="board-stage">
           <div className={`board-wrap board-${boardTheme} ${pieceSetClass}`}>
@@ -133,7 +154,12 @@ export function GameView({
           </div>
         </div>
 
-        <PlayerChip kind="user" name={userName} avatar={userAvatar} />
+        <div className="play-chip-row">
+          <PlayerChip kind="user" name={userName} avatar={userAvatar} />
+          {clockActive && (
+            <Clock ms={userClock.ms} active={userClock.active} over={over} label={userName} />
+          )}
+        </div>
 
         {banner ? (
           <ResultBanner

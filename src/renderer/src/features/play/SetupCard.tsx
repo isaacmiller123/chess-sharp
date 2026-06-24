@@ -1,5 +1,6 @@
 import { EngineAvatar } from '../../components/Avatar'
 import type { Persona } from '../../../../shared/types'
+import { TIME_CONTROLS } from './timeControl'
 
 export type ColorChoice = 'white' | 'black' | 'random'
 export type OpponentMode = 'engine' | 'persona'
@@ -8,12 +9,15 @@ export interface SetupCardProps {
   mode: OpponentMode
   elo: number
   colorChoice: ColorChoice
+  /** Selected time-control id (see timeControl.ts). */
+  timeControlId: string
   personas: Persona[]
   personasLoading: boolean
   selectedPersonaId: string | null
   onMode: (m: OpponentMode) => void
   onElo: (v: number) => void
   onColor: (c: ColorChoice) => void
+  onTimeControl: (id: string) => void
   onSelectPersona: (id: string) => void
   onStart: () => void
 }
@@ -94,12 +98,14 @@ export function SetupCard({
   mode,
   elo,
   colorChoice,
+  timeControlId,
   personas,
   personasLoading,
   selectedPersonaId,
   onMode,
   onElo,
   onColor,
+  onTimeControl,
   onSelectPersona,
   onStart
 }: SetupCardProps) {
@@ -199,6 +205,22 @@ export function SetupCard({
                 onClick={() => onColor(c.key)}
               >
                 {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="setup-field">
+          <span className="setup-label">Time control</span>
+          <div className="segmented time-row" role="group" aria-label="Time control">
+            {TIME_CONTROLS.map((tc) => (
+              <button
+                key={tc.id}
+                className={`seg${timeControlId === tc.id ? ' on' : ''}`}
+                aria-pressed={timeControlId === tc.id}
+                onClick={() => onTimeControl(tc.id)}
+              >
+                {tc.label}
               </button>
             ))}
           </div>

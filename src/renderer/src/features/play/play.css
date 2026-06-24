@@ -80,6 +80,17 @@
   flex: 1;
   text-align: center;
 }
+.time-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.time-row .seg {
+  flex: 1 1 auto;
+  text-align: center;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
 .mode-row {
   display: flex;
 }
@@ -221,6 +232,18 @@
 }
 
 /* ---- Player chips ---- */
+.play-chip-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: min(72vh, 720px);
+}
+.play-chip-row .player-chip {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+}
 .player-chip {
   display: flex;
   align-items: center;
@@ -231,6 +254,85 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+}
+
+/* ---- Countdown clocks ---- */
+.play-clock {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-width: 92px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.play-clock-icon {
+  flex: none;
+  color: var(--text-muted);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.play-clock-time {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: var(--num-feature);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.01em;
+  line-height: var(--lh-tight);
+}
+/* Side to move: accented and slightly raised so it's obvious whose turn it is. */
+.play-clock.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+.play-clock.is-active .play-clock-icon {
+  color: var(--accent);
+}
+/* Low on time: urgent danger tint. Pulses gently only for the active side. */
+.play-clock.is-low {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.play-clock.is-low .play-clock-icon {
+  color: var(--danger);
+}
+.play-clock.is-low.is-active {
+  background: var(--danger-soft);
+  animation: play-clock-pulse 1s var(--ease-in-out) infinite;
+}
+/* Flagged: solid danger fill, no pulse (the game is over). */
+.play-clock.is-flagged {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+  animation: none;
+}
+.play-clock.is-flagged .play-clock-icon {
+  color: var(--danger);
+}
+@keyframes play-clock-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--danger-soft);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .play-clock.is-low.is-active {
+    animation: none;
+  }
 }
 .chip-meta {
   display: flex;

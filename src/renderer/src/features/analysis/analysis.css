@@ -312,3 +312,72 @@
   background: var(--surface-2);
   color: var(--text-secondary);
 }
+
+/* ============================================================
+   Board annotations overlay (user right-click arrows/circles)
+   ============================================================ */
+.annot-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* The board element below handles right-click capture; the SVG is purely
+     presentational so left-click moves pass through to chessground. */
+  pointer-events: none;
+  z-index: var(--z-board-overlay);
+}
+
+/* ============================================================
+   Share panel (Copy PGN / Copy FEN / Paste PGN / Clear annotations)
+   ============================================================ */
+.share-body {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.share-row {
+  display: flex;
+  gap: var(--space-3);
+}
+.share-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  flex: 1;
+}
+.share-full {
+  width: 100%;
+}
+.share-clear {
+  color: var(--text-secondary);
+}
+.share-paste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.share-textarea {
+  width: 100%;
+  min-width: 0;
+  resize: vertical;
+  min-height: 88px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-body);
+}
+.share-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.share-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--fs-sm);
+}

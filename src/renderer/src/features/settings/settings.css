@@ -1,0 +1,141 @@
+/* ============================================================
+   Settings — feature-scoped styles. Tokens only (tokens.css).
+   The bulk of Settings styling (.settings-view .settings-card .setting-row
+   .segmented .seg .switch .board-swatches .btn .field .text-input) lives in
+   the shared app.css. This file only adds the "Engine & analysis" extras:
+   range sliders, the inline value badge, and the reset footer row.
+   ============================================================ */
+
+/* A setting row whose control needs the value label beside the slider. */
+.setting-slider {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+}
+.setting-slider > span:first-child {
+  grid-column: 1;
+}
+
+/* Numeric/sentinel value shown to the right of the row label. */
+.setting-value {
+  grid-column: 2;
+  justify-self: end;
+  min-width: 5ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: var(--num-feature);
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+}
+
+/* The range input spans the full width on its own line under the label. */
+.setting-slider .range {
+  grid-column: 1 / -1;
+}
+
+.range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  margin: var(--space-2) 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  cursor: pointer;
+}
+.range:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 4px;
+}
+.range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+}
+.range::-moz-range-track {
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+}
+.range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--surface);
+  background: var(--accent);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform var(--dur-instant) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+.range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--surface);
+  background: var(--accent);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform var(--dur-instant) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+.range:hover::-webkit-slider-thumb {
+  background: var(--accent-hover);
+}
+.range:hover::-moz-range-thumb {
+  background: var(--accent-hover);
+}
+.range:active::-webkit-slider-thumb {
+  transform: scale(1.1);
+}
+.range:active::-moz-range-thumb {
+  transform: scale(1.1);
+}
+.range:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Helper caption under an engine control. */
+.setting-hint {
+  margin: calc(-1 * var(--space-2)) 0 0;
+  padding: 0 0 var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: var(--lh-body);
+}
+
+/* Footer row carrying the destructive "reset to defaults" action. */
+.settings-reset-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+.settings-reset-row .reset-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.settings-reset-row .reset-copy strong {
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+}
+.settings-reset-row .reset-copy span {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .range,
+  .range::-webkit-slider-thumb,
+  .range::-moz-range-thumb {
+    transition: none;
+  }
+}
