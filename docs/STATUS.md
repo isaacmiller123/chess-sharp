@@ -46,7 +46,24 @@ Follow-up requirements from the user, now under research (`w47yrab2o`):
 - ts-fsrs (FSRS-6) for review; hand-rolled Glicko-2; zod IPC validation; electron-builder (NSIS + portable).
 - Lucide icons (MIT) + Inter font (OFL). DEV containment: `app.setPath('userData', <project>/.devdata)` gated on `!isPackaged`.
 
-## Next — FOUNDATION build (v0), ordered
+## Foundation build progress (Loop 1)
+- **DONE — App shell + security baseline + typed IPC** (items 1-2). `npm run typecheck` + `npm run build` green
+  (Vite 7, React 19, Zod 4, TS 6, Electron 42). Dev userData->`.devdata` containment redirect in place.
+- **DONE — Puzzle DB pipeline** (item 5 data). `scripts/build_puzzles_db.py` (stdlib zstd+sqlite3, theme-aware prune):
+  4,699,980 puzzles, 21.4M junction rows, ratings 399-3327, 2.1 GB. Themed query 0.3 ms via covering index. (Size is a
+  packaging-time knob — tunable via one constant.)
+- **DONE — Native Stockfish 18 integration** (item 4). `scripts/fetch_engines.py` fetches + UCI-probes the binary
+  (x86-64-avx2, embedded NNUE). `src/main/engine/` UciEngine (pure-Node UCI wrapper) + StockfishPool (analysis/play
+  instances) + `engine:*` IPC (analyze/stop/play/status/newGame + line/bestmove push). **A4 smoke PASS**: 3 MultiPV
+  lines (depth/score/pv) stream, stop halts < 1s. Engine binaries git-ignored, fetched by setup.
+- Toolchain pinned: Vite 7 + electron-vite 5 + @vitejs/plugin-react 5 (vite-8 peer conflict resolved).
+
+## Build scripts now (Python where it avoids native-build fragility)
+- `setup:engines` -> `python scripts/fetch_engines.py` (Stockfish fetch + UCI probe)
+- `build:puzzles` -> `python scripts/build_puzzles_db.py` (CSV.zst -> puzzles.sqlite)
+- `smoke_engine.mjs` -> raw-UCI A4 smoke test
+
+## Next — remaining FOUNDATION (v0), ordered
 1. Repo hygiene + DEV-containment redirect (done: hygiene; pending: code).  2. App shell + security baseline + typed IPC.
 3. Reconcile schema + persistence.  4. Native Stockfish integration (fetch + UCI wrapper, 2 instances, Windows-safe kill).
 5. Puzzle DB build pipeline (theme-aware prune).  6. Analysis board.  7. FEN/PGN load.  8. Openings name lookup.

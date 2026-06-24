@@ -14,7 +14,7 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
-    "setup:engines": "node scripts/fetch-engines.mjs",
+    "setup:engines": "python scripts/fetch_engines.py",
     "setup:puzzles": "node scripts/fetch-puzzles.mjs",
     "build:puzzles": "python scripts/build_puzzles_db.py",
     "build:openings": "node scripts/build-openings.mjs",

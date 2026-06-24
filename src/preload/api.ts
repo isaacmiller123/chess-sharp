@@ -1,8 +1,8 @@
-import { ipcRenderer } from 'electron'
-import type { Api } from '@shared/types'
+import { ipcRenderer, type IpcRendererEvent } from 'electron'
+import type { Api, EngineBestmove, EngineLine } from '@shared/types'
 
 // The single typed surface exposed to the renderer. Mirrors the IPC channels in
-// src/main/ipc/registry.ts. Raw ipcRenderer is NEVER exposed.
+// src/main/ipc/*. Raw ipcRenderer is NEVER exposed.
 export const api: Api = {
   app: {
     ping: () => ipcRenderer.invoke('app:ping', {}),
@@ -11,5 +11,22 @@ export const api: Api = {
   settings: {
     get: (key) => ipcRenderer.invoke('settings:get', { key }),
     set: (key, value) => ipcRenderer.invoke('settings:set', { key, value })
+  },
+  engine: {
+    analyze: (req) => ipcRenderer.invoke('engine:analyze', req),
+    stop: (handleId) => ipcRenderer.invoke('engine:stop', { handleId }),
+    play: (req) => ipcRenderer.invoke('engine:play', req),
+    status: () => ipcRenderer.invoke('engine:status', {}),
+    newGame: (instance) => ipcRenderer.invoke('engine:newGame', { instance }),
+    onLine: (cb) => {
+      const listener = (_e: IpcRendererEvent, data: EngineLine) => cb(data)
+      ipcRenderer.on('engine:line', listener)
+      return () => ipcRenderer.removeListener('engine:line', listener)
+    },
+    onBestmove: (cb) => {
+      const listener = (_e: IpcRendererEvent, data: EngineBestmove) => cb(data)
+      ipcRenderer.on('engine:bestmove', listener)
+      return () => ipcRenderer.removeListener('engine:bestmove', listener)
+    }
   }
 }
