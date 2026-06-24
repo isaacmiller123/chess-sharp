@@ -307,6 +307,17 @@ export interface CurriculumBand {
   units: CurriculumUnit[]
 }
 
+export interface LessonExample {
+  fen: string
+  title: string
+  explanation: string
+}
+export interface LessonContent {
+  intro: string
+  examples: LessonExample[]
+  keyPoints: string[]
+}
+
 export interface PersonaStyle {
   aggression: number
   risk: number
@@ -398,6 +409,7 @@ export interface Api {
   curriculum: {
     tree(): Promise<{ bands: CurriculumBand[] }>
     lesson(id: string): Promise<{ lesson: CurriculumLesson | null }>
+    lessonContent(id: string): Promise<{ content: LessonContent | null }>
   }
   personas: {
     list(): Promise<{ personas: Persona[] }>

@@ -1,7 +1,14 @@
-import type { JSX } from 'react'
-import { Target, Dumbbell, X } from 'lucide-react'
-import type { CurriculumLesson } from '../../../../shared/types'
+import { useEffect, useState, type JSX } from 'react'
+import { Target, Dumbbell, X, Lightbulb, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react'
+import type { Key } from 'chessground/types'
+import type { CurriculumLesson, LessonContent } from '../../../../shared/types'
+import { Board } from '../../board/Board'
+import { pieceSetClass } from '../../board/pieceSets'
+import { useSettings } from '../../state/settings'
+import { turnColor } from '../../chess/chess'
 import { formatRatingRange, kindLabel, themeLabel } from './format'
+
+const NO_DESTS = new Map<Key, Key[]>()
 
 export interface LessonDetailProps {
   lesson: CurriculumLesson
@@ -18,6 +25,39 @@ export default function LessonDetail({
   onClose,
   onTrain
 }: LessonDetailProps): JSX.Element {
+  const { settings } = useSettings()
+  const [content, setContent] = useState<LessonContent | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [exampleIdx, setExampleIdx] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    setContent(null)
+    setExampleIdx(0)
+    setLoading(true)
+    const api = window.api?.curriculum
+    if (!api) {
+      setLoading(false)
+      return
+    }
+    api
+      .lessonContent(lesson.id)
+      .then((r) => {
+        if (!cancelled) setContent(r.content)
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [lesson.id])
+
+  const examples = content?.examples ?? []
+  const example = examples[exampleIdx]
+  const exampleFen = example?.fen
+
   return (
     <aside className="panel lesson-detail" aria-label={`Lesson: ${lesson.title}`}>
       <div className="panel-head">
@@ -45,6 +85,73 @@ export default function LessonDetail({
         </div>
 
         <p className="lesson-detail-summary">{lesson.summary}</p>
+
+        {/* Interactive teaching content */}
+        {content?.intro && (
+          <section className="lesson-detail-section">
+            <h3 className="lesson-detail-subhead">
+              <BookOpen size={15} aria-hidden /> Lesson
+            </h3>
+            <p className="lesson-intro">{content.intro}</p>
+          </section>
+        )}
+
+        {exampleFen && (
+          <section className="lesson-detail-section lesson-example">
+            <div className={`board-wrap board-${settings.boardTheme} ${pieceSetClass(settings.pieceSet)}`}>
+              <Board
+                fen={exampleFen}
+                orientation="white"
+                turnColor={turnColor(exampleFen)}
+                dests={NO_DESTS}
+                viewOnly
+                showDests={false}
+                coordinates={settings.coordinates}
+                animation={settings.animation}
+              />
+            </div>
+            {example?.title && <h4 className="lesson-example-title">{example.title}</h4>}
+            {example?.explanation && <p className="lesson-example-text">{example.explanation}</p>}
+            {examples.length > 1 && (
+              <div className="lesson-example-nav">
+                <button
+                  className="icon-btn"
+                  onClick={() => setExampleIdx((i) => Math.max(0, i - 1))}
+                  disabled={exampleIdx === 0}
+                  title="Previous example"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <span className="muted small num">
+                  {exampleIdx + 1} / {examples.length}
+                </span>
+                <button
+                  className="icon-btn"
+                  onClick={() => setExampleIdx((i) => Math.min(examples.length - 1, i + 1))}
+                  disabled={exampleIdx === examples.length - 1}
+                  title="Next example"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            )}
+          </section>
+        )}
+
+        {content && content.keyPoints.length > 0 && (
+          <section className="lesson-detail-section">
+            <h3 className="lesson-detail-subhead">
+              <Lightbulb size={15} aria-hidden /> Key points
+            </h3>
+            <ul className="lesson-keypoints">
+              {content.keyPoints.map((k, i) => (
+                <li key={i}>{k}</li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {loading && <div className="muted small lesson-content-loading">Loading lesson…</div>}
 
         {lesson.objectives.length > 0 && (
           <section className="lesson-detail-section">

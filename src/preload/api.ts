@@ -72,7 +72,8 @@ export const api: Api = {
   },
   curriculum: {
     tree: () => ipcRenderer.invoke('curriculum:tree', {}),
-    lesson: (id) => ipcRenderer.invoke('curriculum:lesson', { id })
+    lesson: (id) => ipcRenderer.invoke('curriculum:lesson', { id }),
+    lessonContent: (id) => ipcRenderer.invoke('curriculum:lessonContent', { id })
   },
   personas: {
     list: () => ipcRenderer.invoke('personas:list', {}),

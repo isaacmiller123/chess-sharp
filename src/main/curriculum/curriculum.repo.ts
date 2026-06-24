@@ -49,8 +49,22 @@ export interface Curriculum {
   bands: CurriculumBand[]
 }
 
+// Authored interactive content (resources/curriculum/lessons-content.json),
+// keyed by lesson id. Example FENs are legality-validated at build time.
+export interface LessonExample {
+  fen: string
+  title: string
+  explanation: string
+}
+export interface LessonContent {
+  intro: string
+  examples: LessonExample[]
+  keyPoints: string[]
+}
+
 let curriculum: Curriculum | null = null
 let lessonIndex: Map<string, CurriculumLesson> | null = null
+let contentMap: Record<string, LessonContent> | null = null
 
 function curriculumPath(): string {
   return app.isPackaged
@@ -94,4 +108,23 @@ export function tree(): CurriculumBand[] {
 /** Look up a single lesson by its stable id. */
 export function lesson(id: string): CurriculumLesson | null {
   return index().get(id) ?? null
+}
+
+function loadContent(): Record<string, LessonContent> {
+  if (!contentMap) {
+    try {
+      const p = app.isPackaged
+        ? path.join(process.resourcesPath, 'curriculum', 'lessons-content.json')
+        : path.join(__dirname, '../../resources/curriculum/lessons-content.json')
+      contentMap = JSON.parse(fs.readFileSync(p, 'utf-8')) as Record<string, LessonContent>
+    } catch {
+      contentMap = {}
+    }
+  }
+  return contentMap
+}
+
+/** Interactive teaching content (intro + example positions + key points) for a lesson. */
+export function lessonContent(id: string): LessonContent | null {
+  return loadContent()[id] ?? null
 }
