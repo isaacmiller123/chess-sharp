@@ -1,0 +1,61 @@
+# ---- Dependencies ----
+node_modules/
+.pnp/
+.pnp.js
+
+# ---- Build output ----
+dist/
+dist-electron/
+out/
+build/
+release/
+*.tsbuildinfo
+
+# ---- Electron packaging artifacts ----
+*.exe
+*.nsis
+*.dmg
+*.AppImage
+*.deb
+*.snap
+*.blockmap
+
+# ---- Local app/user data (kept INSIDE the project during dev, never committed) ----
+/.userdata/
+/.appdata/
+/.cache/
+
+# ---- Raw downloads & temp (fetched/built by setup scripts) ----
+/data/raw/
+/data/tmp/
+*.zst
+*.zip
+
+# ---- Large engine binaries & NNUE (fetched by scripts; not committed) ----
+/resources/engine/stockfish*
+/resources/engine/*.exe
+/resources/engine/*.nnue
+
+# ---- Generated databases (built from raw datasets by ingest scripts) ----
+/resources/data/*.sqlite
+/resources/data/*.db
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# ---- Logs & env ----
+*.log
+npm-debug.log*
+yarn-error.log*
+.env
+.env.local
+.env.*.local
+
+# ---- Editor / OS junk ----
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
