@@ -1,0 +1,215 @@
+/* ============================================================
+   Play vs Engine — feature-local styles.
+   Only tokens.css variables + existing shared classes are used;
+   no shared CSS files are edited. All new classes are namespaced
+   under .play-* / .setup-* to avoid collisions.
+   ============================================================ */
+
+/* ---- Setup phase ---- */
+.play-view-shell {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+.setup-grid {
+  width: 100%;
+  max-width: 480px;
+}
+.setup-card {
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.setup-opponent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.setup-opponent-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.setup-opponent-meta h2 {
+  margin: 0;
+  font-size: var(--fs-lg);
+}
+.setup-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.setup-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.setup-label {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+}
+.elo-readout {
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-md);
+  color: var(--text-primary);
+}
+.elo-range {
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  padding: 2px;
+}
+.preset-row .seg {
+  flex: 1 1 auto;
+  text-align: center;
+  font-size: var(--fs-sm);
+}
+.color-row {
+  display: flex;
+}
+.color-row .seg {
+  flex: 1;
+  text-align: center;
+}
+.setup-start {
+  margin-top: var(--space-2);
+  width: 100%;
+  padding: var(--space-4);
+  font-weight: var(--fw-semibold);
+}
+
+/* ---- Game phase: layout clones .analysis-view ---- */
+.play-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 344px;
+  gap: var(--space-7);
+  align-items: start;
+}
+.play-board-area {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  align-items: center;
+  min-width: 0;
+}
+.play-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+/* ---- Player chips ---- */
+.player-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: min(72vh, 720px);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.chip-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+.chip-name {
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chip-sub {
+  line-height: var(--lh-tight);
+}
+.chip-thinking {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  animation: play-pulse 1s var(--ease-in-out) infinite;
+}
+@keyframes play-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ---- Resign button (ghost + danger tint) ---- */
+.btn-resign {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--danger);
+}
+.btn-resign:hover:not(:disabled) {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.play-newgame {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ---- Result banner ---- */
+.result-banner {
+  max-width: min(72vh, 720px);
+  width: 100%;
+  padding: var(--space-5);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+}
+.banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.banner-title {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.banner-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.banner-new {
+  margin-left: auto;
+}

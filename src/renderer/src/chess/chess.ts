@@ -2,7 +2,7 @@
 import { Chess } from 'chessops/chess'
 import { parseFen, makeFen, INITIAL_FEN } from 'chessops/fen'
 import { makeSan } from 'chessops/san'
-import { makeUci, parseSquare } from 'chessops/util'
+import { makeUci, opposite, parseSquare } from 'chessops/util'
 import { chessgroundDests } from 'chessops/compat'
 import type { Move, Role } from 'chessops/types'
 import type { Key } from 'chessground/types'
@@ -66,6 +66,26 @@ export function applyMove(fen: string, orig: string, dest: string, promotion?: R
 
 export function uciToLastMove(uci: string): [Key, Key] {
   return [uci.slice(0, 2) as Key, uci.slice(2, 4) as Key]
+}
+
+export type GameResult = '1-0' | '0-1' | '1/2-1/2'
+
+export interface Outcome {
+  over: boolean
+  result?: GameResult
+  reason?: 'checkmate' | 'stalemate' | 'insufficient material' | 'draw'
+}
+
+export function outcome(fen: string): Outcome {
+  const pos = position(fen)
+  if (!pos.isEnd()) return { over: false }
+  if (pos.isCheckmate()) {
+    const winner = opposite(pos.turn)
+    return { over: true, result: winner === 'white' ? '1-0' : '0-1', reason: 'checkmate' }
+  }
+  if (pos.isStalemate()) return { over: true, result: '1/2-1/2', reason: 'stalemate' }
+  if (pos.isInsufficientMaterial()) return { over: true, result: '1/2-1/2', reason: 'insufficient material' }
+  return { over: true, result: '1/2-1/2', reason: 'draw' }
 }
 
 // Convert a UCI PV (engine output) into SAN, walking from a FEN. Stops on the

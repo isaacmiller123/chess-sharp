@@ -4,6 +4,9 @@ import { Placeholder } from './components/Placeholder'
 import { SettingsProvider } from './state/settings'
 import { AnalysisView } from './features/analysis/AnalysisView'
 import { SettingsView } from './features/settings/SettingsView'
+import HomeView from './features/home/HomeView'
+import PlayView from './features/play/PlayView'
+import PuzzlesView from './features/puzzles/PuzzlesView'
 
 const TITLES: Record<ViewKey, string> = {
   home: 'Home',
@@ -16,8 +19,14 @@ const TITLES: Record<ViewKey, string> = {
   settings: 'Settings'
 }
 
-function CurrentView({ view }: { view: ViewKey }) {
+function CurrentView({ view, onNavigate }: { view: ViewKey; onNavigate: (v: ViewKey) => void }) {
   switch (view) {
+    case 'home':
+      return <HomeView onNavigate={onNavigate} />
+    case 'play':
+      return <PlayView />
+    case 'puzzles':
+      return <PuzzlesView />
     case 'analysis':
       return <AnalysisView />
     case 'settings':
@@ -28,11 +37,11 @@ function CurrentView({ view }: { view: ViewKey }) {
 }
 
 export default function App() {
-  const [view, setView] = useState<ViewKey>('analysis')
+  const [view, setView] = useState<ViewKey>('home')
   return (
     <SettingsProvider>
       <Layout active={view} onNavigate={setView} title={TITLES[view]}>
-        <CurrentView view={view} />
+        <CurrentView view={view} onNavigate={setView} />
       </Layout>
     </SettingsProvider>
   )
