@@ -1,5 +1,5 @@
-appId: org.offlinechess.trainer
-productName: Offline Chess Trainer
+appId: org.chesssharp.app
+productName: Chess#
 directories:
   output: release
 asar: true
@@ -25,6 +25,7 @@ win:
   target:
     - nsis
     - portable
+  icon: build/icon.ico
 nsis:
   oneClick: false
   perMachine: false

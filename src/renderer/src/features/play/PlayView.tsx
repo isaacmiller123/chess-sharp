@@ -134,6 +134,10 @@ export function PlayView() {
   const check = checkColor(fen)
   const lastMove = tree.current.move ? uciToLastMove(tree.current.move.uci) : undefined
   const over = banner !== null || outcome(fen).over
+  // The live game position is the mainline tip (a node with no continuation).
+  // When the user navigates to a PAST move, we're not at the tip — the board is
+  // read-only and the engine must NOT move (it already replied at the tip).
+  const atTip = tree.current.children.length === 0
 
   const oppName = opponentName(opponent)
   const oppElo = opponentElo(opponent)
@@ -148,7 +152,7 @@ export function PlayView() {
       const isPersona = opponent.kind === 'persona'
       const headers: Record<string, string> = {
         Event: isPersona ? `Play vs ${oppName} style` : 'Play vs Stockfish',
-        Site: 'Offline Chess Trainer',
+        Site: 'Chess#',
         Date: yyyymmdd(),
         White: whiteName,
         Black: blackName,
@@ -206,6 +210,7 @@ export function PlayView() {
   // mode and engine.play otherwise. Only mutates the tree.
   useEffect(() => {
     if (phase !== 'game') return
+    if (!atTip) return // viewing history — don't auto-move the engine
     if (turn === userColor) return
     if (outcome(fen).over) return
 
@@ -249,7 +254,7 @@ export function PlayView() {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fen, phase, userColor, opponent])
+  }, [fen, phase, userColor, opponent, atTip])
 
   const commit = useCallback(
     (orig: string, dest: string, promotion?: Role) => {
@@ -395,6 +400,7 @@ export function PlayView() {
       check={check}
       thinking={thinking}
       over={over}
+      atTip={atTip}
       pendingPromo={pendingPromo}
       nonce={nonce}
       boardTheme={settings.boardTheme}

@@ -9,6 +9,7 @@ body,
 #root {
   height: 100%;
   margin: 0;
+  overflow: hidden; /* the shell owns scrolling; only .content scrolls internally */
 }
 
 body {
@@ -70,6 +71,7 @@ summary:focus-visible,
   display: grid;
   grid-template-columns: 224px 1fr;
   height: 100%;
+  overflow: hidden;
 }
 
 .rail {
@@ -80,15 +82,25 @@ summary:focus-visible,
   gap: var(--space-1);
   padding: var(--space-4) var(--space-3);
   z-index: var(--z-rail);
+  overflow-y: auto; /* rail scrolls on short windows; never pushes the page */
+  min-height: 0;
 }
 
 .rail-brand {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  margin: 0 auto var(--space-5);
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-5);
+  color: var(--accent);
+}
+.rail-wordmark {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+.rail-wordmark-hash {
   color: var(--accent);
 }
 
@@ -156,6 +168,7 @@ summary:focus-visible,
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0; /* allow .content to bound + scroll inside the viewport row */
 }
 
 .topbar {
@@ -173,6 +186,8 @@ summary:focus-visible,
 }
 
 .content {
+  flex: 1;
+  min-height: 0;
   padding: var(--space-7);
   overflow: auto;
 }

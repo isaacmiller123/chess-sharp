@@ -8,10 +8,10 @@ import {
   BookOpen,
   User,
   Settings as SettingsIcon,
-  Brain,
   type LucideIcon
 } from 'lucide-react'
 import { UserAvatar } from './Avatar'
+import { Logo } from './Logo'
 import { useSettings } from '../state/settings'
 
 export type ViewKey =
@@ -52,8 +52,11 @@ export function Layout({
   return (
     <div className="app-shell">
       <nav className="rail" aria-label="Primary">
-        <div className="rail-brand" role="img" aria-label="Offline Chess Trainer" title="Offline Chess Trainer">
-          <Brain size={22} aria-hidden />
+        <div className="rail-brand" role="img" aria-label="Chess#" title="Chess#">
+          <Logo size={26} />
+          <span className="rail-wordmark">
+            Chess<span className="rail-wordmark-hash">#</span>
+          </span>
         </div>
         <div className="rail-nav">
           {NAV.map(({ key, label, Icon }) => {

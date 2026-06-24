@@ -4,6 +4,7 @@ import path from 'node:path'
 // Locked security defaults (architecture §2.4). Changing any of these is a review bug.
 export function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
+    title: 'Chess#',
     width: 1280,
     height: 832,
     minWidth: 1024,

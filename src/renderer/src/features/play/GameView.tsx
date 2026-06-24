@@ -37,6 +37,8 @@ export interface GameViewProps {
   check?: Color
   thinking: boolean
   over: boolean
+  /** True when viewing the live game position (the mainline tip). */
+  atTip: boolean
   pendingPromo: { orig: string; dest: string } | null
   nonce: number
   boardTheme: BoardTheme
@@ -79,6 +81,7 @@ export function GameView({
   check,
   thinking,
   over,
+  atTip,
   pendingPromo,
   nonce,
   boardTheme,
@@ -106,13 +109,17 @@ export function GameView({
   // Coach is opt-in: off by default so it never intrudes on the game loop.
   const [coachOpen, setCoachOpen] = useState(false)
 
-  // Derive the "judge the last move" context from the current tree node: its
-  // parent FEN is the position before the move, and current.move.uci is what was
-  // played. Undefined at the root (no move yet) -> CoachHint shows position-only.
-  const node = tree.current
+  // Coach "was that move good?" must judge the USER's move — not the engine's
+  // instant reply (which would be tree.current). Walk back to the most recent
+  // move made by the user's color (white = odd ply, black = even ply).
+  const userIsWhite = userColor === 'white'
+  let umNode: GameTree['current'] | null = tree.current
+  while (umNode && !(umNode.move && umNode.parent && (umNode.ply % 2 === 1) === userIsWhite)) {
+    umNode = umNode.parent
+  }
   const coachLastMove: CoachHintLastMove | undefined =
-    node.move && node.parent
-      ? { fenBefore: node.parent.fen, played: node.move.uci, ply: node.ply }
+    umNode && umNode.move && umNode.parent
+      ? { fenBefore: umNode.parent.fen, played: umNode.move.uci, ply: umNode.ply }
       : undefined
 
   return (
@@ -141,7 +148,7 @@ export function GameView({
               lastMove={lastMove}
               check={check}
               movableColor={userColor}
-              viewOnly={thinking || over}
+              viewOnly={thinking || over || !atTip}
               showDests={showLegal}
               coordinates={coordinates}
               animation={animation}

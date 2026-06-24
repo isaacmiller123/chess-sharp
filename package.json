@@ -1,7 +1,7 @@
 {
-  "name": "offline-chess-trainer",
+  "name": "chess-sharp",
   "version": "0.0.1",
-  "description": "Offline, local-first chess analysis & teaching desktop app powered by Stockfish, with bundled Lichess content and local coaching.",
+  "description": "Chess# — offline, local-first chess analysis & teaching desktop app powered by Stockfish, with bundled Lichess content and local coaching.",
   "author": "Isaac Miller",
   "license": "GPL-3.0-or-later",
   "private": true,

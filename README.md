@@ -1,9 +1,10 @@
-# Offline Chess Trainer  *(working title)*
+# Chess#
 
 A fully offline, local-first chess **analysis & teaching** desktop app, powered by Stockfish.
 Built to study, play, and learn from beginner to ~2000 Elo — no paywalls, no internet required.
 
-> **Status:** foundation under active construction. See [`docs/`](docs/) for the architecture, UI/UX, and content specs as they land.
+> A polished, fully offline chess studio: analysis with full game review, 4.7M puzzles, a
+> 0→2000 curriculum, famous games, openings, and grandmaster-style opponents — all bundled.
 
 ## Goals
 - Full-strength **Stockfish** analysis: top engine lines, eval bar, depth, and move classification.
