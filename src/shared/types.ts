@@ -150,6 +150,107 @@ export interface SaveGameInput {
   source?: string
 }
 
+// ---- Openings / coach / review (Batch 2) ----
+
+export interface OpeningInfo {
+  eco: string
+  name: string
+}
+
+export interface CoachEngineEval {
+  cp?: number | null
+  mate?: number | null
+}
+export interface CoachExplainMoveArgs {
+  fenBefore: string
+  played: string
+  best: string
+  pv: string[]
+  evalBefore: CoachEngineEval
+  evalAfter: CoachEngineEval
+  ply?: number
+}
+export interface CoachExplainMoveResult {
+  verdict: string
+  motifs: string[]
+  text: string
+}
+export interface CoachPositionalResult {
+  terms: string[]
+  text: string
+}
+
+export interface PovEval {
+  cp: number | null
+  mate: number | null
+}
+export type ReviewVerdict = 'blunder' | 'mistake' | 'inaccuracy' | 'ok'
+export type MoveBadge =
+  | 'Best'
+  | 'Brilliant'
+  | 'Great'
+  | 'Excellent'
+  | 'Good'
+  | 'Book'
+  | 'Forced'
+  | 'Inaccuracy'
+  | 'Mistake'
+  | 'Blunder'
+export interface EloBand {
+  est: number
+  low: number
+  high: number
+  accuracy: number
+  kind: 'estimate'
+}
+export interface ReviewMoveEval {
+  ply: number
+  color: 'white' | 'black'
+  san: string
+  uci: string
+  fenBefore: string
+  fenAfter: string
+  bestUci: string
+  bestSan: string
+  bestPv: string[]
+  secondUci: string | null
+  bestEval: PovEval
+  playedEval: PovEval
+  winBefore: number
+  winAfter: number
+  accuracy: number
+  cpLoss: number
+  winChancesDrop: number
+  verdict: ReviewVerdict
+  badge: MoveBadge
+  isBest: boolean
+  critical: boolean
+}
+export interface ReviewSideSummary {
+  accuracy: number
+  acpl: number
+  moves: number
+  inaccuracies: number
+  mistakes: number
+  blunders: number
+  best: number
+}
+export interface GameReview {
+  gameId: number | null
+  depth: number
+  totalPlies: number
+  white: ReviewSideSummary
+  black: ReviewSideSummary
+  whiteElo: EloBand
+  blackElo: EloBand
+  moveEvals: ReviewMoveEval[]
+}
+export interface ReviewProgress {
+  gameId: number | null
+  ply: number
+  total: number
+}
+
 export interface Api {
   app: {
     ping(): Promise<PingResult>
@@ -195,6 +296,29 @@ export interface Api {
     list(req?: { limit?: number; offset?: number }): Promise<{ games: GameRow[] }>
     get(gameId: number): Promise<{ game: GameRow | null }>
     reportResult(req: { botElo: number; score: number }): Promise<{ ratingAfter: number; delta: number }>
+  }
+  openings: {
+    lookup(fen: string): Promise<{ opening: OpeningInfo | null }>
+  }
+  coach: {
+    explainMove(args: CoachExplainMoveArgs): Promise<CoachExplainMoveResult>
+    positional(args: { fen: string }): Promise<CoachPositionalResult>
+  }
+  review: {
+    run(req: { gameId?: number; pgn?: string; depth?: number }): Promise<{
+      reviewId: number | null
+      review: GameReview
+    }>
+    get(gameId: number): Promise<{ review: GameReview | null; moveEvals: ReviewMoveEval[] }>
+    onProgress(cb: (p: ReviewProgress) => void): Unsubscribe
+  }
+  perf: {
+    estimate(req: { gameId?: number; accuracy?: number }): Promise<{
+      est: number
+      low: number
+      high: number
+      accuracy: number
+    }>
   }
 }
 

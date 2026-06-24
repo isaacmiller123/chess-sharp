@@ -1,5 +1,5 @@
 import { ipcRenderer, type IpcRendererEvent } from 'electron'
-import type { Api, EngineBestmove, EngineLine } from '@shared/types'
+import type { Api, EngineBestmove, EngineLine, ReviewProgress } from '@shared/types'
 
 // The single typed surface exposed to the renderer. Mirrors the IPC channels in
 // src/main/ipc/*. Raw ipcRenderer is NEVER exposed.
@@ -46,5 +46,24 @@ export const api: Api = {
     list: (req) => ipcRenderer.invoke('games:list', req ?? {}),
     get: (gameId) => ipcRenderer.invoke('games:get', { gameId }),
     reportResult: (req) => ipcRenderer.invoke('games:reportResult', req)
+  },
+  openings: {
+    lookup: (fen) => ipcRenderer.invoke('openings:lookup', { fen })
+  },
+  coach: {
+    explainMove: (args) => ipcRenderer.invoke('coach:explainMove', args),
+    positional: (args) => ipcRenderer.invoke('coach:positional', args)
+  },
+  review: {
+    run: (req) => ipcRenderer.invoke('review:run', req),
+    get: (gameId) => ipcRenderer.invoke('review:get', { gameId }),
+    onProgress: (cb) => {
+      const listener = (_e: IpcRendererEvent, data: ReviewProgress) => cb(data)
+      ipcRenderer.on('review:progress', listener)
+      return () => ipcRenderer.removeListener('review:progress', listener)
+    }
+  },
+  perf: {
+    estimate: (req) => ipcRenderer.invoke('perf:estimate', req)
   }
 }

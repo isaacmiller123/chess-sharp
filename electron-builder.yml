@@ -11,6 +11,8 @@ extraResources:
   #   - { from: "resources/data", to: "data" }
   - from: "resources/engine"
     to: "engine"
+  - from: "resources/openings"
+    to: "openings"
 win:
   target:
     - nsis
