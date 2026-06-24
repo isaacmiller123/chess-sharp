@@ -3,6 +3,7 @@ import path from 'node:path'
 import { registerIpc } from './ipc/registry'
 import { installCsp, hardenWindow } from './security'
 import { createWindow } from './window'
+import { closeDbs } from './db/database'
 
 // ---- DEV CONTAINMENT (architecture §8) --------------------------------------
 // In development, redirect Electron's userData + sessionData INTO the project so
@@ -26,6 +27,8 @@ app.whenReady().then(() => {
     }
   })
 })
+
+app.on('will-quit', () => closeDbs())
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()

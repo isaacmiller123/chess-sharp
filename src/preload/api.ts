@@ -28,5 +28,23 @@ export const api: Api = {
       ipcRenderer.on('engine:bestmove', listener)
       return () => ipcRenderer.removeListener('engine:bestmove', listener)
     }
+  },
+  puzzles: {
+    next: (req) => ipcRenderer.invoke('puzzles:next', req),
+    get: (puzzleId) => ipcRenderer.invoke('puzzles:get', { puzzleId }),
+    themes: () => ipcRenderer.invoke('puzzles:themes', {}),
+    attempt: (req) => ipcRenderer.invoke('puzzles:attempt', req)
+  },
+  ratings: {
+    get: (kind) => ipcRenderer.invoke('ratings:get', { kind })
+  },
+  progress: {
+    summary: () => ipcRenderer.invoke('progress:summary', {})
+  },
+  games: {
+    save: (input) => ipcRenderer.invoke('games:save', input),
+    list: (req) => ipcRenderer.invoke('games:list', req ?? {}),
+    get: (gameId) => ipcRenderer.invoke('games:get', { gameId }),
+    reportResult: (req) => ipcRenderer.invoke('games:reportResult', req)
   }
 }
