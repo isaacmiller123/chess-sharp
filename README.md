@@ -32,7 +32,7 @@ Everything is **local-first**: your games, ratings, and progress live in a SQLit
 
 ### Option A — Install the app (recommended)
 
-1. Download the latest **`Chess#-Setup-*.exe`** (installer) or **`Chess#-Portable-*.exe`** from the [Releases page](https://github.com/isaacmiller123/chess-sharp/releases).
+1. Download the latest **`Chess-Setup-*.exe`** (installer) or **`Chess-Portable-*.exe`** from the [Releases page](https://github.com/isaacmiller123/chess-sharp/releases/latest).
 2. Run it and launch Chess#.
 3. Open **Settings → Datasets** and click **Import datasets**. This one-time download fetches the Stockfish engine and the puzzle database (see [Datasets](#datasets) below). After it finishes, every feature is available and the app is fully offline.
 

@@ -28,6 +28,8 @@ nsis:
   perMachine: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
-  artifactName: ${productName}-Setup-${version}.${ext}
+  # Artifact names avoid the '#' in productName ("Chess#") — it breaks shell paths
+  # and needs %23 URL-encoding on download links.
+  artifactName: Chess-Setup-${version}.${ext}
 portable:
-  artifactName: ${productName}-Portable-${version}.${ext}
+  artifactName: Chess-Portable-${version}.${ext}
