@@ -139,3 +139,103 @@
     transition: none;
   }
 }
+
+/* ---- Datasets panel ---- */
+.dataset-intro {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-2);
+}
+.dataset-list {
+  list-style: none;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.dataset-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.dataset-item-icon {
+  flex: none;
+  display: inline-flex;
+  color: var(--text-muted);
+}
+.dataset-item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.dataset-item-label {
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+}
+.dataset-item-state {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--text-muted);
+}
+.dataset-item-state.is-installed {
+  color: var(--success);
+}
+.dataset-progress {
+  margin-bottom: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.dataset-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.dataset-progress-track {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.dataset-progress-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  transition: width var(--dur-fast) var(--ease-out);
+}
+.dataset-error,
+.dataset-done {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  margin-bottom: var(--space-4);
+}
+.dataset-error {
+  color: var(--danger);
+}
+.dataset-actions {
+  display: flex;
+}
+.dataset-import {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.dataset-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}

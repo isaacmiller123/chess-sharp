@@ -6,13 +6,10 @@ asar: true
 files:
   - "out/**"
 extraResources:
-  # Engine ships now (analysis board uses it). The ~2 GB puzzles.sqlite is added
-  # here once the Puzzles UI consumes it, to keep the current exe fast/small:
-  #   - { from: "resources/data", to: "data" }
-  - from: "resources/engine"
-    to: "engine"
-  - from: "resources/data"
-    to: "data"
+  # Lean installer: the heavy datasets (Stockfish engine ~114 MB and the ~2 GB
+  # puzzles.sqlite) are NOT bundled. They are imported at runtime from the public
+  # GitHub release via Settings -> Datasets (see src/main/datasets), keeping the
+  # repo and installer small. Only the tiny, always-on content is bundled below.
   - from: "resources/openings"
     to: "openings"
   - from: "resources/famous"

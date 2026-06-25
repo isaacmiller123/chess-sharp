@@ -11,6 +11,7 @@ import {
   PLAY_THINK_MS_MAX
 } from '../../state/settings'
 import { PIECE_SETS, getPieceSet, normalizePieceSet } from '../../board/pieceSets'
+import DatasetsPanel from './DatasetsPanel'
 import './settings.css'
 
 /**
@@ -243,6 +244,8 @@ export function SettingsView() {
           onChange={(v) => update({ playThinkMs: v })}
         />
       </section>
+
+      <DatasetsPanel />
 
       <section className="card settings-card">
         <div className="settings-reset-row">

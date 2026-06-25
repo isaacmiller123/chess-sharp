@@ -1,5 +1,11 @@
 import { ipcRenderer, type IpcRendererEvent } from 'electron'
-import type { Api, EngineBestmove, EngineLine, ReviewProgress } from '@shared/types'
+import type {
+  Api,
+  DatasetProgress,
+  EngineBestmove,
+  EngineLine,
+  ReviewProgress
+} from '@shared/types'
 
 // The single typed surface exposed to the renderer. Mirrors the IPC channels in
 // src/main/ipc/*. Raw ipcRenderer is NEVER exposed.
@@ -78,5 +84,16 @@ export const api: Api = {
   personas: {
     list: () => ipcRenderer.invoke('personas:list', {}),
     move: (req) => ipcRenderer.invoke('personas:move', req)
+  },
+  datasets: {
+    status: () => ipcRenderer.invoke('datasets:status', {}),
+    items: () => ipcRenderer.invoke('datasets:items', {}),
+    import: () => ipcRenderer.invoke('datasets:import', {}),
+    cancel: () => ipcRenderer.invoke('datasets:cancel', {}),
+    onProgress: (cb) => {
+      const listener = (_e: IpcRendererEvent, data: DatasetProgress) => cb(data)
+      ipcRenderer.on('datasets:progress', listener)
+      return () => ipcRenderer.removeListener('datasets:progress', listener)
+    }
   }
 }

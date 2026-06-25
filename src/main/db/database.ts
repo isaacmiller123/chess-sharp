@@ -2,22 +2,23 @@ import { app } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
+import { resolvePuzzlesPath, puzzlesInstalled } from '../datasets/paths'
 
 // We use Node's built-in node:sqlite (Electron 42 / Node 24) — no native module
-// build needed. The bundled puzzles.sqlite is opened read-only; the writable
-// app.sqlite lives under userData (in DEV that is the contained .devdata dir).
+// build needed. The puzzles.sqlite (imported at runtime, or bundled) is opened
+// read-only; the writable app.sqlite lives under userData (in DEV that is the
+// contained .devdata dir).
 
 let puzzlesDb: DatabaseSync | null = null
 let appDb: DatabaseSync | null = null
 
-function puzzlesPath(): string {
-  return app.isPackaged
-    ? path.join(process.resourcesPath, 'data', 'puzzles.sqlite')
-    : path.join(__dirname, '../../resources/data/puzzles.sqlite')
+/** True once the puzzle DB has been imported (or bundled). */
+export function hasPuzzlesDb(): boolean {
+  return puzzlesInstalled()
 }
 
 export function getPuzzlesDb(): DatabaseSync {
-  if (!puzzlesDb) puzzlesDb = new DatabaseSync(puzzlesPath(), { readOnly: true })
+  if (!puzzlesDb) puzzlesDb = new DatabaseSync(resolvePuzzlesPath(), { readOnly: true })
   return puzzlesDb
 }
 

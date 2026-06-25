@@ -333,6 +333,42 @@ export interface Persona {
   bio: string
 }
 
+// ---- Datasets (runtime import of the large redistributable datasets) --------
+
+export interface DatasetStatus {
+  /** Stockfish engine binary present (imported or bundled). */
+  engine: boolean
+  /** Lichess puzzle DB present (imported or bundled). */
+  puzzles: boolean
+  /** Both present — every feature is fully available. */
+  complete: boolean
+}
+
+export interface DatasetItemMeta {
+  key: 'engine' | 'puzzles'
+  label: string
+  /** Download size in bytes (compressed, for the puzzle DB). */
+  bytes: number
+  /** On-disk size after install in bytes. */
+  installedBytes: number
+}
+
+export interface DatasetProgress {
+  key: 'engine' | 'puzzles' | 'all'
+  phase: 'download' | 'verify' | 'done' | 'error' | 'cancelled'
+  received: number
+  total: number
+  itemIndex: number
+  itemCount: number
+  message?: string
+}
+
+export interface DatasetImportResult {
+  ok: boolean
+  status: DatasetStatus
+  error?: string
+}
+
 export interface Api {
   app: {
     ping(): Promise<PingResult>
@@ -417,6 +453,13 @@ export interface Api {
       bestmove: string
       lineEval?: { cp?: number | null; mate?: number | null }
     }>
+  }
+  datasets: {
+    status(): Promise<DatasetStatus>
+    items(): Promise<{ items: DatasetItemMeta[] }>
+    import(): Promise<DatasetImportResult>
+    cancel(): Promise<OkResult>
+    onProgress(cb: (p: DatasetProgress) => void): Unsubscribe
   }
 }
 

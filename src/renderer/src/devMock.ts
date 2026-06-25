@@ -128,6 +128,11 @@ const MOCK_CONTENT: Record<string, LessonContent> = {
 let handleSeq = 0
 const lineSubs = new Set<(l: EngineLine) => void>()
 
+// Datasets: start "not installed" so the import flow is exercisable in preview.
+const datasetSubs = new Set<(p: unknown) => void>()
+let mockDatasets = { engine: false, puzzles: false, complete: false }
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+
 function emitLines(fen: string, handleId: number, multipv: number): void {
   const ucis = legalUcis(fen).slice(0, Math.max(1, multipv))
   // Two depth bursts so the panel/arrows look alive.
@@ -258,6 +263,50 @@ export function installMock(): void {
       move: async ({ fen }: { fen: string }) => {
         const ucis = legalUcis(fen)
         return { bestmove: ucis[0] ?? '0000' }
+      }
+    },
+    datasets: {
+      status: async () => mockDatasets,
+      items: async () => ({
+        items: [
+          { key: 'engine', label: 'Stockfish 18 engine', bytes: 114007552, installedBytes: 114007552 },
+          {
+            key: 'puzzles',
+            label: 'Lichess puzzle database',
+            bytes: 705175215,
+            installedBytes: 2148864000
+          }
+        ]
+      }),
+      import: async () => {
+        const emit = (p: unknown): void => datasetSubs.forEach((cb) => cb(p))
+        const items = [
+          { key: 'engine', total: 114007552 },
+          { key: 'puzzles', total: 705175215 }
+        ]
+        for (let i = 0; i < items.length; i++) {
+          const it = items[i]
+          for (let step = 1; step <= 4; step++) {
+            await sleep(120)
+            emit({
+              key: it.key,
+              phase: 'download',
+              received: Math.round((it.total * step) / 4),
+              total: it.total,
+              itemIndex: i,
+              itemCount: items.length
+            })
+          }
+          emit({ key: it.key, phase: 'verify', received: it.total, total: it.total, itemIndex: i, itemCount: items.length })
+        }
+        mockDatasets = { engine: true, puzzles: true, complete: true }
+        emit({ key: 'all', phase: 'done', received: 0, total: 0, itemIndex: 2, itemCount: 2 })
+        return { ok: true, status: mockDatasets }
+      },
+      cancel: async () => ok,
+      onProgress: (cb: (p: unknown) => void) => {
+        datasetSubs.add(cb)
+        return () => datasetSubs.delete(cb)
       }
     }
   }

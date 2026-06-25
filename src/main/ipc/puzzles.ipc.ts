@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { handle } from './util'
 import { getPuzzle, listThemes, nextPuzzle } from '../db/puzzles.repo'
 import { applyPuzzleResult } from '../db/ratings.repo'
-import { getAppDb } from '../db/database'
+import { getAppDb, hasPuzzlesDb } from '../db/database'
 
 export function registerPuzzles(): void {
   handle(
@@ -15,16 +15,23 @@ export function registerPuzzles(): void {
         exclude: z.array(z.string()).optional()
       })
       .strict(),
-    ({ theme, ratingLo, ratingHi, exclude }) => ({
-      puzzle: nextPuzzle({ theme, ratingLo: ratingLo ?? 600, ratingHi: ratingHi ?? 2200, exclude })
-    })
+    ({ theme, ratingLo, ratingHi, exclude }) => {
+      // No puzzle DB yet (lean install before import): degrade to empty so the UI
+      // shows its "import datasets" state instead of erroring.
+      if (!hasPuzzlesDb()) return { puzzle: null }
+      return {
+        puzzle: nextPuzzle({ theme, ratingLo: ratingLo ?? 600, ratingHi: ratingHi ?? 2200, exclude })
+      }
+    }
   )
 
-  handle('puzzles:get', z.object({ puzzleId: z.string() }).strict(), ({ puzzleId }) => ({
-    puzzle: getPuzzle(puzzleId)
-  }))
+  handle('puzzles:get', z.object({ puzzleId: z.string() }).strict(), ({ puzzleId }) =>
+    hasPuzzlesDb() ? { puzzle: getPuzzle(puzzleId) } : { puzzle: null }
+  )
 
-  handle('puzzles:themes', z.object({}).strict(), () => ({ themes: listThemes() }))
+  handle('puzzles:themes', z.object({}).strict(), () =>
+    hasPuzzlesDb() ? { themes: listThemes() } : { themes: [] }
+  )
 
   handle(
     'puzzles:attempt',
