@@ -34,6 +34,9 @@ win:
       arch:
         - x64
   icon: build/icon.ico
+  # Fallback for targets without their own block (the win zip): os+arch so the
+  # per-platform zips never collide; avoids '#' from productName in paths.
+  artifactName: Chess-${version}-${os}-${arch}.${ext}
 mac:
   # Same lean model as Windows: the engine + puzzle DB are imported at runtime,
   # not bundled, so the .dmg/.zip stay small. arm64 (Apple Silicon) + x64 (Intel).
@@ -54,6 +57,8 @@ mac:
   identity: null
   hardenedRuntime: false
   gatekeeperAssess: false
+  # Fallback for the mac zip target (dmg has its own block below).
+  artifactName: Chess-${version}-${os}-${arch}.${ext}
 dmg:
   artifactName: Chess-${version}-${arch}.${ext}
 nsis:
@@ -66,8 +71,3 @@ nsis:
   artifactName: Chess-Setup-${version}.${ext}
 portable:
   artifactName: Chess-Portable-${version}.${ext}
-zip:
-  # Applies to both the mac and win zip targets. Includes ${os} + ${arch} so the
-  # per-platform/arch zips never collide, and avoids the '#' in productName (which
-  # breaks shell paths and needs %23 URL-encoding on download links).
-  artifactName: Chess-${version}-${os}-${arch}.${ext}
