@@ -19,7 +19,7 @@
 .psetup.is-wide {
   max-width: 980px;
 }
-/* Online game handoff: a live LAN game reuses GameView (board + 344px sidebar),
+/* Online game handoff: a live online game reuses GameView (board + 344px sidebar),
    which needs the full play surface, not a 600px setup card. */
 .psetup.is-game {
   max-width: 1100px;

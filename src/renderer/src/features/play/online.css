@@ -1,5 +1,5 @@
 /* ============================================================
-   Play → Online (LAN) — lobby cards + live-game chrome.
+   Play → Online (internet) — lobby cards + live-game chrome.
    Owned by the multiplayer builder. Tokens (tokens.css) only;
    every class is namespaced under .online- so nothing collides
    with play.css / setup.css / shared styles. GameView keeps its
@@ -248,6 +248,42 @@
   padding: var(--space-4);
   background: var(--bg-subtle);
   border-radius: var(--radius-md);
+}
+
+/* ---- Live connection status line (host waiting) --------------------------- */
+.online-net {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.online-net-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-pill);
+  background: var(--text-muted);
+  box-shadow: 0 0 0 0 transparent;
+}
+/* Once at least one relay is open the dot goes green and pulses gently. */
+.online-net-dot.is-online {
+  background: var(--success);
+  animation: online-net-pulse 1.8s ease-out infinite;
+}
+@keyframes online-net-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+.online-net-text {
+  color: var(--text-secondary);
 }
 .online-hosting-foot {
   display: flex;

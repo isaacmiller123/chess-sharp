@@ -4,7 +4,6 @@ import type {
   DatasetProgress,
   EngineBestmove,
   EngineLine,
-  MpEvent,
   ReviewProgress
 } from '@shared/types'
 
@@ -129,20 +128,7 @@ export const api: Api = {
       ipcRenderer.on('datasets:progress', listener)
       return () => ipcRenderer.removeListener('datasets:progress', listener)
     }
-  },
-  mp: {
-    host: (cfg) => ipcRenderer.invoke('mp:host', { config: cfg }),
-    join: (code) => ipcRenderer.invoke('mp:join', { code }),
-    leave: () => ipcRenderer.invoke('mp:leave', {}),
-    sendMove: (uci) => ipcRenderer.invoke('mp:sendMove', { uci }),
-    resign: () => ipcRenderer.invoke('mp:resign', {}),
-    offerDraw: () => ipcRenderer.invoke('mp:offerDraw', {}),
-    acceptDraw: () => ipcRenderer.invoke('mp:acceptDraw', {}),
-    offerRematch: () => ipcRenderer.invoke('mp:offerRematch', {}),
-    onEvent: (cb) => {
-      const listener = (_e: IpcRendererEvent, ev: MpEvent) => cb(ev)
-      ipcRenderer.on('mp:event', listener)
-      return () => ipcRenderer.removeListener('mp:event', listener)
-    }
   }
+  // Multiplayer is renderer-owned (WebRTC over trystero); it no longer crosses
+  // IPC. See src/renderer/src/features/play/online/mpClient.ts.
 }

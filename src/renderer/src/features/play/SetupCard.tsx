@@ -2,7 +2,7 @@
 //   "Local"         play on this machine: vs Stockfish (tiered Elo slider,
 //                   piece-icon color picker, shared TimeControlPicker) OR
 //                   "Over the board" (two humans, one screen — OtbSetup).
-//   "Online"        LAN play — renders <OnlineTab/> (owned by another builder).
+//   "Online"        internet play — renders <OnlineTab/> (owned by another builder).
 //   "Grandmasters"  the persona gallery (PersonaGallery) + detail (PersonaDetail)
 //                   with its own Challenge flow.
 // State stays in PlayView (this component is controlled). All styling lives in

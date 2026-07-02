@@ -59,14 +59,19 @@
       (the `narrate` path is built but not wired into a live game loop).
 
 ## 🧭 Exploratory (asked about; not building yet)
-- [ ] **Play online with friends.** See the analysis in the session notes — needs a network
-      transport (the app is offline/Electron today). Realistic path: a small relay/match server +
-      a "remote opponent" move source alongside the existing engine/human move sources.
 - [ ] **Web port.** The renderer is already React/TS; the blockers are the Electron-only main process
       (node:sqlite DBs, local Stockfish, IPC). Path: replace IPC with a server/WASM backend —
       Stockfish.wasm in-browser for the engine, a hosted DB/API for puzzles/games. Notes in session.
 
 ## ✅ Done (for reference)
+- **Internet multiplayer (2026-07-02):** play any two computers anywhere — one player hosts and gets a
+  code like `A1B2C-D3E4F`, the other enters it and connects, across NATs/countries, with no user-run
+  server and no port forwarding. Replaces the old same-LAN WebSocket transport entirely. Built on WebRTC
+  data channels in the renderer (Chromium `RTCPeerConnection`), peer discovery via **trystero** (Nostr
+  relays); the code is a random room key, not an IP. Host-authoritative clocks/turn-order,
+  draw/resign/rematch, wire-level heartbeat, 30s discovery timeout. Harnesses: `scripts/test-mp.mjs`
+  (pure-session assertions over an in-memory transport pair) and `scripts/check-relays.mjs` (relay/TURN
+  reachability probe).
 - Mac port (cross-platform, congruent codebase); analysis-loop freeze fixed.
 - 40-chapter Chess School authored, soundness-audited (all pass), installed.
 - Viktor coach; board-centric lesson UI; chapter tests.

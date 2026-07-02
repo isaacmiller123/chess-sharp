@@ -1,14 +1,16 @@
 import { session, type BrowserWindow } from 'electron'
 
 // Strict CSP for production; a HMR-friendly relaxation for the Vite dev server.
+// connect-src allows wss: so the renderer can reach the multiplayer signaling
+// relays (trystero/Nostr) — WebRTC media itself isn't gated by connect-src.
 const PROD_CSP =
   "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
-  "img-src 'self' data:; font-src 'self'; connect-src 'self'; media-src 'self'"
+  "img-src 'self' data:; font-src 'self'; connect-src 'self' wss:; media-src 'self'"
 
 const DEV_CSP =
   "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
   "style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; " +
-  "connect-src 'self' ws: http://localhost:*; media-src 'self'"
+  "connect-src 'self' ws: wss: http://localhost:*; media-src 'self'"
 
 export function installCsp(isPackaged: boolean): void {
   const csp = isPackaged ? PROD_CSP : DEV_CSP

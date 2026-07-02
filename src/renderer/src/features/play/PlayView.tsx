@@ -138,7 +138,7 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
     blackName: 'Player 2',
     autoFlip: true
   })
-  // Online (LAN) session stage, reported by OnlineTab. The online game itself
+  // Online (internet) session stage, reported by OnlineTab. The online game itself
   // is fully self-contained in that tab; PlayView only needs the stage so
   // SetupCard can lock the tab strip mid-session and widen for a live game.
   const [onlineStage, setOnlineStage] = useState<OnlineStage>('idle')

@@ -14,7 +14,6 @@ import { registerFamous } from './famous.ipc'
 import { registerSchool } from './school.ipc'
 import { registerPersonas } from './personas.ipc'
 import { registerDatasets } from './datasets.ipc'
-import { registerMp } from './mp.ipc'
 
 // Composes every IPC domain. Called once from main after `whenReady`.
 export function registerIpc(): void {
@@ -34,5 +33,4 @@ export function registerIpc(): void {
   registerSchool()
   registerPersonas()
   registerDatasets()
-  registerMp()
 }

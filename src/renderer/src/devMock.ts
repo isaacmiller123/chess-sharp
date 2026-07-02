@@ -20,13 +20,12 @@ import type {
   DatasetProgress,
   EngineLine,
   GameReview,
-  MpEvent,
   PlacementState,
   Puzzle,
   SchoolChapter,
   SchoolChapterMeta
 } from '../../shared/types'
-import { applyMove, destsFor, turnColor, INITIAL_FEN } from './chess/chess'
+import { destsFor, INITIAL_FEN } from './chess/chess'
 
 /** Legal first moves from a FEN as UCI strings (for engine PV / opponent replies). */
 function legalUcis(fen: string): string[] {
@@ -168,69 +167,6 @@ const MOCK_PLACEMENT: PlacementState = {
 let handleSeq = 0
 const lineSubs = new Set<(l: EngineLine) => void>()
 
-// ---- Mock LAN multiplayer: a self-driving fake opponent -------------------
-// No sockets in the browser, so we simulate the other player: hosting spawns a
-// guest that connects + plays; every move you send gets a legal reply with
-// plausibly-decremented, host-authoritative clocks. Enough to click through the
-// whole OnlineTab flow (lobby → live game → draw/resign/rematch) in `?mock`.
-const mpSubs = new Set<(ev: MpEvent) => void>()
-const emitMp = (ev: MpEvent): void => mpSubs.forEach((cb) => cb(ev))
-const MOCK_MP_INITIAL = 300_000
-const MOCK_MP_INC = 3_000
-const mpState: {
-  active: boolean
-  yourColor: 'white' | 'black'
-  fen: string
-  clocks: { white: number; black: number }
-  over: boolean
-} = { active: false, yourColor: 'white', fen: INITIAL_FEN, clocks: { white: 0, black: 0 }, over: false }
-
-function mpConfig(): { tc: { initialMs: number; incrementMs: number }; hostColor: 'white' } {
-  return { tc: { initialMs: MOCK_MP_INITIAL, incrementMs: MOCK_MP_INC }, hostColor: 'white' }
-}
-
-/** Apply a UCI to a FEN using the real rules; returns the new FEN or null. */
-function mpApply(fen: string, uci: string): string | null {
-  const from = uci.slice(0, 2)
-  const to = uci.slice(2, 4)
-  const promo =
-    uci.length > 4
-      ? ({ q: 'queen', r: 'rook', b: 'bishop', n: 'knight' } as const)[
-          uci[4] as 'q' | 'r' | 'b' | 'n'
-        ]
-      : undefined
-  const m = applyMove(fen, from, to, promo)
-  return m ? m.fen : null
-}
-
-/** Start a fresh mock game after a short "guest connecting" beat. */
-function mpStart(yourColor: 'white' | 'black'): void {
-  mpState.active = true
-  mpState.over = false
-  mpState.yourColor = yourColor
-  mpState.fen = INITIAL_FEN
-  mpState.clocks = { white: MOCK_MP_INITIAL, black: MOCK_MP_INITIAL }
-  emitMp({ type: 'peer-joined' })
-  emitMp({ type: 'start', yourColor, config: mpConfig() })
-  // If the mock opponent is White (you chose Black), it opens.
-  if (yourColor === 'black') setTimeout(mpOpponentReply, 700)
-}
-
-/** The fake opponent picks a legal move, debits its clock, and replies. */
-function mpOpponentReply(): void {
-  if (!mpState.active || mpState.over) return
-  const oppColor = mpState.yourColor === 'white' ? 'black' : 'white'
-  if (turnColor(mpState.fen) !== oppColor) return
-  const moves = legalUcis(mpState.fen)
-  if (moves.length === 0) return
-  const uci = moves[Math.floor(Math.random() * Math.min(moves.length, 6))]
-  const next = mpApply(mpState.fen, uci)
-  if (!next) return
-  mpState.fen = next
-  // Debit ~1s of "thinking", credit the increment (host-authoritative clocks).
-  mpState.clocks[oppColor] = Math.max(0, mpState.clocks[oppColor] - 1000 + MOCK_MP_INC)
-  emitMp({ type: 'move', uci, clockMs: { ...mpState.clocks } })
-}
 
 // Datasets: start "not installed" so the import flow is exercisable in preview.
 const datasetSubs = new Set<(p: DatasetProgress) => void>()
@@ -464,71 +400,10 @@ export function installMock(): void {
           datasetSubs.delete(cb)
         }
       }
-    },
-    // LAN multiplayer: a self-driving fake opponent (no sockets in the browser).
-    // Lets the whole OnlineTab flow be clicked through under `?mock`.
-    mp: {
-      host: async () => {
-        // "Guest" connects a beat later and the game begins (you are White).
-        setTimeout(() => mpStart('white'), 1200)
-        return { code: 'MOCK1-PLAY2' }
-      },
-      join: async (code) => {
-        // Any plausibly-shaped code "connects"; you join as Black.
-        if (code.replace(/[\s-]/g, '').length < 5) return { ok: false, error: 'That code looks too short.' }
-        setTimeout(() => mpStart('black'), 900)
-        return { ok: true }
-      },
-      leave: async () => {
-        mpState.active = false
-        mpState.over = true
-        return { ok: true }
-      },
-      sendMove: async (uci) => {
-        if (!mpState.active || mpState.over) return { ok: false }
-        const next = mpApply(mpState.fen, uci)
-        if (!next) return { ok: false }
-        mpState.fen = next
-        // Credit YOUR increment (host-authoritative), then the opponent replies.
-        mpState.clocks[mpState.yourColor] = Math.max(0, mpState.clocks[mpState.yourColor] + MOCK_MP_INC - 400)
-        setTimeout(mpOpponentReply, 800)
-        return { ok: true }
-      },
-      resign: async () => {
-        if (!mpState.active) return { ok: false }
-        mpState.over = true
-        emitMp({ type: 'resign', by: mpState.yourColor })
-        return { ok: true }
-      },
-      offerDraw: async () => {
-        // The mock opponent accepts a draw after a moment.
-        if (!mpState.active || mpState.over) return { ok: false }
-        setTimeout(() => {
-          if (mpState.active && !mpState.over) {
-            mpState.over = true
-            emitMp({ type: 'drawAccept' })
-          }
-        }, 900)
-        return { ok: true }
-      },
-      acceptDraw: async () => {
-        if (!mpState.active) return { ok: false }
-        mpState.over = true
-        emitMp({ type: 'drawAccept' })
-        return { ok: true }
-      },
-      offerRematch: async () => {
-        // Opponent accepts; colors swap and a new game starts.
-        setTimeout(() => mpStart(mpState.yourColor === 'white' ? 'black' : 'white'), 700)
-        return { ok: true }
-      },
-      onEvent: (cb) => {
-        mpSubs.add(cb)
-        return () => {
-          mpSubs.delete(cb)
-        }
-      }
     }
+    // NOTE: multiplayer is no longer part of window.api — the renderer owns the
+    // WebRTC session directly (features/play/online/mpClient), so there's nothing
+    // to mock here anymore.
   }
 
   window.api = api

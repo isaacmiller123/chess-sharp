@@ -139,6 +139,7 @@ src/renderer/
     CoachPanel.tsx         # local coach text
   features/
     play/  puzzles/  openings/  famous/  progress/  curriculum/
+    play/online/           # INTERNET multiplayer, renderer-owned WebRTC P2P (see §3.1)
   state/                   # one immutable game-tree store (current path + nodes)
   styles/                  # CSS variables (design tokens), board/piece theme CSS
   shared/types.ts          # shared TS types for window.api (imported by preload + renderer)
@@ -163,7 +164,7 @@ script-src 'self';
 style-src 'self' 'unsafe-inline';
 img-src 'self' data:;
 font-src 'self';
-connect-src 'self';
+connect-src 'self' wss:;   /* wss: for the multiplayer signaling relays (see §3.1) */
 media-src 'self';
 ```
 Production renderer is served from a registered custom **`app://`** protocol (not `file://`).
@@ -185,6 +186,37 @@ Every `ipcMain.handle` validates `event.senderFrame.url` against the `app://` or
 Streaming (engine `info` lines) uses a **dedicated push channel**: main `webContents.send('engine:line', …)`
 throttled per `multipv` index; renderer subscribes via a single `api.engine.onLine(cb)` exposed through
 the bridge (the callback is registered through contextBridge, the raw emitter is never exposed).
+
+### 3.1 Internet multiplayer (renderer-owned WebRTC P2P — does NOT cross IPC)
+
+Multiplayer is the one feature that lives **entirely in the renderer** and never touches the main
+process or `window.api`. Chromium already ships a native `RTCPeerConnection`, so two Chess# clients
+talk **peer-to-peer over a WebRTC data channel** — end-to-end encrypted, direct, no relay in the game
+path. There is **no user-run server and no port forwarding**: one player hosts and gets a random room
+**code** like `A1B2C-D3E4F` (a 50-bit Crockford-base32 key, *not* an IP); the other enters it and the
+two connect across NATs and countries. (This replaced the old same-LAN `ws` transport that lived in
+`src/main/mp/` — that whole subtree, its IPC channel, and the `ws` dependency are gone.)
+
+Peer **discovery/signaling** rides on [`trystero`](https://github.com/dmotz/trystero) (Nostr strategy
+over a pool of public `wss://` relays): the room code seeds the room key + a derived password, so only
+the two players who share the code complete the handshake. Once the data channel is up, no game data
+touches the relays. NAT traversal uses public STUN (Google + Cloudflare, the latter for regions where
+Google is blocked) with best-effort TURN fallback for symmetric NATs.
+
+Layers (`src/renderer/src/features/play/online/` + `src/shared/mp/`):
+- `@shared/mp/wire.ts` — isomorphic wire protocol (zod schemas, `PROTOCOL_VERSION`, hello handshake,
+  wire-level ping/pong heartbeat, the room-code codec). Zero Node imports.
+- `mpSession.ts` (`MpNetSession`) — pure host-authoritative session logic (clocks, turn order, draw/
+  resign/rematch, discovery timeout), transport-agnostic via an injected `MpTransport`.
+- `rtcTransport.ts` — the trystero-backed transport factory (the only file that touches the network).
+- `mpClient.ts` — the singleton `mp` the UI imports.
+
+Because `MpNetSession` and the wire protocol are pure and transport-injected, they run unchanged under
+bare Node: `scripts/test-mp.mjs` drives a full host↔guest game over an in-memory transport pair, and
+`scripts/check-relays.mjs` probes live relay/TURN reachability.
+
+Security note: this is the reason the CSP `connect-src` is `'self' wss:` (not just `'self'`) — the
+signaling relays are outbound WebSockets. WebRTC media/data itself is not subject to `connect-src`.
 
 ---
 

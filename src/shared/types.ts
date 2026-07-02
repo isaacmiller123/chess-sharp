@@ -877,13 +877,15 @@ export interface DatasetImportResult {
   error?: string
 }
 
-// ---- LAN multiplayer (mp) ----------------------------------------------------
-// Two copies of Chess# on the same LAN play each other over a direct WebSocket.
-// The HOST opens a server and hands the guest a short join code (the code encodes
-// the host's LAN IPv4 + port — see src/main/mp/protocol.ts). All game traffic then
-// flows through Api.mp; the renderer receives everything as MpEvent via onEvent.
-// Ownership: shared contract (this file) = tech lead; protocol/session = builder A;
-// mp.ipc + preload mirror = builder B; renderer OnlineTab = builder C.
+// ---- Internet multiplayer (mp) -----------------------------------------------
+// Two copies of Chess#, anywhere on the internet, play each other over WebRTC data
+// channels established in the RENDERER (Chromium's native RTCPeerConnection).
+// Signaling runs through public relays (trystero/Nostr) — no user-run server and no
+// port forwarding. The join code is a random ROOM KEY (not an address): the host
+// generates one, the guest enters it, and both land in the same room. All game
+// flows through the renderer's MpNetSession; the UI consumes everything as MpEvent.
+// Ownership: shared contract (this file) = tech lead; wire protocol + session
+// authority + rtc transport = builder-core; renderer OnlineTab = builder-ui.
 
 export interface MpTimeControl {
   /** Starting clock per side, ms. */
@@ -900,10 +902,14 @@ export interface MpGameConfig {
 
 export type MpColor = 'white' | 'black'
 
-/** Everything the main-process session pushes to the renderer ('mp:event').
- *  Discriminated on `type`. Perspective is ALWAYS the receiving player's:
- *  `yourColor` is this client's color, `resign.by` is who resigned. */
+/** Everything the renderer session emits to the UI. Discriminated on `type`.
+ *  Perspective is ALWAYS the receiving player's: `yourColor` is this client's
+ *  color, `resign.by` is who resigned. */
 export type MpEvent =
+  /** Connection lifecycle before the game starts: 'relays' = contacting signaling
+   *  relays (with counts), 'searching' = waiting to discover the peer,
+   *  'connecting' = peer found and the WebRTC/hello handshake is in flight. */
+  | { type: 'net'; state: 'relays' | 'searching' | 'connecting'; relays?: { connected: number; total: number } }
   /** Host only: a guest connected (game starts right after). */
   | { type: 'peer-joined' }
   /** The game is on. Fired on BOTH sides once colors are resolved. */
@@ -1109,25 +1115,8 @@ export interface Api {
     cancel(): Promise<OkResult>
     onProgress(cb: (p: DatasetProgress) => void): Unsubscribe
   }
-  mp: {
-    /** Host a LAN game: opens the server and resolves with the join code to
-     *  hand the other player (encodes host LAN IPv4 + port). */
-    host(cfg: MpGameConfig): Promise<{ code: string }>
-    /** Join a hosted game by its code. Resolves {ok:false, error} on a bad
-     *  code / unreachable host / version mismatch instead of rejecting. */
-    join(code: string): Promise<{ ok: boolean; error?: string }>
-    /** Tear down the current session (host or guest); safe when none exists. */
-    leave(): Promise<{ ok: boolean }>
-    /** Send OUR move (UCI, e.g. 'e2e4'); the peer receives it as MpEvent 'move'. */
-    sendMove(uci: string): Promise<{ ok: boolean }>
-    resign(): Promise<{ ok: boolean }>
-    offerDraw(): Promise<{ ok: boolean }>
-    /** Accept the peer's pending draw offer. */
-    acceptDraw(): Promise<{ ok: boolean }>
-    offerRematch(): Promise<{ ok: boolean }>
-    /** Subscribe to session events ('mp:event'). Returns the unsubscriber. */
-    onEvent(cb: (ev: MpEvent) => void): Unsubscribe
-  }
+  // NOTE: multiplayer no longer crosses IPC — the renderer owns the WebRTC session
+  // directly (import `mp` from features/play/online/mpClient). See MpEvent above.
 }
 
 declare global {

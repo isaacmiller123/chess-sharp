@@ -1,9 +1,11 @@
-// Play → Online (LAN) tab. Two copies of Chess# on the same network play each
-// other over a direct WebSocket: one HOSTS (opens a server, shares a short join
-// code), the other JOINS (enters the code). Everything below the setup cards is a
-// self-contained live game that reuses GameView.
+// Play → Online tab. Two copies of Chess# anywhere in the world play each other
+// over a direct, encrypted WebRTC peer-to-peer connection: one HOSTS (shares a
+// short join code = a random room key), the other JOINS (enters the code).
+// Signaling runs through public relays in the renderer — no account, no server,
+// no port forwarding. Everything below the setup cards is a self-contained live
+// game that reuses GameView.
 //
-// This file is standalone (it consumes ONLY window.api.mp + shared chess
+// This file is standalone (it consumes ONLY the `mp` client + shared chess
 // helpers) but exposes a small seam to its host surface (SetupCard/PlayView):
 //   initialTimeControl — seeds the host card's picker from the shared Play
 //                        time control (when timed; Unlimited falls back to 10+0
@@ -20,8 +22,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import type { Role } from 'chessops/types'
 import type { Key } from 'chessground/types'
-import { Copy, Check, Wifi, Radio, LogIn, Loader2, AlertTriangle, X } from 'lucide-react'
+import { Copy, Check, Globe, Radio, LogIn, Loader2, AlertTriangle, X } from 'lucide-react'
 import type { MpColor, MpEvent, MpGameConfig } from '@shared/types'
+import { mp } from './online/mpClient'
 import { useGameTree } from '../../state/gameTree'
 import { useSettings } from '../../state/settings'
 import { treeToPgn } from '../../state/pgn'
@@ -79,6 +82,20 @@ function yyyymmdd(d: Date = new Date()): string {
   return `${y}.${m}.${day}`
 }
 
+/** Guest-side staged status copy, driven by the session's 'net' events as we go
+ *  from contacting relays → discovering the peer → the direct WebRTC handshake. */
+function guestStatusText(stage: 'relays' | 'searching' | 'connecting' | null): string {
+  switch (stage) {
+    case 'searching':
+      return 'Looking for your opponent…'
+    case 'connecting':
+      return 'Found them — connecting directly…'
+    case 'relays':
+    default:
+      return 'Contacting matchmaking relays…'
+  }
+}
+
 function outcomeForUser(result: GameResult, userColor: Color): 'win' | 'loss' | 'draw' {
   if (result === '1/2-1/2') return 'draw'
   const userWon = (result === '1-0' && userColor === 'white') || (result === '0-1' && userColor === 'black')
@@ -121,6 +138,11 @@ export default function OnlineTab({
   const [error, setError] = useState<string | null>(null)
   // Our role, set the moment we host()/join(); used for rematch semantics + copy.
   const roleRef = useRef<'host' | 'guest' | null>(null)
+  // Live signaling/transport status, driven by 'net' events. `stage` tracks the
+  // discovery phase (relays contacting → searching for peer → connecting direct);
+  // `relays` is the open/total relay socket count for a subtle presence line.
+  const [netStage, setNetStage] = useState<'relays' | 'searching' | 'connecting' | null>(null)
+  const [relays, setRelays] = useState<{ connected: number; total: number } | null>(null)
 
   // ---- live game state -----------------------------------------------------
   const tree = useGameTree()
@@ -165,7 +187,7 @@ export default function OnlineTab({
       const whiteName = uc === 'white' ? settings.username : oppName
       const blackName = uc === 'white' ? oppName : settings.username
       const headers: Record<string, string> = {
-        Event: 'Online (LAN) game',
+        Event: 'Online game',
         Site: 'Chess#',
         Date: yyyymmdd(),
         White: whiteName,
@@ -234,10 +256,14 @@ export default function OnlineTab({
   endLocallyRef.current = endLocally
 
   useEffect(() => {
-    const api = window.api?.mp
-    if (!api) return
-    const off = api.onEvent((ev: MpEvent) => {
+    const off = mp.onEvent((ev: MpEvent) => {
       switch (ev.type) {
+        case 'net':
+          // Signaling/transport progress: relay counts + discovery phase. Drives
+          // the host "Online — waiting" line and the guest staged status text.
+          setNetStage(ev.state)
+          if (ev.relays) setRelays(ev.relays)
+          break
         case 'peer-joined':
           // Host only — the guest connected; 'start' follows immediately.
           break
@@ -326,7 +352,7 @@ export default function OnlineTab({
       setDrawSent(false)
       tree.addMove(m)
       playMove(m)
-      void window.api?.mp.sendMove(m.uci)
+      void mp.sendMove(m.uci)
       const out = outcome(m.fen)
       if (out.over && out.result) endLocallyRef.current(out.result, out.reason ?? 'checkmate')
     },
@@ -368,7 +394,7 @@ export default function OnlineTab({
       hostColor: hostColorChoice
     }
     try {
-      const res = await window.api!.mp.host(cfg)
+      const res = await mp.host(cfg)
       setCode(res.code)
       setPhase('hosting')
     } catch (err) {
@@ -390,7 +416,7 @@ export default function OnlineTab({
     roleRef.current = 'guest'
     setPhase('connecting')
     try {
-      const res = await window.api!.mp.join(trimmed)
+      const res = await mp.join(trimmed)
       if (!res.ok) {
         setError(res.error ?? 'Could not join that game.')
         setPhase('menu')
@@ -408,12 +434,14 @@ export default function OnlineTab({
 
   // ---- leave / teardown ----------------------------------------------------
   const leave = useCallback(() => {
-    void window.api?.mp.leave()
+    mp.leave()
     roleRef.current = null
     setCode(null)
     setConfig(null)
     setBanner(null)
     setError(null)
+    setNetStage(null)
+    setRelays(null)
     setPeerLeft(false)
     setDrawOffered(false)
     setDrawSent(false)
@@ -425,7 +453,7 @@ export default function OnlineTab({
   // Tear the session down if the tab unmounts mid-session.
   useEffect(() => {
     return () => {
-      void window.api?.mp.leave()
+      mp.leave()
     }
   }, [])
 
@@ -448,23 +476,23 @@ export default function OnlineTab({
   // ---- in-game control handlers -------------------------------------------
   const onResign = useCallback(() => {
     if (over) return
-    void window.api?.mp.resign()
+    void mp.resign()
     // The session echoes a 'resign' event back to us, which raises the banner.
   }, [over])
 
   const onOfferDraw = useCallback(() => {
     if (over) return
     if (drawOffered) {
-      void window.api?.mp.acceptDraw()
+      void mp.acceptDraw()
     } else {
       setDrawSent(true)
-      void window.api?.mp.offerDraw()
+      void mp.offerDraw()
     }
   }, [over, drawOffered])
 
   const onRematch = useCallback(() => {
     setRematchSent(true)
-    void window.api?.mp.offerRematch()
+    void mp.offerRematch()
   }, [])
 
   const onFlip = useCallback(() => setOrientation((o) => (o === 'white' ? 'black' : 'white')), [])
@@ -525,7 +553,8 @@ export default function OnlineTab({
       <header className="online-lobby-head">
         <h2>Play online</h2>
         <p className="muted">
-          One of you hosts and shares a code; the other joins. On the same Wi-Fi it just works.
+          One of you hosts and shares a code; the other joins — from anywhere in the world. No account,
+          no setup.
         </p>
       </header>
 
@@ -540,11 +569,17 @@ export default function OnlineTab({
       )}
 
       {phase === 'hosting' && code ? (
-        <HostWaiting code={code} copied={copied} onCopy={copyCode} onCancel={leave} />
+        <HostWaiting
+          code={code}
+          copied={copied}
+          onCopy={copyCode}
+          onCancel={leave}
+          relays={relays}
+        />
       ) : phase === 'connecting' ? (
         <div className="online-card online-connecting">
           <Loader2 className="spin" size={22} aria-hidden />
-          <span>Connecting to the host…</span>
+          <span>{guestStatusText(netStage)}</span>
           <button className="btn ghost" onClick={leave}>
             Cancel
           </button>
@@ -662,19 +697,29 @@ export default function OnlineTab({
 }
 
 // ---------------------------------------------------------------------------
-// Host "waiting for opponent" panel: big copyable code + honest network note.
+// Host "waiting for opponent" panel: big copyable code, a live relay-connection
+// status line, and a plain note that the connection is direct + encrypted.
 // ---------------------------------------------------------------------------
 function HostWaiting({
   code,
   copied,
   onCopy,
-  onCancel
+  onCancel,
+  relays
 }: {
   code: string
   copied: boolean
   onCopy: () => void
   onCancel: () => void
+  relays: { connected: number; total: number } | null
 }): JSX.Element {
+  // Until at least one relay is open we're still dialing the matchmaking network;
+  // after that we're online and simply waiting for the opponent to join.
+  const online = (relays?.connected ?? 0) > 0
+  const relayTitle = relays
+    ? `${relays.connected} of ${relays.total} matchmaking relays connected`
+    : 'Connecting to matchmaking relays'
+
   return (
     <div className="online-card online-hosting" aria-label="Waiting for an opponent">
       <div className="online-card-head">
@@ -693,19 +738,21 @@ function HostWaiting({
         </span>
       </button>
 
+      <div className="online-net" role="status" title={relayTitle}>
+        <span className={`online-net-dot${online ? ' is-online' : ''}`} aria-hidden />
+        <span className="online-net-text">
+          {online ? 'Online — waiting for your opponent' : 'Contacting matchmaking relays…'}
+        </span>
+      </div>
+
       <div className="online-note-block">
         <p className="online-note">
-          <Wifi size={13} aria-hidden /> On the <strong>same network</strong> (home Wi-Fi, phone hotspot),
-          this works instantly.
-        </p>
-        <p className="online-note muted">
-          Over the internet you&apos;d need to forward the port shown inside the code on your router —
-          that&apos;s off by default and not needed on the same network.
+          <Globe size={13} aria-hidden /> This is a <strong>direct, encrypted peer-to-peer</strong> connection.
+          Share the code any way you like — text, Discord, anything.
         </p>
       </div>
 
       <div className="online-hosting-foot">
-        <Loader2 className="spin" size={16} aria-hidden />
         <button className="btn ghost" onClick={onCancel}>
           Cancel
         </button>
@@ -783,7 +830,7 @@ function OnlineGame(props: OnlineGameProps): JSX.Element {
       {/* A slim status bar above the board carries the online-only affordances. */}
       <div className="online-statusbar">
         <span className="online-statusbar-tag">
-          <Wifi size={13} aria-hidden /> Online
+          <Globe size={13} aria-hidden /> Online
         </span>
         {peerLeft ? (
           <span className="online-statusbar-msg warn">Opponent disconnected.</span>
