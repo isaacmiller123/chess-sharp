@@ -10,7 +10,7 @@ const TILES: { key: HomeNavTarget; label: string; Icon: LucideIcon }[] = [
   { key: 'play', label: 'Play', Icon: Swords },
   { key: 'puzzles', label: 'Train', Icon: Puzzle },
   { key: 'analysis', label: 'Analyze', Icon: Cpu },
-  { key: 'lessons', label: 'Learn', Icon: GraduationCap }
+  { key: 'school', label: 'Learn', Icon: GraduationCap }
 ]
 
 export default function QuickActions({ onNavigate }: QuickActionsProps): JSX.Element {

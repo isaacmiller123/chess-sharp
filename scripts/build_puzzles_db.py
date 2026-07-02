@@ -9,16 +9,43 @@ Implements docs/architecture.md §5.2 with the adversarial review's refinement:
 Theme-aware prune: rich themes are pruned by popularity/plays; puzzles carrying a
 "thin" theme are ALWAYS kept so rare-theme lesson pools don't get starved.
 
-Stdlib only (Python 3.14: compression.zstd + sqlite3 + csv). No native build deps.
+Zstd decompression uses the stdlib `compression.zstd` on Python 3.14+, and falls
+back to the third-party `zstandard` package on older interpreters (e.g. the
+macOS system Python 3.9), so the build runs on any platform. sqlite3 + csv are
+stdlib. No native build deps.
 Output: resources/data/puzzles.sqlite (git-ignored; rebuilt from the raw download).
 """
 import csv
+import io
 import os
 import sqlite3
 import sys
 import time
-import compression.zstd as zstd
-from compression.zstd import DecompressionParameter as DP
+
+# Long-window zstd, decompressed as a UTF-8 text stream. Prefer the 3.14+ stdlib;
+# fall back to `zstandard` (pip) on older Pythons; otherwise fail with guidance.
+try:
+    import compression.zstd as _zstd
+    from compression.zstd import DecompressionParameter as _DP
+
+    def _open_zst_text(src):
+        return _zstd.open(src, "rt", encoding="utf-8", newline="",
+                          options={_DP.window_log_max: 31})
+except ImportError:
+    try:
+        import zstandard as _zstandard
+    except ImportError:
+        _zstandard = None
+
+    def _open_zst_text(src):
+        if _zstandard is None:
+            sys.exit(
+                "zstd support missing — use Python 3.14+ (stdlib compression.zstd) "
+                "or run `pip install zstandard`."
+            )
+        dctx = _zstandard.ZstdDecompressor(max_window_size=2 ** 31)
+        return io.TextIOWrapper(dctx.stream_reader(open(src, "rb")),
+                                encoding="utf-8", newline="")
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "data", "raw", "lichess_db_puzzle.csv.zst")
@@ -36,8 +63,7 @@ THIN_THEME_MAX = 20000  # a theme with fewer total puzzles than this is "thin" -
 
 
 def open_csv():
-    return zstd.open(SRC, "rt", encoding="utf-8", newline="",
-                     options={DP.window_log_max: 31})
+    return _open_zst_text(SRC)
 
 
 def main():

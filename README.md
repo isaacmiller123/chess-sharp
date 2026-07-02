@@ -1,10 +1,10 @@
 # Chess#
 
-**A fully offline, local-first chess analysis & teaching studio for Windows — powered by Stockfish.**
+**A fully offline, local-first chess analysis & teaching studio for Windows & macOS — powered by Stockfish.**
 Study, play, and learn from beginner to ~2000 Elo. No accounts, no paywalls, no internet required (after a one-time dataset import).
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-![Platform](https://img.shields.io/badge/platform-Windows-blue)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-blue)
 ![Electron](https://img.shields.io/badge/Electron-42-47848F)
 
 > A polished chess studio in the spirit of the big sites — analysis with full game review, millions of
@@ -32,9 +32,20 @@ Everything is **local-first**: your games, ratings, and progress live in a SQLit
 
 ### Option A — Install the app (recommended)
 
-1. Download the latest **`Chess-Setup-*.exe`** (installer) or **`Chess-Portable-*.exe`** from the [Releases page](https://github.com/isaacmiller123/chess-sharp/releases/latest).
-2. Run it and launch Chess#.
-3. Open **Settings → Datasets** and click **Import datasets**. This one-time download fetches the Stockfish engine and the puzzle database (see [Datasets](#datasets) below). After it finishes, every feature is available and the app is fully offline.
+1. Download the latest build from the [Releases page](https://github.com/isaacmiller123/chess-sharp/releases/latest):
+   - **Windows (x64)** — `Chess-Setup-*.exe` (installer), `Chess-Portable-*.exe` (single-file portable), or `Chess-*-win-x64.zip` (unzip-and-run).
+   - **macOS** — `Chess-*-arm64.dmg` (Apple Silicon) or `Chess-*-x64.dmg` (Intel); matching `.zip` builds are also published. If a Mac build isn't published yet, use [Option B](#option-b--build-from-source) — the macOS app builds and runs from source today.
+2. Run it and launch Chess#. These builds are **unsigned**, so the OS shows a one-time warning on first launch — clear it as described in [First run: unsigned builds](#first-run-unsigned-builds) below.
+3. Open **Settings → Datasets** and click **Import datasets**. This one-time download fetches the Stockfish engine (matched to your OS) and the puzzle database (see [Datasets](#datasets) below). After it finishes, every feature is available and the app is fully offline.
+
+### First run: unsigned builds
+
+The published installers are **not code-signed** (no Apple Developer ID, no Windows Authenticode certificate). They are safe to run — the OS just doesn't recognize the publisher, so it warns you once. This is expected for an open-source, from-source project.
+
+- **Windows (SmartScreen).** Double-clicking the `.exe` may show *"Windows protected your PC"*. Click **More info → Run anyway**. For the portable `.exe`/`.zip`, Windows may also flag the download — right-click the file → **Properties** → tick **Unblock** → **OK** before running.
+- **macOS (Gatekeeper).** The first launch may say the app *"cannot be opened because Apple cannot check it for malicious software."* Either right-click (Control-click) the app → **Open** → **Open**, or go to **System Settings → Privacy & Security** and click **Open Anyway**. If a browser set the quarantine flag, `xattr -dr com.apple.quarantine "/Applications/Chess#.app"` in Terminal clears it.
+
+Signing/notarization would remove these prompts, but requires a paid Apple Developer ID and a Windows code-signing certificate, which this project does not currently ship.
 
 ### Option B — Build from source
 
@@ -48,18 +59,18 @@ To keep the repository and installer small, the two large, redistributable datas
 
 | Dataset | Source | License | Download |
 |---|---|---|---|
-| **Stockfish 18** engine (Windows x64, NNUE embedded) | [official-stockfish/Stockfish](https://github.com/official-stockfish/Stockfish) | GPL-3.0 | ~109 MB |
+| **Stockfish 18** engine (per-OS binary, NNUE embedded) | [official-stockfish/Stockfish](https://github.com/official-stockfish/Stockfish) | GPL-3.0 | ~109 MB |
 | **Lichess puzzle database** (compressed) | [database.lichess.org](https://database.lichess.org/) | CC0-1.0 | ~673 MB → 2.0 GB on disk |
 
-The smaller content (the openings book, curriculum, famous games, persona definitions, piece/sound assets) is bundled in the app and works immediately.
+The engine binary matches your OS/CPU automatically (Windows x64 `.exe`, macOS Apple-Silicon/Intel). The puzzle database is a plain SQLite file and is identical on every platform. The smaller content (the openings book, curriculum, famous games, persona definitions, piece/sound assets) is bundled in the app and works immediately.
 
-Imported datasets are stored under your user-data folder (`%APPDATA%/Chess#/datasets/`) and verified by SHA-256 on download. Full provenance, licensing, and instructions for self-hosting or rebuilding the datasets are in **[docs/DATASETS.md](docs/DATASETS.md)**.
+Imported datasets are stored under your user-data folder — `%APPDATA%/Chess#/datasets/` on Windows, `~/Library/Application Support/Chess#/datasets/` on macOS — and verified by SHA-256 on download. Full provenance, licensing, and instructions for self-hosting or rebuilding the datasets are in **[docs/DATASETS.md](docs/DATASETS.md)**.
 
 ---
 
 ## Development
 
-**Prerequisites:** Node 24+, npm 11+, Git. Windows for packaging.
+**Prerequisites:** Node 24+, npm 11+, Git, and Python 3 (for the dataset build scripts — 3.14+ for the built-in zstd, or `pip install zstandard` on older versions such as the macOS system Python). Package on the OS you're targeting: Windows produces the `.exe` installer, macOS produces the `.dmg`/`.zip`. Everything else (dev, typecheck, engine smoke test) runs the same on Windows and macOS.
 
 ```bash
 git clone https://github.com/isaacmiller123/chess-sharp.git
@@ -81,9 +92,16 @@ Then:
 ```bash
 npm run dev              # run the app in development (electron-vite)
 npm run typecheck        # tsc for both the main and renderer projects
-npm run dist:exe         # build an unpacked app into release/win-unpacked
-npm run package          # build the NSIS installer + portable exe
+npm run smoke:engine     # headless UCI smoke test of the bundled engine (any OS)
+npm run dist:exe         # build an unpacked app for your OS (release/<platform>-unpacked)
+npm run package          # build the installer(s): NSIS + portable .exe + .zip on Windows, dmg + zip on macOS
 ```
+
+Windows produces `Chess-Setup-*.exe`, `Chess-Portable-*.exe`, and `Chess-*-win-x64.zip` (x64); macOS produces the `.dmg`/`.zip` for arm64 and x64. electron-builder cannot cross-compile the installers, so package each on its own OS.
+
+> **CI:** [`.github/workflows/build.yml`](.github/workflows/build.yml) builds both platforms on GitHub Actions — a `macos-latest` / `windows-latest` matrix (Node 22) that runs `npm ci`, `npm run typecheck`, `npm run build`, then `electron-builder --publish never`, and uploads the installers as workflow artifacts. It runs on `workflow_dispatch` or when a `v*` tag is pushed. Nothing is auto-published to a release; download the artifacts and attach them yourself.
+
+> The macOS `.dmg`/`.zip` and the Windows `.exe`/`.zip` produced by `npm run package` (and by CI) are **unsigned**. They run locally, but the first launch on another machine trips Gatekeeper (macOS) or SmartScreen (Windows) — see [First run: unsigned builds](#first-run-unsigned-builds). Removing those prompts requires a Developer ID identity + notarization on macOS and an Authenticode certificate on Windows — see `electron-builder.yml`.
 
 > The packaged build is intentionally **lean** — it does not embed the engine or the puzzle DB. Those are
 > imported at runtime via Settings → Datasets, so the installer stays small and the repo stays clean.

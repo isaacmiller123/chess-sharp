@@ -56,6 +56,13 @@ export interface PuzzleSession {
   hintFrom: Key | undefined
   hintTo: Key | undefined
   revealSan: string | null
+  // Retry-on-wrong
+  /** A wrong move was recorded as a fail but the learner is still solving
+   *  (board snapped back, answer not revealed) — drives the keep-trying chip. */
+  keepTrying: boolean
+  /** The line was completed AFTER the fail was recorded: the finish reads as
+   *  failed ("solved, but the first try counted"). */
+  lateSolve: boolean
   // Themes
   themes: ThemeCount[]
   theme: string | null
@@ -64,6 +71,11 @@ export interface PuzzleSession {
   next: () => void
   retry: () => void
   bumpHint: () => void
+  /** Give up and move on: records a fail (once) and loads the next puzzle. */
+  skip: () => void
+  /** Reveal the answer: records a fail (once) and shows the classic failed
+   *  state (correct move highlighted + SAN), leaving Retry/Next. */
+  showSolution: () => void
   setTheme: (key: string | null) => void
 }
 
@@ -114,6 +126,11 @@ export function usePuzzleSession(): PuzzleSession {
   const [best, setBest] = useState<number>(loadBestStreak)
 
   const [hintStage, setHintStage] = useState<HintStage>(0)
+  // Retry-on-wrong: a wrong move records the fail once but leaves the learner
+  // solving (board snapped back, no reveal). keepTrying drives the prompt chip;
+  // lateSolve marks a finish that completed the line after the fail landed.
+  const [keepTrying, setKeepTrying] = useState(false)
+  const [lateSolve, setLateSolve] = useState(false)
   const [themes, setThemes] = useState<ThemeCount[]>([])
   const [theme, setThemeState] = useState<string | null>(null)
 
@@ -123,6 +140,16 @@ export function usePuzzleSession(): PuzzleSession {
   const startMsRef = useRef(0)
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const loadTokenRef = useRef(0)
+  // One rated attempt per presented puzzle: set on the first finish (solve or
+  // fail), cleared only when a NEW puzzle loads. retry() intentionally leaves it
+  // set — a retried run replays the solve/fail UX without recording or moving
+  // the streak (mirrors daily-session's reportedRef).
+  const attemptedRef = useRef(false)
+  // True once THIS presentation was recorded as failed (first wrong move, skip
+  // or reveal). A later solve of the same run must still read as failed — the
+  // solved flash/count is gated on it. Reset with attemptedRef on a new puzzle
+  // and on retry() (a fresh practice replay shows the normal solve UX).
+  const failedRef = useRef(false)
   // Latest rating, readable inside async callbacks without re-subscribing.
   const ratingRef = useRef(1500)
   const themeRef = useRef<string | null>(null)
@@ -188,6 +215,9 @@ export function usePuzzleSession(): PuzzleSession {
       setDelta(null)
       setRatingAfter(null)
       setHintStage(0)
+      setKeepTrying(false)
+      setLateSolve(false)
+      failedRef.current = false
       solutionIdxRef.current = 1
 
       const m0 = p.moves[0]
@@ -231,6 +261,9 @@ export function usePuzzleSession(): PuzzleSession {
     setDelta(null)
     setRatingAfter(null)
     setHintStage(0)
+    setKeepTrying(false)
+    setLateSolve(false)
+    failedRef.current = false
 
     const api = window.api?.puzzles
     if (!api) {
@@ -270,6 +303,7 @@ export function usePuzzleSession(): PuzzleSession {
         }
         excludeRef.current.push(next.id)
         if (excludeRef.current.length > EXCLUDE_CAP) excludeRef.current.shift()
+        attemptedRef.current = false // new puzzle: its next finish is the rated one
         setPuzzle(next)
         startLeadInRef.current(next, token)
       })
@@ -342,16 +376,22 @@ export function usePuzzleSession(): PuzzleSession {
           setNonce((n) => n + 1) // snap board back; not a fail
           return
         }
-        // Legal but wrong -> fail. Do not mutate fen; show the right move.
-        const right = applyMove(fen, expected.slice(0, 2), expected.slice(2, 4), promoRole(expected))
-        setCorrectSan(right?.san ?? null)
-        setLastMove(uciToLastMove(expected))
+        // Legal but wrong -> retry-on-wrong: the FIRST wrong move records the
+        // fail (rating + streak, exactly as before) but the answer is NOT
+        // revealed and the phase stays 'solving' — the board snaps back and the
+        // learner keeps trying (a late solve still reads as failed), or bails
+        // out via skip()/showSolution(). Further wrong tries just snap back.
         setHintStage(0)
         setNonce((n) => n + 1)
-        setPhase('failed')
+        setKeepTrying(true)
         play('puzzleFailed') // soft, non-punishing error cue
-        recordAttempt(false, puzzle, Math.round(performance.now() - startMsRef.current))
-        setStreak(0)
+        if (!attemptedRef.current) {
+          // First outcome for this puzzle counts; a retried run is practice only.
+          attemptedRef.current = true
+          failedRef.current = true
+          recordAttempt(false, puzzle, Math.round(performance.now() - startMsRef.current))
+          setStreak(0)
+        }
         return
       }
 
@@ -370,19 +410,28 @@ export function usePuzzleSession(): PuzzleSession {
       solutionIdxRef.current = nextIdx
 
       if (nextIdx >= puzzle.moves.length) {
-        // Solved.
-        setPhase('solved')
-        play('puzzleSolved') // pleasant success cue
-        recordAttempt(true, puzzle, Math.round(performance.now() - startMsRef.current))
-        setStreak((s) => {
-          const ns = s + 1
-          setBest((b) => {
-            const nb = Math.max(b, ns)
-            if (nb !== b) saveBestStreak(nb)
-            return nb
+        // Line complete. If a fail was already recorded (retry-on-wrong), the
+        // finish still READS as failed: it ends the puzzle, it does not un-fail.
+        const late = failedRef.current
+        setKeepTrying(false)
+        setLateSolve(late)
+        setPhase(late ? 'failed' : 'solved')
+        play(late ? 'puzzleFailed' : 'puzzleSolved')
+        if (!attemptedRef.current) {
+          // First outcome for this puzzle counts; a retried run (e.g. replaying
+          // the shown line after a fail) must not re-rate or grow the streak.
+          attemptedRef.current = true
+          recordAttempt(true, puzzle, Math.round(performance.now() - startMsRef.current))
+          setStreak((s) => {
+            const ns = s + 1
+            setBest((b) => {
+              const nb = Math.max(b, ns)
+              if (nb !== b) saveBestStreak(nb)
+              return nb
+            })
+            return ns
           })
-          return ns
-        })
+        }
         return
       }
 
@@ -416,6 +465,43 @@ export function usePuzzleSession(): PuzzleSession {
     const token = ++loadTokenRef.current
     startLeadInRef.current(puzzle, token)
   }, [puzzle])
+
+  // ---- Give up: skip records a fail (once) and moves straight on ----
+  const skip = useCallback(() => {
+    if (!puzzle || phase !== 'solving') return
+    clearTimers()
+    if (!attemptedRef.current) {
+      attemptedRef.current = true
+      failedRef.current = true
+      recordAttempt(false, puzzle, Math.round(performance.now() - startMsRef.current))
+      setStreak(0)
+    }
+    loadNextRef.current()
+  }, [puzzle, phase, clearTimers, recordAttempt])
+
+  // ---- Reveal the answer: records the fail (once) and lands in the classic
+  // failed state (expected move highlighted + its SAN), leaving Retry/Next. ----
+  const showSolution = useCallback(() => {
+    if (!puzzle || phase !== 'solving') return
+    clearTimers()
+    const expected = puzzle.moves[solutionIdxRef.current]
+    if (!attemptedRef.current) {
+      attemptedRef.current = true
+      failedRef.current = true
+      recordAttempt(false, puzzle, Math.round(performance.now() - startMsRef.current))
+      setStreak(0)
+    }
+    if (expected) {
+      const right = applyMove(fen, expected.slice(0, 2), expected.slice(2, 4), promoRole(expected))
+      setCorrectSan(right?.san ?? null)
+      setLastMove(uciToLastMove(expected))
+    }
+    setKeepTrying(false)
+    setLateSolve(false)
+    setHintStage(0)
+    setPhase('failed')
+    play('puzzleFailed')
+  }, [puzzle, phase, fen, clearTimers, recordAttempt, play])
 
   const next = useCallback(() => {
     loadNextRef.current()
@@ -455,12 +541,16 @@ export function usePuzzleSession(): PuzzleSession {
     hintFrom,
     hintTo,
     revealSan,
+    keepTrying,
+    lateSolve,
     themes,
     theme,
     onUserMove,
     next,
     retry,
     bumpHint,
+    skip,
+    showSolution,
     setTheme
   }
 }

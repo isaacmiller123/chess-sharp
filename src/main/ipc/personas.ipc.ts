@@ -1,18 +1,19 @@
 import { z } from 'zod'
 import { handle } from './util'
-import { PERSONAS } from '../personas/personas'
+import { listPersonas } from '../personas/personas'
 import { selectMove } from '../personas/select'
 
 // GM-style persona backend (docs/feature-addendum.md §2b). Two channels:
-//   personas:list -> the static catalog (renderer builds the opponent gallery).
+//   personas:list -> the data-driven catalog (renderer builds the opponent gallery).
 //   personas:move -> a style-weighted move for {fen, personaId}.
 //
-// No DB tables are needed for this unit: personas are a static catalog and games
-// against them are persisted by the existing `games` domain (opponent_kind='persona',
-// opponent_label / opponent_elo). Real per-player opening books are a later add.
+// No DB tables are needed for this unit: personas are a static catalog (loaded
+// from resources/personas/personas.json) and games against them are persisted by
+// the existing `games` domain (opponent_kind='persona', opponent_label /
+// opponent_elo). Per-player opening books live in resources/personas/books.json.
 
 export function registerPersonas(): void {
-  handle('personas:list', z.object({}).strict(), () => ({ personas: PERSONAS }))
+  handle('personas:list', z.object({}).strict(), () => ({ personas: listPersonas() }))
 
   handle(
     'personas:move',

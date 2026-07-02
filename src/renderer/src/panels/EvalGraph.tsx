@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { ReviewMoveEval } from '@shared/types'
-import { badgeTone, isNotableBadge } from './moveBadges'
+import { badgeMeta, isNotableBadge } from '../features/analysis/badges'
 
 export interface EvalGraphProps {
   moveEvals: ReviewMoveEval[]
@@ -31,7 +31,10 @@ export function EvalGraph({ moveEvals, currentPly, onSeek }: EvalGraphProps) {
   const { areaPath, linePath, points, midY } = useMemo(() => {
     const step = n > 1 ? (vbW - 12) / (n - 1) : 0
     const xs = moveEvals.map((_, i) => 6 + i * step)
-    const ys = moveEvals.map((m) => yFor(m.winAfter))
+    // winAfter is mover-POV (see MoveEval in main/review/review.ts); convert to
+    // white-POV per ply or every black move mirrors across the midline and the
+    // chart saw-tooths between the two sides.
+    const ys = moveEvals.map((m) => yFor(m.color === 'white' ? m.winAfter : 100 - m.winAfter))
     const pts = moveEvals.map((m, i) => ({ x: xs[i], y: ys[i], m, ply: m.ply }))
 
     const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ')
@@ -77,7 +80,7 @@ export function EvalGraph({ moveEvals, currentPly, onSeek }: EvalGraphProps) {
             <g key={p.ply} className="eg-pt-group" onClick={() => onSeek(p.ply)}>
               {/* Wide invisible hit target for easy clicking. */}
               <rect x={p.x - 6} y={0} width={12} height={VB_H} className="eg-hit" />
-              {notable && <circle cx={p.x} cy={p.y} r={2.6} className={`eg-mark tone-${badgeTone(p.m.badge)}`} />}
+              {notable && <circle cx={p.x} cy={p.y} r={2.6} className={`eg-mark tone-${badgeMeta(p.m.badge).tone}`} />}
               {isCurrent && <circle cx={p.x} cy={p.y} r={3.4} className="eg-current" />}
             </g>
           )

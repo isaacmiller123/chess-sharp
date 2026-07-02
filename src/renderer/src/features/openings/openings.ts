@@ -24,10 +24,36 @@ export interface OpeningEntry {
   name: string
   /** ECO code for the listed mainline. */
   eco: string
-  /** Family used to group/filter in the UI (by ECO volume). */
+  /** Filter-tab group in the UI (by ECO volume). */
   group: string
   /** Mainline as SAN tokens, e.g. ['e4','e5','Nf3','Nc6','Bb5']. */
   line: string[]
+  /** Parent opening — the name before ':' ("Sicilian Defense"), or the whole
+   *  name when the entry has no variation suffix. */
+  family: string
+  /** Variation suffix — the name after ':' ("Najdorf Variation"); '' when the
+   *  entry IS the family mainline (no colon in the book name). */
+  variation: string
+  /** What the browser prints for this line under its family. Usually the
+   *  variation suffix; bare mainline entries become "Main line", and when a
+   *  family carries several bare depth-checkpoints (the book lists e.g.
+   *  "Sicilian Defense" at B20, B27 and B50) each is disambiguated with its
+   *  last move: "Main line · 2…d6". */
+  variationLabel: string
+}
+
+/** A parent opening with all of its book variations, for the two-level browser. */
+export interface OpeningFamily {
+  /** Unique key = the family name. */
+  key: string
+  name: string
+  /** Total variations in the family (incl. the mainline entry, when present). */
+  count: number
+  /** ECO range across the family's lines, e.g. B20–B99 for the Sicilian. */
+  ecoLo: string
+  ecoHi: string
+  /** Mainline entry first (if the book has one), then ECO/name order. */
+  variations: OpeningEntry[]
 }
 
 /** A single resolved ply in an opening line. */
@@ -53,16 +79,75 @@ function groupForEco(eco: string): string {
 
 // ---- Full opening book (generated; sorted by name) -----------------------
 
-export const OPENINGS: OpeningEntry[] = (OPENINGS_DB as RawOpening[]).map((o, i) => ({
-  id: `${o.eco}-${i}`,
-  name: o.name,
-  eco: o.eco,
-  group: groupForEco(o.eco),
-  line: o.san
-}))
+export const OPENINGS: OpeningEntry[] = (OPENINGS_DB as RawOpening[]).map((o, i) => {
+  const colon = o.name.indexOf(':')
+  const variation = colon === -1 ? '' : o.name.slice(colon + 1).trim()
+  return {
+    id: `${o.eco}-${i}`,
+    name: o.name,
+    eco: o.eco,
+    group: groupForEco(o.eco),
+    line: o.san,
+    family: (colon === -1 ? o.name : o.name.slice(0, colon)).trim(),
+    variation,
+    variationLabel: variation || 'Main line' // refined during the FAMILIES build
+  }
+})
 
 /** Filter-chip groups in canonical ECO order (A..E). */
 export const OPENING_GROUPS: string[] = ['Flank & English', 'Semi-Open', 'Open & French', "Queen's Pawn", 'Indian']
+
+// ---- Families (two-level browser) -----------------------------------------
+// Book names follow the "Family: Variation" convention, so grouping on the
+// prefix reconstructs the opening tree. Families are pre-sorted by popularity
+// (variation count is the best proxy the CC0 book carries — the Sicilian's 385
+// named lines vs. a one-line gambit), ties broken by name; the view re-weights
+// per group tab. A family's variations put the bare mainline entry first, then
+// canonical ECO order (which clusters sibling systems, e.g. Najdorf B90–B99).
+
+/** "1.e4" / "2…d6" tag for the final move of a SAN line (depth checkpoint). */
+function lastMoveTag(line: string[]): string {
+  const i = line.length - 1
+  if (i < 0) return ''
+  return `${Math.floor(i / 2) + 1}${i % 2 === 0 ? '.' : '…'}${line[i]}`
+}
+
+export const FAMILIES: OpeningFamily[] = (() => {
+  const byName = new Map<string, OpeningEntry[]>()
+  for (const o of OPENINGS) {
+    const list = byName.get(o.family)
+    if (list) list.push(o)
+    else byName.set(o.family, [o])
+  }
+  const out: OpeningFamily[] = []
+  for (const [name, variations] of byName) {
+    variations.sort((a, b) => {
+      // Family mainline (no variation suffix) leads; bare depth-checkpoints
+      // shallowest-first so the family reads root -> deeper book positions.
+      if (!a.variation !== !b.variation) return a.variation ? 1 : -1
+      if (a.eco !== b.eco) return a.eco < b.eco ? -1 : 1
+      if (a.line.length !== b.line.length) return a.line.length - b.line.length
+      return a.name.localeCompare(b.name)
+    })
+    // Disambiguate repeated bare "Main line" rows with their last move.
+    const bare = variations.filter((v) => !v.variation)
+    if (bare.length > 1) {
+      for (const v of bare) {
+        const tag = lastMoveTag(v.line)
+        if (tag) v.variationLabel = `Main line · ${tag}`
+      }
+    }
+    let ecoLo = variations[0].eco
+    let ecoHi = ecoLo
+    for (const v of variations) {
+      if (v.eco < ecoLo) ecoLo = v.eco
+      if (v.eco > ecoHi) ecoHi = v.eco
+    }
+    out.push({ key: name, name, count: variations.length, ecoLo, ecoHi, variations })
+  }
+  out.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+  return out
+})()
 
 /**
  * Resolve a SAN line into per-ply { san, uci, fen }. Walks from the initial

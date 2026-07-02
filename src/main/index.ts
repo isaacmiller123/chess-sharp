@@ -3,12 +3,14 @@ import path from 'node:path'
 import { registerIpc } from './ipc/registry'
 import { installCsp, hardenWindow } from './security'
 import { createWindow } from './window'
+import { installAppMenu } from './menu'
 import { closeDbs } from './db/database'
 
 // ---- DEV CONTAINMENT (architecture §8) --------------------------------------
 // In development, redirect Electron's userData + sessionData INTO the project so
-// no app data ever lands in %APPDATA% or on the Desktop. Must run before `ready`.
-// In production, userData keeps its OS-default location.
+// no app data ever lands in the per-user app-data folder (%APPDATA% on Windows,
+// ~/Library/Application Support on macOS) or on the Desktop. Must run before
+// `ready`. In production, userData keeps its OS-default location.
 if (!app.isPackaged) {
   const devData = path.join(__dirname, '../../.devdata')
   app.setPath('userData', devData)
@@ -17,6 +19,7 @@ if (!app.isPackaged) {
 
 app.whenReady().then(() => {
   installCsp(app.isPackaged)
+  installAppMenu()
   registerIpc()
   const win = createWindow()
   hardenWindow(win)

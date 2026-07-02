@@ -1,0 +1,1881 @@
+{
+ "id": "ch26-rook-endgames",
+ "band": "26",
+ "order": 26,
+ "title": "Rook Endgames",
+ "subtitle": "The Lucena and Philidor, the rook on the seventh, the active rook, and the cut-off king — the most common endgame on earth.",
+ "estMinutes": 40,
+ "concepts": [
+  {
+   "id": "lucena",
+   "name": "The Lucena Position",
+   "short": "Rook + pawn vs rook, your pawn one step from queening with your king in front: build a bridge with the rook to shelter your king from checks and promote."
+  },
+  {
+   "id": "philidor",
+   "name": "The Philidor Defence",
+   "short": "Down a pawn, defending: keep your rook on the third rank until the pawn advances, then drop behind to check the enemy king endlessly. A theoretical draw."
+  },
+  {
+   "id": "rook-seventh",
+   "name": "Rook on the Seventh",
+   "short": "A rook on the seventh rank attacks the enemy pawns from behind and pens the king to the back rank. One of the most powerful posts in chess."
+  },
+  {
+   "id": "active-rook",
+   "name": "The Active Rook",
+   "short": "In rook endings, activity beats material. A rook attacking from behind, with freedom, is worth more than a passive rook tied to defence — even a pawn more."
+  },
+  {
+   "id": "cut-off",
+   "name": "Cutting Off the King",
+   "short": "Use your rook to fence the enemy king onto a file or rank it cannot cross. A king cut off from the action cannot help — your pawn and king do the work."
+  },
+  {
+   "id": "rook-behind-passer",
+   "name": "Rooks Behind Passed Pawns",
+   "short": "Place your rook behind a passed pawn — yours or your opponent's. Behind your own it gains scope as the pawn advances; behind theirs it ties their rook down."
+  },
+  {
+   "id": "checking-distance",
+   "name": "Checking Distance",
+   "short": "Defending rook-and-pawn-down: put your king on the pawn's short side and check with your rook from the long side, far from the pawn. With enough distance the enemy king can never approach your rook; too close, and it walks up and shelters behind the pawn."
+  }
+ ],
+ "lessons": [
+  {
+   "id": "l1-active-rook",
+   "title": "Activity Above All",
+   "kind": "concept",
+   "summary": "The first law of rook endings: the active rook outweighs material. Get your rook behind enemy pawns and your king into the game.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up — rook-ending tactics",
+     "intro": {
+      "text": "Rook endgames are the most common endings in all of chess — more games are decided here than in any opening you will ever learn. We begin where they are won and lost: with the rook. Three positions, each a small rook-ending tactic. Find the move."
+     },
+     "puzzle": {
+      "themes": [
+       "rookEndgame"
+      ],
+      "ratingLo": 1450,
+      "ratingHi": 1620,
+      "count": 3
+     }
+    },
+    {
+     "kind": "teach",
+     "title": "Why activity is the law",
+     "steps": [
+      {
+       "fen": "8/5pkp/6p1/8/8/1r6/5PPP/3R2K1 w - - 0 1",
+       "conceptId": "active-rook",
+       "coach": {
+        "conceptId": "active-rook",
+        "text": "Look at the two rooks. Mine on d1 sits at home, guarding nothing, doing nothing. His rook on b3 rakes my third rank, eyeing my pawns from behind. Material is dead level and the pawns mirror each other, so with care this holds — but make no mistake about who is pressing. Black's rook is alive and mine is asleep; he probes for free while I must answer. This is the first law of rook endings: an active rook is worth more than a passive one, and in a sharper position that activity is worth a whole pawn. Remember the post on b3; you want your rook there, not mine.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "b3",
+          "color": "good",
+          "label": "active"
+         },
+         {
+          "kind": "circle",
+          "square": "d1",
+          "color": "bad",
+          "label": "passive"
+         },
+         {
+          "kind": "highlight",
+          "square": "f2",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "g2",
+          "color": "info"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "8/5ppp/5k2/p7/8/8/1r3PPP/4R1K1 w - - 0 1",
+       "conceptId": "active-rook",
+       "coach": {
+        "conceptId": "active-rook",
+        "text": "Here is what activity buys you. Black's rook on b2 raked into White's camp, and on the way it has already won the a-pawn — Black is now a clean passed pawn to the good, with the active rook behind White's pawns while White's rook on e1 is glued to the back rank, defending. This is the law made concrete: an active rook does not just look pretty, it harvests material and then keeps pressing. Do not count pawns first in a rook ending — count activity first, and the pawns follow.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "b2",
+          "color": "good",
+          "label": "active"
+         },
+         {
+          "kind": "circle",
+          "square": "e1",
+          "color": "bad",
+          "label": "tied down"
+         },
+         {
+          "kind": "highlight",
+          "square": "a5",
+          "color": "info",
+          "label": "extra pawn"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "6k1/5ppp/8/8/8/8/r4PPP/4R1K1 b - - 0 1",
+       "conceptId": "active-rook",
+       "coach": {
+        "conceptId": "active-rook",
+        "text": "And here is activity in its purest form — material dead level, three pawns each, the structures mirrored. Yet the two rooks could not be more different. It is Black to move, and his rook on a2, deep on the second rank behind White's pawns, is a beast: it rakes f2, g2 and h2 from behind and ties the White king to their defence. White's rook on e1 sits passive at home, a babysitter. With accurate play White holds this — but Black presses for free the entire game while White only answers, and the smallest slip costs a pawn. THAT is what 'the active rook is worth a pawn' means: equal material, but all the initiative on one side. When you reach a rook ending, your very first thought must be: where is my rook most active, and how do I get it behind his pawns? Activity is the whole game.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a2",
+          "color": "good",
+          "label": "active"
+         },
+         {
+          "kind": "arrow",
+          "from": "a2",
+          "to": "f2",
+          "color": "good"
+         },
+         {
+          "kind": "circle",
+          "square": "e1",
+          "color": "bad",
+          "label": "passive"
+         },
+         {
+          "kind": "highlight",
+          "square": "g2",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "h2",
+          "color": "info"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Choose the active rook",
+     "steps": [
+      {
+       "fen": "6k1/p4pp1/7p/8/8/1r4P1/5P1P/R5K1 w - - 0 1",
+       "conceptId": "active-rook",
+       "coach": {
+        "conceptId": "active-rook",
+        "text": "Your rook sits passive on a1; his rook on b3 already rakes your camp. But the a-file is wide open and his a7-pawn is loose. You want activity — get your rook OFF the back rank and deep into his position. There is one move that storms up the open file all the way to the seventh rank, behind his pawns, snapping off the a-pawn as it lands. Find it.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a1",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "a7",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "a1a7"
+       ],
+       "successLine": {
+        "conceptId": "rook-seventh",
+        "text": "Rxa7 — straight to the seventh, a pawn in hand, behind his pawns and penning the king. Your rook has left its passive home and become the active piece, neutralising his own active rook. That instinct — rook up the open file, deep into his camp — wins more rook endings than any calculation.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "a1",
+          "to": "a7",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "active-rook",
+        "text": "No — that keeps the rook passive. The whole point is ACTIVITY. The a-file is open and the a7-pawn is loose; charge up the file all the way to the seventh, grabbing the pawn as you arrive."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down — make the rook work",
+     "intro": {
+      "text": "Now solve a few more from real games. In each, the winning idea is the active rook — behind the pawns, on an open line, or cutting the king off. Trust activity."
+     },
+     "puzzle": {
+      "themes": [
+       "rookEndgame"
+      ],
+      "ratingLo": 1500,
+      "ratingHi": 1680,
+      "count": 4
+     }
+    }
+   ]
+  },
+  {
+   "id": "l2-cut-off",
+   "title": "Cutting Off the King",
+   "kind": "concept",
+   "summary": "The rook as a fence. Pin the enemy king to one side of the board and it cannot defend or assist — your king and pawn march unopposed.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up — fence the king",
+     "intro": {
+      "text": "In an endgame the king is a fighting piece — unless it is cut off. The rook draws a line the enemy king may not cross, and suddenly it is a spectator. Warm up with a few rook-ending moves, then we study the technique."
+     },
+     "puzzle": {
+      "themes": [
+       "rookEndgame"
+      ],
+      "ratingLo": 1450,
+      "ratingHi": 1620,
+      "count": 3
+     }
+    },
+    {
+     "kind": "teach",
+     "title": "The rook draws the line",
+     "steps": [
+      {
+       "fen": "8/8/8/4k3/8/2P5/8/3RK3 w - - 0 1",
+       "conceptId": "cut-off",
+       "coach": {
+        "conceptId": "cut-off",
+        "text": "A pawn ending decides on the king march; a rook can decide it with a single move. The black king on e5 wants to reach the c-pawn and blockade it. The cleanest way to win these is to cut the king OFF from the pawn entirely. My rook on d1 already holds the d-file — a wall the black king cannot cross. While that fence stands, his king can never touch the pawn, and my king escorts it home. The fence is the whole technique.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "e5",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "d1",
+          "to": "d8",
+          "color": "good",
+          "label": "the wall"
+         },
+         {
+          "kind": "highlight",
+          "square": "c3",
+          "color": "info"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "8/8/8/8/2k5/8/4P3/4KR2 w - - 0 1",
+       "conceptId": "cut-off",
+       "coach": {
+        "conceptId": "cut-off",
+        "text": "Make it concrete. The black king on c4 is hurrying to stop the e-pawn. One rook move freezes him: Rd1, and the rook holds the d-file. The king on c4 cannot step to d3, d4, d5 — the wall forbids it. Now he can run toward the pawn no further; the d-file is a moat. Meanwhile my king escorts the e-pawn up the board, unopposed. A king cut off by even one file from the passed pawn is usually lost.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "c4",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "f1",
+          "to": "d1",
+          "color": "good",
+          "label": "Rd1 — cut off"
+         },
+         {
+          "kind": "highlight",
+          "square": "d4",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "d3",
+          "color": "bad"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "8/8/8/8/8/8/r7/3RK1k1 w - - 0 1",
+       "conceptId": "cut-off",
+       "coach": {
+        "conceptId": "cut-off",
+        "text": "The fence works the other way too — defensively, and against the king's approach. The farther the king is cut off, the better: a king cut off by one file is a worry, by two files a catastrophe. Train your eye to see the line the rook draws. Every time you have a passed pawn and a rook, ask first: can I cut his king off from it? If yes, the rest is technique.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "d1",
+          "to": "d8",
+          "color": "good",
+          "label": "the line"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Build the fence",
+     "steps": [
+      {
+       "fen": "8/8/8/4k3/8/3P4/8/3R1K2 w - - 0 1",
+       "conceptId": "cut-off",
+       "coach": {
+        "conceptId": "cut-off",
+        "text": "You have a d-pawn and a rook; his king on e5 wants to blockade or capture it. Do not chase. Draw the line that keeps his king away from the pawn for good. Cut him off along the e-file.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "e5",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "d3",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "d1e1"
+       ],
+       "successLine": {
+        "conceptId": "cut-off",
+        "text": "Re1+ — exactly. The rook seizes the e-file and the king is shoved off it: f5, f6, f-anything, but never back toward the pawn. Cut off by a file, his king is a bystander. Now your king walks the d-pawn home. The fence, then the march.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "d1",
+          "to": "e1",
+          "color": "good"
+         },
+         {
+          "kind": "highlight",
+          "square": "d4",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "d5",
+          "color": "bad"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "cut-off",
+        "text": "Not that. The idea is to fence his king OFF the pawn, not to defend the pawn with the rook. His king is on e5 — put your rook on the e-file so he can never cross back toward the d-pawn."
+       }
+      },
+      {
+       "fen": "8/8/8/8/4k3/8/1KP5/R7 w - - 0 1",
+       "conceptId": "cut-off",
+       "coach": {
+        "conceptId": "cut-off",
+        "text": "Again. Your c-pawn, your king on b2, your rook idle on a1. His king on e4 is hurrying back to blockade or win the pawn. Before he reaches the c-file, slam the gate: put the rook on the d-file so his king can never cross it. One move builds the wall.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "e4",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "c2",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "a1d1"
+       ],
+       "successLine": {
+        "conceptId": "cut-off",
+        "text": "Rd1 — the gate slams shut. The black king is stranded east of the d-file: d5, d4, d3 are all forbidden. The c-pawn and your king now march to promotion with nothing to stop them. Cut off first, push second.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "a1",
+          "to": "d1",
+          "color": "good"
+         },
+         {
+          "kind": "highlight",
+          "square": "d4",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "d3",
+          "color": "bad"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "cut-off",
+        "text": "The idea is to fence his king off the pawn with the rook, not to push the pawn yet or shuffle the king. His king is on e4 — put your rook on the d-file (Rd1) so he can never cross to the c-pawn."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down — the king cut off",
+     "intro": {
+      "text": "A few more rook endings where the win or the hold depends on the king being cut off. See the line the rook draws before you calculate anything else."
+     },
+     "puzzle": {
+      "themes": [
+       "rookEndgame"
+      ],
+      "ratingLo": 1520,
+      "ratingHi": 1680,
+      "count": 4
+     }
+    }
+   ]
+  },
+  {
+   "id": "l3-lucena",
+   "title": "The Lucena Position — Build the Bridge",
+   "kind": "endgame",
+   "summary": "The most important winning position in all of rook endings: pawn on the seventh, your king in front, the enemy rook checking. Build a bridge with your rook and queen.",
+   "segments": [
+    {
+     "kind": "teach",
+     "title": "The problem: your own king is in the way",
+     "steps": [
+      {
+       "fen": "1K6/1P6/5k2/8/8/8/r7/4R3 w - - 0 1",
+       "conceptId": "lucena",
+       "coach": {
+        "conceptId": "lucena",
+        "text": "This is the Lucena position — the single most important win in rook endings, known for five hundred years. White has a pawn one step from queening on b7, his king sheltering on b8, and the extra rook. It looks trivial. It is not. The black king is cut off far from the pawn, stuck out on f6; the black rook on a2 holds me back with checks. The problem: my own king blocks the pawn. If I move it off b8, the pawn falls or the king is chased off by checks. We must free the king WITHOUT losing the pawn. That is the whole art.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "b8",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "b7",
+          "color": "good"
+         },
+         {
+          "kind": "circle",
+          "square": "a2",
+          "color": "bad",
+          "label": "checks"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "1K6/1P6/5k2/8/4R3/8/r7/8 w - - 0 1",
+       "conceptId": "lucena",
+       "coach": {
+        "conceptId": "lucena",
+        "text": "Step one of the technique: lift the rook to the FOURTH rank. Here the rook has come to e4. Why the fourth? Because that is exactly the distance from which it can later interpose against a check with a gain of tempo — three ranks above the pawn. This rook lift is the foundation of the bridge. Remember the picture: pawn on the seventh, king in front, rook lifted to the fourth, ready to build.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "e1",
+          "to": "e4",
+          "color": "good",
+          "label": "lift to the 4th"
+         },
+         {
+          "kind": "highlight",
+          "square": "b7",
+          "color": "info"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "2K5/1P6/5k2/8/4R3/8/8/r7 w - - 0 1",
+       "conceptId": "lucena",
+       "coach": {
+        "conceptId": "lucena",
+        "text": "Now the king walks out of the corner toward freedom — Kc8 has been played, heading for the open board where the pawn can promote. The black rook keeps checking from the side. Here is the magic. The instant the king reaches a square where a check can be blocked, the rook on the fourth rank slides DOWN to interpose — and because it lands beside the checking rook, the block also wins a tempo. The check is answered and time is gained at once. That is the bridge.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "c8",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "e4",
+          "to": "e8",
+          "color": "good",
+          "label": "ready to bridge"
+         },
+         {
+          "kind": "highlight",
+          "square": "b7",
+          "color": "info"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "8/1P6/5k2/8/4R3/8/8/2K3r1 w - - 0 1",
+       "conceptId": "lucena",
+       "coach": {
+        "conceptId": "lucena",
+        "text": "Picture the finish. The black rook checks the king on the c-file; the king sidesteps toward the pawn; the black rook checks again — and now the rook on e4 drops to c4, blocking the check while shielding the king behind it. Black cannot keep checking; the pawn queens. The fourth-rank rook is the bridge the king walks across. Lift to the fourth, march the king, interpose on the fourth — that sequence wins every Lucena.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "e4",
+          "to": "c4",
+          "color": "good",
+          "label": "the bridge"
+         },
+         {
+          "kind": "highlight",
+          "square": "b7",
+          "color": "good"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Build the bridge yourself",
+     "steps": [
+      {
+       "fen": "1K6/1P6/5k2/8/8/8/r7/4R3 w - - 0 1",
+       "conceptId": "lucena",
+       "coach": {
+        "conceptId": "lucena",
+        "text": "The Lucena, your move. Pawn on b7, king on b8, the black king cut off far from the pawn on f6. Before anything else, prepare the bridge: lift your rook to the fourth rank, three ranks above the pawn, where it will later block a check with tempo. Play the first move of the winning method.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "e1",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "b7",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "e1e4"
+       ],
+       "successLine": {
+        "conceptId": "lucena",
+        "text": "Re4 — the rook lift, the heart of the technique. From the fourth rank it can drop in to block a side-check and hit the checking rook at the same time. Now your king walks out toward the checks, and when they come, the bridge on the fourth rank carries it across. That single idea wins the most important ending in chess.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "e1",
+          "to": "e4",
+          "color": "good",
+          "label": "the 4th rank"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "lucena",
+        "text": "Not yet. The king cannot leave b8 safely while the black rook checks freely — you must first prepare the shelter. Lift your rook to the FOURTH rank (Re4) so it can later block a check with gain of tempo. That is the bridge."
+       }
+      },
+      {
+       "fen": "2K5/1P6/5k2/8/4R3/8/8/r7 w - - 0 1",
+       "conceptId": "lucena",
+       "coach": {
+        "conceptId": "lucena",
+        "text": "The rook is lifted to the fourth, your king has reached c8, and the black rook on a1 is ready to harass it. Now march the king OUT into the open board, toward the center and the bridge, so your rook on e4 can shield it from the next check. Step the king forward off the back rank.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "c8",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "e4",
+          "color": "good"
+         },
+         {
+          "kind": "highlight",
+          "square": "b7",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "c8d7",
+        "c8c7"
+       ],
+       "successLine": {
+        "conceptId": "lucena",
+        "text": "Kd7 — the king strides out toward the open board, escorted by its rook on the fourth (Kc7 also walks out behind the pawn). When the side-check comes, Re4 drops down to interpose with tempo — the bridge — and the b-pawn queens. King out, rook bridges, pawn promotes.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "c8",
+          "to": "d7",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "lucena",
+        "text": "Walk the king forward off the back rank, out toward the center where your rook on the fourth can shield it. Shuffling back into the corner only lets the checks continue forever."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down — pawn races and promotions",
+     "intro": {
+      "text": "The Lucena is about shepherding a pawn home against a rook. Solve a few endings where a passed pawn and an active rook combine to promote or win decisive material."
+     },
+     "puzzle": {
+      "themes": [
+       "rookEndgame",
+       "promotion"
+      ],
+      "ratingLo": 1500,
+      "ratingHi": 1680,
+      "count": 4
+     }
+    }
+   ]
+  },
+  {
+   "id": "l4-philidor",
+   "title": "The Philidor Defence — Hold the Draw",
+   "kind": "endgame",
+   "summary": "The other side of the Lucena: how to DRAW rook-and-pawn-down. Hold the third rank, then check from behind. A two-hundred-year-old fortress.",
+   "segments": [
+    {
+     "kind": "teach",
+     "title": "The third-rank fortress",
+     "steps": [
+      {
+       "fen": "4k3/8/r7/4PK2/8/8/8/7R b - - 0 1",
+       "conceptId": "philidor",
+       "coach": {
+        "conceptId": "philidor",
+        "text": "You will not always be the one a pawn up. Here you are Black, a pawn DOWN, and you must hold the draw. This is the Philidor — the most important drawing method in rook endings. The secret is the rook on the sixth rank, on a6: a wall across the board. It stops the white king from ever reaching the sixth rank to support the pawn. As long as the pawn is still on the fifth, you simply shuffle the rook along that sixth rank and White can make no progress at all.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "a6",
+          "to": "h6",
+          "color": "good",
+          "label": "the wall"
+         },
+         {
+          "kind": "circle",
+          "square": "f5",
+          "color": "bad",
+          "label": "king barred"
+         },
+         {
+          "kind": "highlight",
+          "square": "e5",
+          "color": "info"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "4k3/7R/4P3/4K3/8/8/8/r7 b - - 0 1",
+       "conceptId": "philidor",
+       "coach": {
+        "conceptId": "philidor",
+        "text": "Now the trigger. The moment White finally pushes the pawn to the sixth — here it has reached e6 — the third-rank wall has done its job and you switch plans. The pawn on e6 now blocks the white king's shelter: it can no longer hide from checks on the sixth rank. So you have dropped the rook to the FIRST rank — to a1, as far back as possible — and from there you check the king from behind. With the pawn no longer able to shield him, the checks never end. That is the draw: hold the sixth, then check from the rear.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a1",
+          "color": "good",
+          "label": "rear checks"
+         },
+         {
+          "kind": "arrow",
+          "from": "a1",
+          "to": "e1",
+          "color": "good"
+         },
+         {
+          "kind": "highlight",
+          "square": "e6",
+          "color": "info"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "4k3/7R/4P3/4K3/8/8/8/r7 w - - 0 1",
+       "conceptId": "philidor",
+       "coach": {
+        "conceptId": "philidor",
+        "text": "Why does the rear check work only AFTER e6? Distance. From the first rank the rook checks across five empty ranks — the king cannot approach to shoo it away, and there is no shelter. Had you started these checks too early, while the pawn was back on e5, the white king would simply walk up the board to your rook and use the pawn as a screen. Timing is everything: wall on the sixth while the pawn is on the fifth, rear checks the instant it reaches the sixth. Learn this and you will save half-points for the rest of your life.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "a1",
+          "to": "a8",
+          "color": "good",
+          "label": "long-range checks"
+         },
+         {
+          "kind": "highlight",
+          "square": "e6",
+          "color": "info"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Hold the fortress",
+     "steps": [
+      {
+       "fen": "4k3/r7/8/4PK2/8/8/8/7R b - - 0 1",
+       "conceptId": "philidor",
+       "coach": {
+        "conceptId": "philidor",
+        "text": "You are Black, a pawn down, defending. The pawn is still on the fifth rank (e5), so this is fortress time, not checking time. Put your rook where it bars the white king from the sixth rank. Build the wall.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a7",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "e5",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "a7a6"
+       ],
+       "successLine": {
+        "conceptId": "philidor",
+        "text": "Ra6 — the third-rank wall, dead across the board. The white king cannot set foot on the sixth rank, so it can never escort the pawn forward. You will shuffle along this rank, doing nothing, and White will make no progress. Hold the sixth while the pawn sits on the fifth.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "a6",
+          "to": "h6",
+          "color": "good",
+          "label": "the wall"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "philidor",
+        "text": "Not yet. While the pawn is still on the fifth rank you defend with the WALL, not with checks. Place the rook on the sixth rank so the white king can never cross it."
+       }
+      },
+      {
+       "fen": "4k3/7R/4P3/4K3/8/r7/8/8 b - - 0 1",
+       "conceptId": "philidor",
+       "coach": {
+        "conceptId": "philidor",
+        "text": "Now the pawn has advanced to the sixth (e6). The wall has served its purpose — switch to plan two. Send the rook as far back as it will go and check the king from behind, where the pawn can no longer shield it.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a3",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "e6",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "a3a1"
+       ],
+       "successLine": {
+        "conceptId": "philidor",
+        "text": "Ra1 — the rear check, the second half of the Philidor. From the first rank the rook lashes the king with checks across an empty board, and the e6-pawn blocks the king's only shelter. White can never make progress. The draw is held. Wall on the sixth, then checks from the rear — never the other way round.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "a1",
+          "to": "e1",
+          "color": "good",
+          "label": "+ and +"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "philidor",
+        "text": "The pawn is on the sixth now, so it is time to check from behind — but from the FIRST rank, as far back as possible, so the king cannot reach your rook. Drop the rook to a1."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down — defend and hold",
+     "intro": {
+      "text": "Defensive rook-ending technique now. In each, the saving idea is activity, a check, or a fortress. Find the move that holds."
+     },
+     "puzzle": {
+      "themes": [
+       "rookEndgame"
+      ],
+      "ratingLo": 1520,
+      "ratingHi": 1680,
+      "count": 4
+     }
+    }
+   ]
+  },
+  {
+   "id": "l5-seventh",
+   "title": "The Rook on the Seventh",
+   "kind": "endgame",
+   "summary": "The most feared post in chess: a rook on the seventh rank devours pawns from behind and jails the king on the back rank. And two of them — the pigs — are decisive.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up — get to the seventh",
+     "intro": {
+      "text": "There is one square a rook craves above all others: the seventh rank, deep in the enemy camp. From there it strikes the pawns where they cannot defend each other — from behind — and pins the king to the back rank. Warm up, then we study the most powerful rook post in the game."
+     },
+     "puzzle": {
+      "themes": [
+       "rookEndgame"
+      ],
+      "ratingLo": 1480,
+      "ratingHi": 1650,
+      "count": 3
+     }
+    },
+    {
+     "kind": "teach",
+     "title": "Why the seventh rank rules",
+     "steps": [
+      {
+       "fen": "6k1/R4ppp/8/8/8/8/5PPP/6K1 w - - 0 1",
+       "conceptId": "rook-seventh",
+       "coach": {
+        "conceptId": "rook-seventh",
+        "text": "Behold the rook on the seventh. From a7 it does two terrible things at once. First, it rakes the enemy pawns on f7, g7, h7 from BEHIND — and a pawn cannot defend itself backwards, so they are chronically weak. Second, it pins the black king to the eighth rank: the king dare not step to f8 or h8 while the rook commands the seventh. One rook, deep in the camp, paralyses a whole position. This is why masters fight so hard to reach the seventh.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "a7",
+          "to": "h7",
+          "color": "good",
+          "label": "rakes the pawns"
+         },
+         {
+          "kind": "circle",
+          "square": "g8",
+          "color": "bad",
+          "label": "king penned"
+         },
+         {
+          "kind": "highlight",
+          "square": "f7",
+          "color": "info"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "6k1/p4ppp/8/8/8/8/5PPP/R5K1 w - - 0 1",
+       "conceptId": "rook-seventh",
+       "coach": {
+        "conceptId": "rook-seventh",
+        "text": "And here is what the seventh wins you — material. The a-file is open; the rook charges down it to a7, capturing the a-pawn AND landing on the seventh in one move. Now it is behind the king's pawns too. A rook that reaches the seventh almost always collects a pawn on the way and stays to torment the rest. When you see an open file pointing into the enemy's seventh rank, take it without a second thought.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "a1",
+          "to": "a7",
+          "color": "good",
+          "label": "Rxa7"
+         },
+         {
+          "kind": "highlight",
+          "square": "a7",
+          "color": "bad"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "6k1/R4pp1/7p/8/8/8/5PPP/2R3K1 w - - 0 1",
+       "conceptId": "rook-seventh",
+       "coach": {
+        "conceptId": "rook-seventh",
+        "text": "Now the nightmare: TWO rooks on the seventh — the pigs, old players call them, because they gobble everything. Double them on the seventh and the enemy king is smothered against the back rank while the rooks munch pawns or hunt mate along the rank. Bring the second rook to c7 here and Black is simply lost — the king cannot breathe and the f7- and g7-pawns fall one by one. Two pigs on the seventh are often worth more than the material they win.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a7",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "c1",
+          "to": "c7",
+          "color": "good",
+          "label": "the second pig"
+         },
+         {
+          "kind": "circle",
+          "square": "g8",
+          "color": "bad"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Seize the seventh",
+     "steps": [
+      {
+       "fen": "6k1/p4ppp/8/8/8/8/5PPP/R5K1 w - - 0 1",
+       "conceptId": "rook-seventh",
+       "coach": {
+        "conceptId": "rook-seventh",
+        "text": "The a-file is open and points straight into Black's camp. Drive your rook to the seventh rank — and snap off a pawn while you are at it. One move does both.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a1",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "a7",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "a1a7"
+       ],
+       "successLine": {
+        "conceptId": "rook-seventh",
+        "text": "Rxa7 — a pawn in hand and the rook planted on the seventh. Now it rakes f7, g7, h7 from behind and pens the king. From here you double rooks or march your king up; Black is tied hand and foot. The seventh rank is the prize of the rook ending.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "a7",
+          "to": "h7",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "rook-seventh",
+        "text": "Use the open a-file. The rook belongs on the seventh rank, behind his pawns — and there is a pawn to grab on a7 as you arrive. Charge down the file."
+       }
+      },
+      {
+       "fen": "6k1/R4pp1/7p/8/8/8/5PPP/2R3K1 w - - 0 1",
+       "conceptId": "rook-seventh",
+       "coach": {
+        "conceptId": "rook-seventh",
+        "text": "One rook already owns the seventh on a7. The king has a little luft on h7, so a back-rank check is only a nuisance — the real crusher is to make it two. The c-file is open: bring the second rook alongside the first and double the pigs on the seventh.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "c1",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "a7",
+          "color": "good"
+         }
+        ]
+       },
+       "solutionUci": [
+        "c1c7"
+       ],
+       "successLine": {
+        "conceptId": "rook-seventh",
+        "text": "Rc7 — two pigs on the seventh. The king is sealed against the back rank, the f7- and g7-pawns are surrounded and fall, and mate threats hang in the air. This is among the most crushing formations in all of chess. When you can double on the seventh, do it — the game usually ends soon after.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "c1",
+          "to": "c7",
+          "color": "good"
+         },
+         {
+          "kind": "circle",
+          "square": "g8",
+          "color": "bad"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "rook-seventh",
+        "text": "Two rooks on the seventh — the pigs — are devastating. The c-file is open; bring the back rook up beside its partner on the seventh rank."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down — the seventh rank in action",
+     "intro": {
+      "text": "From real games: a rook reaches the seventh and the position collapses. Find the move that seizes the seventh, wins the pawn, or delivers the blow it sets up."
+     },
+     "puzzle": {
+      "themes": [
+       "rookEndgame"
+      ],
+      "ratingLo": 1520,
+      "ratingHi": 1700,
+      "count": 4
+     }
+    }
+   ]
+  },
+  {
+   "id": "l6-behind-passer",
+   "title": "Rooks Behind Passed Pawns",
+   "kind": "endgame",
+   "summary": "Tarrasch's law: the rook belongs BEHIND the passed pawn — behind your own to push it, behind the enemy's to stop it. The passive square is in front.",
+   "segments": [
+    {
+     "kind": "teach",
+     "title": "Tarrasch's rule",
+     "steps": [
+      {
+       "fen": "6k1/8/8/8/P7/8/r7/3R3K w - - 0 1",
+       "conceptId": "rook-behind-passer",
+       "coach": {
+        "conceptId": "rook-behind-passer",
+        "text": "Tarrasch gave us a law that wins endings: the rook belongs BEHIND the passed pawn. Look at the a4-pawn. Black's rook on a2 sits behind it — the ideal post. As the pawn advances, that rook gains MORE scope, raking the whole a-file, while it can never be shouldered away. White's rook on d1 is doing nothing for the pawn. The side whose rook is behind the passer holds the trumps. Behind, always behind.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a2",
+          "color": "bad",
+          "label": "perfect"
+         },
+         {
+          "kind": "arrow",
+          "from": "a2",
+          "to": "a4",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "a4",
+          "color": "info"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "8/8/8/8/8/P3k3/r7/4K3 w - - 0 1",
+       "conceptId": "rook-behind-passer",
+       "coach": {
+        "conceptId": "rook-behind-passer",
+        "text": "See the rule cut both ways. Black's rook on a2 sits behind WHITE's passed a-pawn — and so it ties White down completely. The pawn cannot advance without being captured, and White's own rook must waste itself babysitting. A rook behind the ENEMY passer is a jailer: it pins the pawn in place and frees your king to do the real work elsewhere. Behind your own passer it pushes; behind theirs it stops.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a2",
+          "color": "good",
+          "label": "the jailer"
+         },
+         {
+          "kind": "highlight",
+          "square": "a3",
+          "color": "bad"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "8/8/8/3k4/8/P7/8/R3K2r w - - 0 1",
+       "conceptId": "rook-behind-passer",
+       "coach": {
+        "conceptId": "rook-behind-passer",
+        "text": "And the wrong way, for contrast. Here White's rook sits in FRONT of its own a-pawn, on a1, blocking it. To advance the pawn the rook must first get out of its way — a clumsy loss of time, and the rook is passive the whole while. The lesson is burned in by its opposite: a rook in front of a passer is a jailer of its own pawn. Get behind it. Always behind.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a1",
+          "color": "bad",
+          "label": "blocks its own pawn"
+         },
+         {
+          "kind": "highlight",
+          "square": "a3",
+          "color": "info"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Get behind the pawn",
+     "steps": [
+      {
+       "fen": "r5k1/6pp/P7/8/8/8/6PP/3R2K1 w - - 0 1",
+       "conceptId": "rook-behind-passer",
+       "coach": {
+        "conceptId": "rook-behind-passer",
+        "text": "You have a far-advanced passed pawn on a6, but your rook idles on d1 while Black's rook sits passively in FRONT of the pawn on a8. Seize the file Black has wasted: swing your rook to the one square where it supports the pawn from behind. Get onto the a-file, behind your passer.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "d1",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "a6",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "d1a1"
+       ],
+       "successLine": {
+        "conceptId": "rook-behind-passer",
+        "text": "Ra1 — behind your own passer, and Black's rook is condemned to the passive square in front of it. Your pawn now has its proper escort: as it advances toward a8, your rook gains room while Black's just sits and blockades. Your king walks up to help and the pawn costs Black the rook. The rook behind the passer holds all the trumps — you are winning.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "d1",
+          "to": "a1",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "rook-behind-passer",
+        "text": "Remember Tarrasch: the rook belongs BEHIND the passed pawn. Your a6-pawn needs its rook on the a-file behind it, not idling on d1. Swing the rook to a1 — Black's rook in front of the pawn is the passive one."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down — passed pawns and rooks",
+     "intro": {
+      "text": "Endings turning on a passed pawn and the rook that guards or pushes it. Find the move — often it is simply getting the rook to the right side of the pawn."
+     },
+     "puzzle": {
+      "themes": [
+       "rookEndgame"
+      ],
+      "ratingLo": 1520,
+      "ratingHi": 1700,
+      "count": 4
+     }
+    }
+   ]
+  },
+  {
+   "id": "l7-checking-distance",
+   "title": "Checking Distance — Defend From Afar",
+   "kind": "endgame",
+   "summary": "Defending rook-and-pawn-down with side checks: keep your rook far enough from the pawn that the enemy king can never walk up to your rook and shelter behind the pawn. Far enough draws; too close loses.",
+   "segments": [
+    {
+     "kind": "teach",
+     "title": "The far check holds the draw",
+     "steps": [
+      {
+       "fen": "4K3/4P1k1/8/8/8/8/r7/5R2 b - - 0 1",
+       "conceptId": "checking-distance",
+       "coach": {
+        "conceptId": "checking-distance",
+        "text": "A real rook-and-pawn-down defence — both sides have a rook, and you are Black, the pawn down. White's e-pawn is one step from queening on e7 with the king beside it on e8. You cannot blockade; your only resource is to check the white king and never let it find shelter. The saving idea is DISTANCE. Your king sits on g7 — the short side — and your rook lashes from the long side, the a-file, with three empty files (b, c, d) standing between it and the pawn. From that range, every check drives the king and it can never approach your rook to stop them. This is a known draw, held by one thing: checking distance.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "g7",
+          "color": "info",
+          "label": "short side"
+         },
+         {
+          "kind": "arrow",
+          "from": "a2",
+          "to": "a8",
+          "color": "good",
+          "label": "long-side checks"
+         },
+         {
+          "kind": "highlight",
+          "square": "e7",
+          "color": "bad"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "3K4/3P1k2/8/8/8/8/r7/4R3 b - - 0 1",
+       "conceptId": "checking-distance",
+       "coach": {
+        "conceptId": "checking-distance",
+        "text": "Now slide the whole picture one file to the left and watch the draw become a LOSS. Same defender, same rook on a2 — but the pawn is on d7 now, so only TWO empty files stand between the rook and the pawn (b and c), not three. That one file is everything. Black checks: Ra8+, Kc7 — and here is the catastrophe. The white king walks toward the rook (Kc7, Kb7) and the d-pawn screens it from the checks. The king both escapes the checks AND stays close enough to shepherd the pawn. Two empty files is not enough room; the king walks up and shelters behind the pawn. White wins. The only difference from the drawn position is one file of distance.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a2",
+          "color": "bad",
+          "label": "only 2 empty files"
+         },
+         {
+          "kind": "arrow",
+          "from": "d8",
+          "to": "b7",
+          "color": "bad",
+          "label": "king walks up, hides behind pawn"
+         },
+         {
+          "kind": "highlight",
+          "square": "d7",
+          "color": "info"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "4K3/4P1k1/8/8/8/8/r7/5R2 b - - 0 1",
+       "conceptId": "checking-distance",
+       "coach": {
+        "conceptId": "checking-distance",
+        "text": "So the rule, and it is concrete, not a slogan. The defending king goes to the SHORT side of the pawn — the side with fewer files — and the rook checks from the LONG side, where it has room. How much room? Count the EMPTY files standing between your rook and the pawn: you need AT LEAST THREE. Here the rook is on the a-file and the pawn on e, so b, c and d lie empty between them — three clear files, and the draw holds. Drop to only two empty files — rook on a, pawn on d, with just b and c between — and the king walks up the board, shelters behind the pawn, and escapes the checks while still guarding it: that is the lost position you just saw. So when you defend a pawn down, ask first: is my king on the short side, and are there three full empty files between my rook and the pawn on the long side? Three empty files draws; two loses.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "g7",
+          "color": "good",
+          "label": "king: short side"
+         },
+         {
+          "kind": "arrow",
+          "from": "a2",
+          "to": "a8",
+          "color": "good",
+          "label": "rook: long side, far"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Keep your distance",
+     "steps": [
+      {
+       "fen": "4K3/4P1k1/8/8/8/8/r7/5R2 b - - 0 1",
+       "conceptId": "checking-distance",
+       "coach": {
+        "conceptId": "checking-distance",
+        "text": "You are Black, a pawn down, defending. The e-pawn is on the seventh and your king is parked on the short side (g7). Find the move that keeps the white king from ever sheltering — check it from the maximum distance, the far end of the long side.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a2",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "e7",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "a2a8"
+       ],
+       "successLine": {
+        "conceptId": "checking-distance",
+        "text": "Ra8+ — the far check, from the back rank with three empty files between the rook and the pawn. The king has nowhere to hide: it cannot approach your rook, and any shuffle toward the pawn runs into another check. White can make no progress. Distance is the whole defence — the further your rook from the pawn, the safer you are.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "a2",
+          "to": "a8",
+          "color": "good",
+          "label": "far check"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "checking-distance",
+        "text": "Not far enough. A check from close range lets the king walk up to your rook and hide behind the pawn. Send the rook to the FAR end of the long side — all the way back to a8 — and check from there."
+       }
+      },
+      {
+       "fen": "r7/3KP1k1/8/8/8/8/8/5R2 b - - 0 1",
+       "conceptId": "checking-distance",
+       "coach": {
+        "conceptId": "checking-distance",
+        "text": "The defence continues. White's king has crept forward to d7, trying to come round the pawn toward your rook and break the checks. Do not let it. Keep checking from the long side and shove it back — but stay far. Find the check that drives the king without surrendering your distance.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a8",
+          "color": "focus"
+         },
+         {
+          "kind": "circle",
+          "square": "d7",
+          "color": "bad",
+          "label": "king sneaking up"
+         }
+        ]
+       },
+       "solutionUci": [
+        "a8a7"
+       ],
+       "successLine": {
+        "conceptId": "checking-distance",
+        "text": "Ra7+ — checking along the seventh and pinning the king back, still far on the a-file with the empty long side between. The king must retreat or block, and you simply keep lashing it from afar. As long as your rook holds its distance on the long side, the white king can never both escape the checks and protect the pawn. The draw holds itself.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "a8",
+          "to": "a7",
+          "color": "good",
+          "label": "still far — keep checking"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "checking-distance",
+        "text": "Keep the rook FAR. A close check (Rd8+) lets the pawn promote or the king capture; blocking loses the pawn shelter. Check again from the long side — Ra7+ — driving the king back while keeping the empty files between your rook and the pawn."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down — hold with checks",
+     "intro": {
+      "text": "Defensive rook endings where range decides. Find the check or the rook post that keeps the enemy king at bay and holds the balance."
+     },
+     "puzzle": {
+      "themes": [
+       "rookEndgame"
+      ],
+      "ratingLo": 1520,
+      "ratingHi": 1700,
+      "count": 4
+     }
+    }
+   ]
+  },
+  {
+   "id": "l8-mixed-review",
+   "title": "Putting It Together — Mixed Review",
+   "kind": "practice",
+   "summary": "Lucena, Philidor, the seventh, the active rook, the cut-off king, rooks behind passers — all in one drill. Recognise which idea the position demands.",
+   "segments": [
+    {
+     "kind": "teach",
+     "title": "Six ideas, one toolbox",
+     "steps": [
+      {
+       "fen": "6k1/5ppp/8/8/8/8/r4PPP/4R1K1 b - - 0 1",
+       "conceptId": "active-rook",
+       "coach": {
+        "conceptId": "active-rook",
+        "text": "Before you drill, fix the map of the chapter in your head. The whole subject reduces to a handful of questions you ask in every rook ending. First and always: where is the active rook? It is Black to move here, material is dead level, and his rook on a2 — behind White's pawns, raking f2, g2 and h2 while the passive e1-rook babysits — gives Black all the initiative for free. That activity is what we mean when we say it is 'worth a pawn': equal material, but the pressure runs one way. Activity before material — that is the master key, and the rest are special cases of it.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a2",
+          "color": "good",
+          "label": "active"
+         },
+         {
+          "kind": "circle",
+          "square": "e1",
+          "color": "bad",
+          "label": "passive"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "1K6/1P6/5k2/8/8/8/r7/4R3 w - - 0 1",
+       "conceptId": "lucena",
+       "coach": {
+        "conceptId": "lucena",
+        "text": "Then the two named positions that decide pawn-up and pawn-down. A pawn up with your king in front of the pawn and the enemy king cut off — that is the LUCENA, and you WIN it by building the bridge: lift the rook to the fourth, walk the king out, block the side-check with tempo. Recognise the picture and the win is automatic.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "e1",
+          "to": "e4",
+          "color": "good",
+          "label": "Lucena: build the bridge"
+         },
+         {
+          "kind": "highlight",
+          "square": "b7",
+          "color": "info"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "4k3/8/r7/4PK2/8/8/8/7R b - - 0 1",
+       "conceptId": "philidor",
+       "coach": {
+        "conceptId": "philidor",
+        "text": "A pawn down, defending — that is the PHILIDOR, and you DRAW it: hold the rook on the third rank (the sixth, here, from your side) until the pawn advances, then drop behind for endless rear checks. Lucena to win, Philidor to draw — the two pillars of the whole chapter. Know which one you are in and you will rarely go wrong.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "a6",
+          "to": "h6",
+          "color": "good",
+          "label": "Philidor: hold the 3rd"
+         },
+         {
+          "kind": "highlight",
+          "square": "e5",
+          "color": "info"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Name the idea, play the move",
+     "steps": [
+      {
+       "fen": "6k1/p4pp1/7p/8/8/1r4P1/5P1P/R5K1 w - - 0 1",
+       "conceptId": "active-rook",
+       "coach": {
+        "conceptId": "active-rook",
+        "text": "Which idea? Your rook languishes on a1; the a-file is open and his a7-pawn is loose. Activate it — up the file and onto the seventh, behind his pawns, grabbing the pawn as you go.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a1",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "a7",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "a1a7"
+       ],
+       "successLine": {
+        "conceptId": "rook-seventh",
+        "text": "Rxa7 — the active rook charging up the open file to the seventh, a pawn in hand and behind his pawns. Activity first, always.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "a1",
+          "to": "a7",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "active-rook",
+        "text": "Activity. The a-file is open and the a7-pawn is loose — drive the rook up it, off the passive back rank, to the seventh rank."
+       }
+      },
+      {
+       "fen": "6k1/p4ppp/8/8/8/8/5PPP/R5K1 w - - 0 1",
+       "conceptId": "rook-seventh",
+       "coach": {
+        "conceptId": "rook-seventh",
+        "text": "Which idea? An open file points into his seventh rank, and there is a loose pawn on a7. Seize the seventh and grab the pawn in one stroke.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a1",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "a7",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "a1a7"
+       ],
+       "successLine": {
+        "conceptId": "rook-seventh",
+        "text": "Rxa7 — a pawn won and the rook on the seventh, raking his pawns and penning his king. The most powerful post in the ending.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "a7",
+          "to": "h7",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "rook-seventh",
+        "text": "The seventh rank. Charge the open a-file and capture on a7 — a pawn in hand and the rook deep in his camp."
+       }
+      },
+      {
+       "fen": "4k3/r7/8/4PK2/8/8/8/7R b - - 0 1",
+       "conceptId": "philidor",
+       "coach": {
+        "conceptId": "philidor",
+        "text": "Which idea? You are Black, a pawn down, the enemy pawn still on the fifth. This is the defence — build the wall that bars the white king from the sixth rank.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a7",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "e5",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "a7a6"
+       ],
+       "successLine": {
+        "conceptId": "philidor",
+        "text": "Ra6 — the Philidor third-rank wall. While the pawn sits on the fifth, the white king can never cross to the sixth, and you hold the draw. When the pawn finally pushes to the sixth, you drop behind and check from the rear.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "a6",
+          "to": "h6",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "philidor",
+        "text": "Philidor. The pawn is still on the fifth, so defend with the WALL: put your rook on the sixth rank to keep the white king out."
+       }
+      },
+      {
+       "fen": "r5k1/6pp/P7/8/8/8/6PP/3R2K1 w - - 0 1",
+       "conceptId": "rook-behind-passer",
+       "coach": {
+        "conceptId": "rook-behind-passer",
+        "text": "Which idea? You have a far-advanced passed a-pawn; your rook idles on d1 while Black's sits passively in front of the pawn on a8. Put your rook where Tarrasch says it belongs.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "d1",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "a6",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "d1a1"
+       ],
+       "successLine": {
+        "conceptId": "rook-behind-passer",
+        "text": "Ra1 — behind your own passed pawn, the way the rule demands, while Black's rook stays stuck in front of it. It escorts the pawn forward and contests the file. Behind the passer, always behind — and White is winning.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "d1",
+          "to": "a1",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "rook-behind-passer",
+        "text": "Tarrasch's rule. The rook belongs behind the passed pawn — swing it to a1, behind your a-pawn."
+       }
+      },
+      {
+       "fen": "8/8/8/8/4k3/8/1KP5/R7 w - - 0 1",
+       "conceptId": "cut-off",
+       "coach": {
+        "conceptId": "cut-off",
+        "text": "Which idea? Your c-pawn, his king hurrying back on e4. Before it arrives, draw the line it cannot cross.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "e4",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "c2",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "a1d1"
+       ],
+       "successLine": {
+        "conceptId": "cut-off",
+        "text": "Rd1 — the king cut off on the far side of the d-file. Stranded from the pawn, it is a bystander while your king escorts the c-pawn home. Cut off first, push second.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "a1",
+          "to": "d1",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "cut-off",
+        "text": "Cut the king off. Put the rook on the d-file so his king on e4 can never cross to the c-pawn."
+       }
+      },
+      {
+       "fen": "1K6/1P6/5k2/8/8/8/r7/4R3 w - - 0 1",
+       "conceptId": "lucena",
+       "coach": {
+        "conceptId": "lucena",
+        "text": "And the crown of the chapter. Which idea? Pawn on the seventh, king in front, enemy king cut off — the Lucena. Play the first move of the win.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "e1",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "b7",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "e1e4"
+       ],
+       "successLine": {
+        "conceptId": "lucena",
+        "text": "Re4 — the rook lift to the fourth, the first move of the Lucena. The king marches out next and the bridge carries it across to promote. You have the whole toolbox now.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "e1",
+          "to": "e4",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "lucena",
+        "text": "The Lucena. Build the bridge: lift the rook to the fourth rank (Re4) before the king steps out."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down — mixed rook endings",
+     "intro": {
+      "text": "A final mixed set. In each, decide first which idea rules — activity, the seventh, the cut-off, the passer, a named position — then play it."
+     },
+     "puzzle": {
+      "themes": [
+       "rookEndgame"
+      ],
+      "ratingLo": 1540,
+      "ratingHi": 1720,
+      "count": 5
+     }
+    },
+    {
+     "kind": "boss",
+     "title": "Convert the rook ending",
+     "bossFen": "r6k/5ppp/8/8/8/P7/3R1PPP/6K1 w - - 0 1",
+     "bossEngineElo": 1500,
+     "bossUserColor": "white",
+     "bossIntro": {
+      "conceptId": "rook-behind-passer",
+      "text": "Now prove it over the board. You are White, a clean pawn up — that extra passed a-pawn on a3 is your trump, and the kingside is level three against three. His rook sits passively on a8, in FRONT of your passer, doing nothing but blockading. Your job is to convert. Remember Tarrasch: get your rook BEHIND the passer — swing it to a2 — so it gains scope as the pawn advances while his rook stays stuck in front. Then march your king up to help, push the a-pawn, and use everything you have learned: rook behind the passer, the active rook, cut his king off, and a clean Lucena if it comes to a race to a8. Do not let your rook go passive. Play it out and convert."
+     }
+    }
+   ]
+  }
+ ],
+ "test": {
+  "passThreshold": 0.7,
+  "questions": [
+   {
+    "kind": "mc",
+    "prompt": "What is the single most important principle of rook endings?",
+    "options": [
+     "Always trade rooks when you are ahead",
+     "Activity — an active rook is worth more than material, and often more than a pawn",
+     "Keep your rook defending your own pawns at all times",
+     "Push your passed pawn as fast as possible, whatever the rook is doing"
+    ],
+    "answerIndex": 1,
+    "explain": "In rook endings, activity rules. A rook raking the enemy camp from behind or seizing the seventh is worth more than a passive rook — frequently worth a whole pawn. Count activity before you count pawns."
+   },
+   {
+    "kind": "mc",
+    "prompt": "You are a pawn UP, your king is in front of the pawn on the seventh rank, and the enemy king is cut off. Which winning method applies, and what is its key move?",
+    "options": [
+     "The Philidor — hold the third rank",
+     "The Lucena — build a bridge by lifting the rook to the fourth rank",
+     "The Vancura — keep the rook checking from the side",
+     "Simply push the pawn; it queens by itself"
+    ],
+    "answerIndex": 1,
+    "explain": "This is the Lucena position, the most important win in rook endings. You lift the rook to the fourth rank, walk the king out toward the checks, and then interpose the rook on the fourth to block a check with tempo — the bridge — and promote."
+   },
+   {
+    "kind": "mc",
+    "prompt": "You are a pawn DOWN and must defend. The enemy pawn is still on the fifth rank. What is the correct Philidor technique?",
+    "options": [
+     "Start checking the enemy king at once from close range",
+     "Trade your rook for the pawn immediately",
+     "Hold your rook on the third rank to bar the enemy king, then check from behind once the pawn advances to the sixth",
+     "Put your rook in front of the pawn to blockade it"
+    ],
+    "answerIndex": 2,
+    "explain": "The Philidor draw: while the pawn is on the fifth, keep the rook on the third rank so the enemy king can never reach the sixth. The instant the pawn pushes to the sixth, drop the rook to the first rank and check from the rear, where the pawn can no longer shelter the king."
+   },
+   {
+    "kind": "mc",
+    "prompt": "According to Tarrasch's rule, where does a rook belong relative to a passed pawn?",
+    "options": [
+     "In front of the pawn, to blockade it",
+     "Beside the pawn, on the next file",
+     "Behind the pawn — yours to push it, the enemy's to stop it",
+     "It does not matter where the rook stands"
+    ],
+    "answerIndex": 2,
+    "explain": "Rooks belong BEHIND passed pawns. Behind your own, the rook gains scope as the pawn advances; behind the enemy's, it ties their pieces down and freezes the pawn. A rook in front of a passer is a passive jailer of its own pawn."
+   },
+   {
+    "kind": "play",
+    "prompt": "Black to move, a pawn down. The white e-pawn is on the seventh and your king sits on the short side. Black to move — find the move that holds the draw.",
+    "fen": "4K3/4P1k1/8/8/r7/8/8/5R2 b - - 0 1",
+    "solutionUci": [
+     "a4a8"
+    ],
+    "explain": "Ra8+ — the far check. The rook is already on the correct long-side file (the a-file gives three empty files — b, c, d — between it and the e-pawn), but on a4 it sits too near the action up the board. Distance here is measured up the FILE: retreat all the way to the far end, a8, so the white king can never march up to the rook and shelter behind its pawn. From a8 the checks rain down across an empty board and the king can never approach them — and the draw is saved. Far down the long-side file is the whole defence."
+   },
+   {
+    "kind": "judge",
+    "prompt": "A pawn up, the g-pawn one step from queening with the king in front and the enemy king cut off, White has just lifted the rook to d4. Judge the move.",
+    "fen": "6K1/6P1/2k5/8/3R4/8/7r/8 b - - 0 1",
+    "lastMoveUci": "d1d4",
+    "verdict": "correct",
+    "explain": "Correct — this is the Lucena bridge lift, three files from the pawn on the fourth rank. From d4 the rook can later interpose against a side-check with gain of tempo, shielding the king as it walks out from g8 so the g-pawn promotes. The rook lift to the fourth rank is the heart of the most important win in rook endings."
+   },
+   {
+    "kind": "judge",
+    "prompt": "White already had one rook on the seventh rank (d7) and has just brought the second one alongside it with Ra1–a7. Judge the move.",
+    "fen": "6k1/R2R1pp1/7p/8/8/8/5PPP/6K1 b - - 0 1",
+    "lastMoveUci": "a1a7",
+    "verdict": "correct",
+    "explain": "Crushing — two rooks doubled on the seventh, the 'pigs'. The king is smothered on the back rank and the pawns fall while mate threats build along the rank. Doubling rooks on the seventh is one of the most decisive formations in the whole game; here it is winning by force."
+   },
+   {
+    "kind": "judge",
+    "prompt": "Escorting a passed d-pawn, White has just played Re1, throwing a rook across the e-file in front of the enemy king. Judge the move.",
+    "fen": "8/8/8/3P1k2/3K4/8/7r/4R3 b - - 0 1",
+    "lastMoveUci": "a1e1",
+    "verdict": "correct",
+    "explain": "Correct — the rook cuts the black king off on the far side of the e-file, so it can never come round to attack the d-pawn or block its path. With the king fenced out, White's king and pawn march to promotion unopposed. Cut the king off first, then push."
+   },
+   {
+    "kind": "judge",
+    "prompt": "White has a far-advanced passed a-pawn. The rook has just gone to a1, behind the pawn, while Black's rook sits in front of it on a8. Judge White's move.",
+    "fen": "r5k1/8/P7/8/8/8/6PP/R5K1 b - - 0 1",
+    "lastMoveUci": "d1a1",
+    "verdict": "correct",
+    "explain": "Correct, and the model of Tarrasch's rule. White's rook stands BEHIND its own passer, gaining scope as it advances, while Black's rook is condemned to the passive square in FRONT of the pawn, doing nothing but blockading. The rook behind the passer holds all the trumps — White is winning."
+   },
+   {
+    "kind": "judge",
+    "prompt": "Defending a pawn down, Black's king sits right in front of the pawn on e8 (the short side), and Black has just dropped the rook to the back rank with ...Ra1. Judge this defensive decision.",
+    "fen": "4k3/7R/8/4PK2/8/8/8/r7 w - - 0 1",
+    "lastMoveUci": "a6a1",
+    "verdict": "correct",
+    "explain": "Correct — Black holds the draw. Because the king already stands in front of the pawn on the short side (e8), Black does not even need the third-rank wall here: from a1, far back, the rook checks the white king across an empty board, and whenever White advances the pawn the king on e8 simply blocks its path. If White tries 1.e6 then ...Kd8 keeps the king in front and the rook keeps checking; White can make no progress. The short-side king in front of the pawn is a fortress, and ...Ra1 keeps the rook at full checking distance. (The premature-check warning bites only when the king is cut off or on the wrong side — not when it defends frontally like this.)"
+   },
+   {
+    "kind": "judge",
+    "prompt": "Material is level, but both kings still have luft. Black has just played ...Ra2, planting the rook on the second rank behind White's pawns. Judge the move.",
+    "fen": "6k1/5pp1/7p/8/8/8/r4PPP/3R2K1 w - - 0 1",
+    "lastMoveUci": "a3a2",
+    "verdict": "correct",
+    "explain": "Correct — this is the active rook in action. From a2 the rook rakes f2, g2, h2 from behind and shadows the king, while White's rook on d1 is passive. Even with equal material, the side with the active rook holds the initiative and presses for free."
+   },
+   {
+    "kind": "judge",
+    "prompt": "Defending a pawn down against the e-pawn, Black has just checked the white king from c2 — with only the d-file standing empty between the rook and the pawn. Judge this defensive choice.",
+    "fen": "4K3/4P1k1/8/8/8/8/2r5/5R2 w - - 0 1",
+    "lastMoveUci": "a2c2",
+    "verdict": "blunder",
+    "explain": "A blunder — the check is too close. With just one empty file between rook and pawn, the white king simply walks toward the rook and shelters behind its pawn, escaping the checks while keeping the pawn protected, and wins. The defending rook needed at least three empty files on the long side — back on the a-file — so the king could never approach it."
+   }
+  ]
+ },
+ "eloFloor": 1580
+}

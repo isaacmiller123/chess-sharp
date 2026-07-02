@@ -1,18 +1,32 @@
 // SoundManager — offline-first chess sound effects for the renderer.
 //
-// Design decisions (see resources/assets/sound/README.md):
-//   * Zero shipped binary assets by default. Sounds are SYNTHESIZED at runtime
-//     via the WebAudio API. This keeps the app fully offline, dependency-free,
-//     and free of any third-party asset-licensing concerns.
-//   * If a project later drops CC0 sample files into resources/assets/sound/,
-//     the manager will transparently prefer them (see `samplePaths` below) and
-//     fall back to synthesis when a sample is missing or fails to decode.
+// Design decisions:
+//   * Three selectable sound themes (settings.soundTheme):
+//       'standard' — the Lichess open-source "standard" set (see
+//                    ../assets/sounds/ATTRIBUTION.md for source + license);
+//       'classic'  — a chess.com-flavored pack synthesized offline by
+//                    scripts/gen-sounds.mjs (deep wooden thocks);
+//       'real'     — physically-layered wood sounds from the same script, with
+//                    THREE variants per event; the manager picks a different
+//                    variant per play so rapid moves don't sound machine-gun
+//                    identical.
+//   * Samples are bundled as base64 data: URLs via import.meta.glob(?inline).
+//     The packaged app loads the renderer over file:// (see main/window.ts),
+//     where fetch() of emitted asset URLs is not allowed — inlining sidesteps
+//     that with zero IPC and keeps the app fully offline.
+//   * Synthesis fallback: every event also has a WebAudio recipe. If a theme
+//     has no sample for an event or a sample fails to decode, the recipe
+//     plays instead — sound never goes silent because an asset is missing.
 //   * Autoplay policies (Chromium / Electron) suspend an AudioContext created
 //     before a user gesture. We lazily create the context and resume it on the
-//     first user gesture; until then play() is a silent no-op.
+//     first user gesture; until then play() is a silent no-op. (Decoding works
+//     fine on a suspended context, so themes preload eagerly.)
 //
 // The manager is intentionally decoupled from React and from window.api: it is
-// a plain singleton-friendly class. The useSound hook wraps it for components.
+// a plain singleton-friendly class (the SoundTheme import below is type-only —
+// erased at runtime). The useSound hook wraps it for components.
+
+import type { SoundTheme } from '../state/settings'
 
 export type SoundName =
   | 'move'
@@ -26,11 +40,30 @@ export type SoundName =
   | 'puzzleSolved'
   | 'puzzleFailed'
 
+const SOUND_EVENT_NAMES: readonly SoundName[] = [
+  'move',
+  'capture',
+  'check',
+  'castle',
+  'promote',
+  'gameStart',
+  'gameEnd',
+  'lowTime',
+  'puzzleSolved',
+  'puzzleFailed'
+]
+
+/** Local copy of the theme ids so this module stays React-free (the type-only
+ *  import above keeps it honest: a removed id here fails to typecheck). */
+const KNOWN_SOUND_THEMES: readonly SoundTheme[] = ['standard', 'classic', 'real']
+
 export interface SoundManagerOptions {
   /** Master on/off. When false, play() is a no-op. Default: true. */
   enabled?: boolean
   /** 0..1 master gain. Default: 0.6. */
   volume?: number
+  /** Which sample pack to play. Default: 'standard'. */
+  theme?: SoundTheme
 }
 
 const SETTINGS_KEY = 'oct.settings.v1'
@@ -47,9 +80,47 @@ export function readSoundEnabledFromSettings(): boolean {
   }
 }
 
+/** Default master volume — MUST match `DEFAULTS.soundVolume` in state/settings.tsx
+ *  so a fresh install sounds the same before and after the first React render. */
+const DEFAULT_VOLUME = 0.7
+
+/** Read the `soundVolume` pref (0..1) from the shared settings localStorage key,
+ *  so the singleton starts at the user's volume before useSound's effect syncs it. */
+export function readSoundVolumeFromSettings(): number {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY)
+    if (!raw) return DEFAULT_VOLUME
+    const parsed = JSON.parse(raw) as { soundVolume?: unknown }
+    const n = typeof parsed.soundVolume === 'number' ? parsed.soundVolume : NaN
+    return Number.isFinite(n) ? clamp01(n) : DEFAULT_VOLUME
+  } catch {
+    return DEFAULT_VOLUME
+  }
+}
+
+/** Default sound theme — MUST match `DEFAULTS.soundTheme` in state/settings.tsx. */
+const DEFAULT_THEME: SoundTheme = 'standard'
+
+/** Read the `soundTheme` pref from the shared settings localStorage key, so the
+ *  singleton plays the user's pack before useSound's effect syncs it. */
+export function readSoundThemeFromSettings(): SoundTheme {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY)
+    if (!raw) return DEFAULT_THEME
+    const parsed = JSON.parse(raw) as { soundTheme?: unknown }
+    const t = parsed.soundTheme as SoundTheme
+    return KNOWN_SOUND_THEMES.includes(t) ? t : DEFAULT_THEME
+  } catch {
+    return DEFAULT_THEME
+  }
+}
+
 // A synthesized recipe: a short blip built from one or more oscillator partials
 // shaped by a simple attack/decay envelope. Tuned to read as crisp UI ticks,
 // not musical notes — deliberately understated to match the app's polish.
+// These are the FALLBACK voices: they play when a theme ships no sample for an
+// event or the sample fails to decode (and for the first hit while a sample is
+// still decoding), so audio never silently disappears.
 interface Tone {
   type: OscillatorType
   /** Start frequency (Hz). */
@@ -196,11 +267,68 @@ const RECIPES: Record<SoundName, Recipe> = {
   }
 }
 
-// Optional sample overrides. By default none ship; if a project adds CC0 files
-// here, place them under resources/assets/sound/ and Vite's `?url` import or a
-// public-dir path can be wired in. Left empty intentionally — synthesis is the
-// shipped default.
-const samplePaths: Partial<Record<SoundName, string>> = {}
+// ---------------------------------------------------------------------------
+// Sample registry — every file under assets/sounds/<theme>/ ships in the
+// renderer bundle as a base64 data: URL (`?inline`). File name convention:
+//   <event>.mp3|wav          single take        (standard/, classic/)
+//   <event>.<n>.wav          variant n of many  (real/ — 3 takes per event)
+// ---------------------------------------------------------------------------
+
+const SAMPLE_MODULES = import.meta.glob('../assets/sounds/*/*.{mp3,wav,ogg}', {
+  eager: true,
+  query: '?inline',
+  import: 'default'
+}) as Record<string, string>
+
+/** theme -> event -> data URLs (one per variant, variant order preserved). */
+const THEME_SAMPLES: Partial<Record<SoundTheme, Partial<Record<SoundName, string[]>>>> = {}
+
+for (const modulePath of Object.keys(SAMPLE_MODULES).sort()) {
+  const m = /\/sounds\/([^/]+)\/([A-Za-z]+)(?:\.(\d+))?\.(?:mp3|wav|ogg)$/.exec(modulePath)
+  if (!m) continue
+  const theme = m[1] as SoundTheme
+  const event = m[2] as SoundName
+  if (!KNOWN_SOUND_THEMES.includes(theme) || !SOUND_EVENT_NAMES.includes(event)) continue
+  const perTheme = (THEME_SAMPLES[theme] ??= {})
+  ;(perTheme[event] ??= []).push(SAMPLE_MODULES[modulePath])
+}
+
+/**
+ * Per-theme event redirects for events a pack deliberately ships no file for.
+ * The Lichess standard set has no castle/check/promote sounds (its Check.mp3 is
+ * a symlink to Silence upstream) and plays the same "dong" (GenericNotify) for
+ * game start and end — mirror that instead of silently dropping to synthesis.
+ */
+const THEME_ALIASES: Partial<Record<SoundTheme, Partial<Record<SoundName, SoundName>>>> = {
+  standard: { castle: 'move', check: 'move', promote: 'move', gameEnd: 'gameStart' }
+}
+
+/** Decode the payload behind a bundled sample URL (data: from `?inline`, or a
+ *  plain URL if the bundling strategy ever changes). Never throws. */
+async function loadUrlBytes(url: string): Promise<ArrayBuffer | null> {
+  if (url.startsWith('data:')) {
+    // Chromium's fetch handles data: too, but decoding directly avoids a
+    // needless copy through the network stack. Audio assets always inline
+    // base64; anything else is malformed -> null.
+    const comma = url.indexOf(',')
+    if (comma < 0 || !/;base64$/i.test(url.slice(0, comma))) return null
+    try {
+      const bin = atob(url.slice(comma + 1))
+      const bytes = new Uint8Array(bin.length)
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+      return bytes.buffer
+    } catch {
+      return null
+    }
+  }
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    return await res.arrayBuffer()
+  } catch {
+    return null
+  }
+}
 
 type AudioCtor = typeof AudioContext
 
@@ -213,19 +341,31 @@ function getAudioContextCtor(): AudioCtor | null {
   return w.AudioContext ?? w.webkitAudioContext ?? null
 }
 
+/** Gap between the demo sounds played by previewTheme(). */
+const PREVIEW_GAP_MS = 420
+
 export class SoundManager {
   private enabled: boolean
   private volume: number
+  private theme: SoundTheme
   private ctx: AudioContext | null = null
   private master: GainNode | null = null
   private unlocked = false
   private gestureBound = false
-  private readonly buffers = new Map<SoundName, AudioBuffer | null>()
+  /** url -> decoded buffer (null = decode failed; use synthesis forever). */
+  private readonly decoded = new Map<string, AudioBuffer | null>()
+  /** url -> in-flight decode (also caches settled decodes to dedupe work). */
+  private readonly decoding = new Map<string, Promise<AudioBuffer | null>>()
+  /** Last variant played per event, to avoid twice-in-a-row repeats. */
+  private readonly lastVariant = new Map<SoundName, string>()
+  /** Monotone token so a newer previewTheme() supersedes an older one. */
+  private previewSeq = 0
   private readonly boundUnlock: () => void
 
   constructor(opts: SoundManagerOptions = {}) {
     this.enabled = opts.enabled ?? true
     this.volume = clamp01(opts.volume ?? 0.6)
+    this.theme = opts.theme ?? DEFAULT_THEME
     this.boundUnlock = () => {
       void this.unlock()
     }
@@ -246,6 +386,17 @@ export class SoundManager {
     if (this.master && this.ctx) {
       this.master.gain.setValueAtTime(this.volume, this.ctx.currentTime)
     }
+  }
+
+  /** Switch sample pack at runtime; warms the pack's decodes in the background. */
+  setTheme(theme: SoundTheme): void {
+    if (!KNOWN_SOUND_THEMES.includes(theme)) return
+    this.theme = theme
+    this.preloadTheme(theme)
+  }
+
+  getTheme(): SoundTheme {
+    return this.theme
   }
 
   /**
@@ -275,8 +426,11 @@ export class SoundManager {
   }
 
   /**
-   * Play a named sound. No-ops silently when disabled, when no AudioContext is
-   * available, or before the first gesture unlocks autoplay. Never throws.
+   * Play a named sound with the active theme's sample (random variant when the
+   * pack ships several). Falls back to the synthesized recipe while a sample is
+   * still decoding, when a pack has no sample for the event, or when decoding
+   * failed. No-ops silently when disabled or when no AudioContext is available.
+   * Never throws.
    */
   play(name: SoundName): void {
     if (!this.enabled) return
@@ -289,16 +443,46 @@ export class SoundManager {
     }
     this.unlocked = true
 
-    const sample = this.buffers.get(name)
-    if (sample) {
-      this.playBuffer(ctx, sample)
+    const buffer = this.pickReadyBuffer(this.theme, name)
+    if (buffer) {
+      this.playBuffer(ctx, buffer)
       return
     }
-    if (sample === undefined && samplePaths[name]) {
-      // Kick off a one-time async load; play synth this time so it isn't silent.
-      void this.loadSample(name, samplePaths[name] as string)
-    }
+    // Not decoded yet (or nothing shipped): warm the decodes for next time and
+    // voice this hit with the recipe so the event is never silent.
+    for (const url of this.urlsFor(this.theme, name)) void this.ensureDecoded(url)
     this.playSynth(ctx, RECIPES[name])
+  }
+
+  /**
+   * Audition a theme (used by the Settings pickers): plays the given events —
+   * default a move then a capture — with THAT theme's samples, without touching
+   * the active theme. Waits for decodes, so the first press is already
+   * representative; a newer preview cancels an older one's remaining sounds.
+   */
+  async previewTheme(theme: SoundTheme, names: SoundName[] = ['move', 'capture']): Promise<void> {
+    if (!this.enabled || !KNOWN_SOUND_THEMES.includes(theme)) return
+    const seq = ++this.previewSeq
+    const ctx = this.ensureContext()
+    if (!ctx || !this.master) return
+    if (ctx.state === 'suspended') {
+      await ctx.resume().catch(() => {})
+    }
+    for (let i = 0; i < names.length; i++) {
+      const name = names[i]
+      const urls = this.urlsFor(theme, name)
+      let buffer: AudioBuffer | null = null
+      if (urls.length) {
+        buffer = await this.ensureDecoded(urls[Math.floor(Math.random() * urls.length)])
+      }
+      if (seq !== this.previewSeq) return // superseded by a newer preview
+      if (buffer) this.playBuffer(ctx, buffer)
+      else this.playSynth(ctx, RECIPES[name])
+      if (i < names.length - 1) {
+        await delay(PREVIEW_GAP_MS)
+        if (seq !== this.previewSeq) return
+      }
+    }
   }
 
   /** Release audio resources. Safe to call multiple times. */
@@ -311,7 +495,9 @@ export class SoundManager {
     this.ctx = null
     this.master = null
     this.unlocked = false
-    this.buffers.clear()
+    this.decoded.clear()
+    this.decoding.clear()
+    this.lastVariant.clear()
   }
 
   // ---- internals ----------------------------------------------------------
@@ -332,6 +518,69 @@ export class SoundManager {
     this.master = master
     this.unlocked = this.ctx.state === 'running'
     return this.ctx
+  }
+
+  /** Sample URLs for an event in a theme, following the theme's alias table. */
+  private urlsFor(theme: SoundTheme, name: SoundName): string[] {
+    const effective = THEME_ALIASES[theme]?.[name] ?? name
+    return THEME_SAMPLES[theme]?.[effective] ?? []
+  }
+
+  /** A decoded buffer for the event, preferring a variant that differs from the
+   *  last one played (so the 'real' pack never machine-guns one take). */
+  private pickReadyBuffer(theme: SoundTheme, name: SoundName): AudioBuffer | null {
+    const urls = this.urlsFor(theme, name)
+    const ready: { url: string; buffer: AudioBuffer }[] = []
+    for (const url of urls) {
+      const buffer = this.decoded.get(url)
+      if (buffer) ready.push({ url, buffer })
+    }
+    if (ready.length === 0) return null
+    let pool = ready
+    if (ready.length > 1) {
+      const last = this.lastVariant.get(name)
+      const fresh = ready.filter((r) => r.url !== last)
+      if (fresh.length > 0) pool = fresh
+    }
+    const pick = pool[Math.floor(Math.random() * pool.length)]
+    this.lastVariant.set(name, pick.url)
+    return pick.buffer
+  }
+
+  /** Start (or join) decoding one sample. Resolves null on failure — which is
+   *  cached so a bad asset costs one attempt, not one per play. */
+  private ensureDecoded(url: string): Promise<AudioBuffer | null> {
+    const done = this.decoded.get(url)
+    if (done !== undefined) return Promise.resolve(done)
+    const inFlight = this.decoding.get(url)
+    if (inFlight) return inFlight
+    const ctx = this.ensureContext()
+    // No audio stack (tests/SSR): don't cache, so a later call may retry.
+    if (!ctx) return Promise.resolve(null)
+    const task = (async (): Promise<AudioBuffer | null> => {
+      try {
+        const bytes = await loadUrlBytes(url)
+        if (!bytes) return null
+        return await ctx.decodeAudioData(bytes)
+      } catch {
+        return null
+      }
+    })().then((buffer) => {
+      this.decoded.set(url, buffer)
+      return buffer
+    })
+    this.decoding.set(url, task)
+    return task
+  }
+
+  /** Kick off decodes for every sample in a theme (idempotent, fire-and-forget). */
+  private preloadTheme(theme: SoundTheme): void {
+    const samples = THEME_SAMPLES[theme]
+    if (!samples) return
+    if (!this.ensureContext()) return
+    for (const urls of Object.values(samples)) {
+      for (const url of urls) void this.ensureDecoded(url)
+    }
   }
 
   private playSynth(ctx: AudioContext, recipe: Recipe): void {
@@ -409,25 +658,19 @@ export class SoundManager {
     }
   }
 
-  private async loadSample(name: SoundName, url: string): Promise<void> {
-    // Mark as "loading" so we don't fire repeated fetches; null means "no sample".
-    this.buffers.set(name, null)
-    const ctx = this.ensureContext()
-    if (!ctx) return
-    try {
-      const res = await fetch(url)
-      if (!res.ok) return
-      const data = await res.arrayBuffer()
-      const decoded = await ctx.decodeAudioData(data)
-      this.buffers.set(name, decoded)
-    } catch {
-      // Leave as null → permanently falls back to synthesis for this name.
-    }
-  }
-
   /** Exposed for tests/diagnostics. */
-  get state(): { hasContext: boolean; unlocked: boolean; enabled: boolean } {
-    return { hasContext: this.ctx !== null, unlocked: this.unlocked, enabled: this.enabled }
+  get state(): {
+    hasContext: boolean
+    unlocked: boolean
+    enabled: boolean
+    theme: SoundTheme
+  } {
+    return {
+      hasContext: this.ctx !== null,
+      unlocked: this.unlocked,
+      enabled: this.enabled,
+      theme: this.theme
+    }
   }
 }
 
@@ -436,13 +679,23 @@ function clamp01(n: number): number {
   return Math.min(1, Math.max(0, n))
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
+}
+
 // Process-wide singleton. Components should use the useSound hook, which wires
-// this to the live settings flag and to the gesture-unlock listeners.
+// this to the live settings flags and to the gesture-unlock listeners.
 let singleton: SoundManager | null = null
 
 export function getSoundManager(): SoundManager {
   if (!singleton) {
-    singleton = new SoundManager({ enabled: readSoundEnabledFromSettings() })
+    singleton = new SoundManager({
+      enabled: readSoundEnabledFromSettings(),
+      volume: readSoundVolumeFromSettings(),
+      theme: readSoundThemeFromSettings()
+    })
   }
   return singleton
 }

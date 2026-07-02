@@ -382,12 +382,19 @@ resources/
   (asar-packed binaries cannot be executed).
 
 ### 6.2 Path resolution (the classic dev-vs-packaged bug)
+Resolution is **platform-aware off a single code path** (`src/main/datasets/paths.ts`): the binary is
+`stockfish.exe` on Windows and `stockfish` (no extension) on macOS/Linux, under a per-OS subfolder
+(`win`/`mac`/`linux`). An *imported* engine (in `userData/datasets/`) always wins over a *bundled* one, and
+dev resolves relative to `__dirname` while packaged resolves under `process.resourcesPath`:
 ```ts
-const enginePath = app.isPackaged
-  ? path.join(process.resourcesPath, 'engine', 'win', 'stockfish.exe')
-  : path.join(__dirname, '../../resources/engine/win/stockfish.exe');
+const dir  = process.platform === 'win32' ? 'win' : process.platform === 'darwin' ? 'mac' : 'linux';
+const name = process.platform === 'win32' ? 'stockfish.exe' : 'stockfish';
+const bundled = app.isPackaged
+  ? path.join(process.resourcesPath, 'engine', dir, name)
+  : path.join(__dirname, '../../resources/engine', dir, name);
 ```
-(macOS/Linux builds add `chmod +x` in a build step; Windows-first per the addendum.)
+The executable bit is set on macOS/Linux at the moment the binary is written — by the dataset importer for an
+imported engine (`chmod 0o755`), and by `scripts/fetch_engines.py` for a bundled one.
 
 ### 6.3 UCI session protocol (thin hand-rolled wrapper)
 On spawn: `uci` → wait `uciok` → `setoption name Threads value <max(1,physicalCores-1)>` →

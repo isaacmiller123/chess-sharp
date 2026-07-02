@@ -1,0 +1,1186 @@
+{
+ "id": "ch20-french",
+ "band": "20",
+ "order": 20,
+ "title": "The French Defence",
+ "subtitle": "1.e4 e6 2.d4 d5 — build a pawn chain, free the bad bishop, and blow open the centre with ...c5 and ...f6",
+ "estMinutes": 60,
+ "concepts": [
+  {
+   "id": "french-idea",
+   "name": "The French strike",
+   "short": "1...e6 prepares 2...d5 to challenge e4 with support. Black accepts a slightly cramped, ROCK-solid position aimed at counterattacking the centre."
+  },
+  {
+   "id": "pawn-chain",
+   "name": "The pawn chain",
+   "short": "After 3.e5 the pawns lock: White's e5-d4-c3 chain points kingside, Black's d5-e6 chain points queenside. You attack a chain at its BASE — for Black that is d4."
+  },
+  {
+   "id": "bad-bishop",
+   "name": "The bad bishop",
+   "short": "Black's light-squared bishop on c8 is buried behind its own e6/d5 pawns. Solving this 'French bishop' — by ...b6/...Ba6, a ...f6 break, or trading it — is Black's lifelong problem."
+  },
+  {
+   "id": "c5-break",
+   "name": "The ...c5 break",
+   "short": "...c5 strikes d4, the base of White's chain. Pile up with ...Nc6 and ...Qb6 and the d4-pawn becomes White's worry, not yours."
+  },
+  {
+   "id": "f6-break",
+   "name": "The ...f6 break",
+   "short": "...f6 strikes e5, the HEAD of White's chain, opening the f-file and giving the bad bishop air. The two breaks (...c5 at the base, ...f6 at the head) are how Black fights an Advance."
+  },
+  {
+   "id": "exchange-equal",
+   "name": "Meeting the Exchange",
+   "short": "3.exd5 exd5 gives a symmetrical, open position. It is harmless if you play actively — develop the once-bad bishop OUTSIDE the chain and fight for the open e-file."
+  },
+  {
+   "id": "knight-lines",
+   "name": "The Knight & Tarrasch lines",
+   "short": "3.Nc3 and 3.Nd2 defend e4 instead of pushing. Against both, hit the centre with ...c5 or ...Nf6; against 3.Nd2 the freeing ...c5 is especially strong."
+  }
+ ],
+ "lessons": [
+  {
+   "id": "l1-the-idea",
+   "title": "The Idea: 1...e6 and the Pawn Chain",
+   "kind": "opening",
+   "summary": "Why Black plays 1...e6 then 2...d5, and the pawn chain that defines the French after 3.e5.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up: strike the base",
+     "intro": {
+      "text": "The French is a chess of pawn chains and well-timed pawn breaks. Before we open the defence, sharpen the eye on advanced pawns and the tactics that erupt when a locked centre finally cracks."
+     },
+     "puzzle": {
+      "themes": [
+       "advancedPawn",
+       "fork"
+      ],
+      "ratingLo": 1450,
+      "ratingHi": 1620,
+      "count": 6
+     }
+    },
+    {
+     "kind": "teach",
+     "title": "Why 1...e6 then ...d5",
+     "intro": {
+      "text": "I am Viktor. Today, Black, and a defence with a backbone. Against 1.e4 the Scandinavian hits e4 at once and the queen comes out. The French is patient: 1...e6 first, THEN 2...d5 — so the d5-pawn is supported before it ever touches e4."
+     },
+     "steps": [
+      {
+       "fen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+       "coach": {
+        "text": "1.e4. We answer 1...e6. A modest move — it opens nothing yet. Its whole purpose is to prepare ...d5 next move WITH support, so that when our d-pawn challenges e4, a recapture won't leave it hanging.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "e6",
+          "color": "good",
+          "label": "prepares ...d5"
+         },
+         {
+          "kind": "circle",
+          "square": "d5",
+          "color": "focus"
+         }
+        ],
+        "conceptId": "french-idea"
+       }
+      },
+      {
+       "fen": "rnbqkbnr/ppp2ppp/4p3/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 3",
+       "coach": {
+        "text": "After 1.e4 e6 2.d4 d5 we reach the heart of the French. We challenge e4, but unlike the Scandinavian our pawn on e6 props up d5. White must now decide what to do about the tension on e4: push it (3.e5), trade it (3.exd5), or defend it (3.Nc3 / 3.Nd2).",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "e4",
+          "color": "good"
+         },
+         {
+          "kind": "highlight",
+          "square": "e6",
+          "color": "info",
+          "label": "supports d5"
+         }
+        ],
+        "conceptId": "french-idea"
+       }
+      },
+      {
+       "fen": "rnbqkbnr/ppp2ppp/4p3/3pP3/3P4/8/PPP2PPP/RNBQKBNR b KQkq - 0 3",
+       "coach": {
+        "text": "The defining move: 3.e5. White pushes past and locks the centre. Now look at the PAWN CHAIN. White's pawns run c3-d4-e5 and point at our king. Our pawns run e6-d5 and point at White's queenside. Locked chains are the soul of the French — and a chain is attacked at its BASE.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "e5",
+          "to": "d4",
+          "color": "info"
+         },
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "e6",
+          "color": "info"
+         }
+        ],
+        "conceptId": "pawn-chain"
+       }
+      },
+      {
+       "fen": "rnbqkbnr/ppp2ppp/4p3/3pP3/3P4/8/PPP2PPP/RNBQKBNR b KQkq - 0 3",
+       "coach": {
+        "text": "Which base? White's chain rests on d4 (the e5-pawn is defended by d4, and d4 is the foot of the structure). So Black's plan writes itself: hit d4 with ...c5, pile up with ...Nc6 and ...Qb6, and make that pawn fall. Meanwhile White will throw pieces at our king. A race — but our targets are concrete.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d4",
+          "color": "bad",
+          "label": "base — our target"
+         },
+         {
+          "kind": "arrow",
+          "from": "c7",
+          "to": "c5",
+          "color": "good"
+         }
+        ],
+        "conceptId": "c5-break"
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Hit the base",
+     "intro": {
+      "text": "White has locked the centre with 3.e5. Strike the base of his pawn chain immediately — the move that defines Black's whole plan in the Advance French."
+     },
+     "steps": [
+      {
+       "fen": "rnbqkbnr/ppp2ppp/4p3/3pP3/3P4/8/PPP2PPP/RNBQKBNR b KQkq - 0 3",
+       "coach": {
+        "text": "Black to move. The chain rests on d4. Play the pawn break that attacks it.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d4",
+          "color": "focus",
+          "label": "the base"
+         }
+        ],
+        "conceptId": "c5-break"
+       },
+       "solutionUci": [
+        "c7c5"
+       ],
+       "successLine": {
+        "text": "3...c5! Right at the foot of the chain. White's d4-pawn is now attacked and must be defended — usually by 4.c3. From here Black adds pressure with ...Nc6 and ...Qb6, and that d4-pawn becomes the hinge of the whole game.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "c5",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "c5",
+          "to": "d4",
+          "color": "good"
+         }
+        ],
+        "conceptId": "c5-break"
+       },
+       "retryLine": {
+        "text": "Not that. You attack a pawn chain at its BASE, never its head with pieces alone. White's base is d4. Which pawn can hit d4? The c-pawn — play ...c5.",
+        "conceptId": "pawn-chain"
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down: the locked-centre break",
+     "intro": {
+      "text": "When a locked centre finally opens, tactics pour through the cracks. Train the deflections and pawn-storms that decide French middlegames."
+     },
+     "puzzle": {
+      "themes": [
+       "advancedPawn",
+       "deflection"
+      ],
+      "ratingLo": 1450,
+      "ratingHi": 1620,
+      "count": 6
+     }
+    }
+   ]
+  },
+  {
+   "id": "l2-the-bad-bishop",
+   "title": "The Bad Bishop — and How to Free It",
+   "kind": "concept",
+   "summary": "The buried light-squared bishop is the French player's defining problem; three cures: trade it, swing it via ...b6/...Ba6, or open it with ...f6.",
+   "segments": [
+    {
+     "kind": "teach",
+     "title": "Meet the French bishop",
+     "intro": {
+      "text": "Every opening has a price. In the French it is one piece: the light-squared bishop on c8. Understand its problem and you understand the whole defence."
+     },
+     "steps": [
+      {
+       "fen": "r1bqkbnr/pp3ppp/2n1p3/2ppP3/3P4/2P2N2/PP3PPP/RNBQKB1R b KQkq - 1 5",
+       "coach": {
+        "text": "A typical Advance position: Black has played ...c5 and ...Nc6. Now look at the c8-bishop. Its diagonal runs into its OWN pawns on d5 and e6. It cannot get out the front door. We call it the 'bad bishop' — the French bishop — and freeing it is Black's lifelong job in this opening.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "c8",
+          "color": "bad",
+          "label": "bad bishop"
+         },
+         {
+          "kind": "highlight",
+          "square": "d5",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "e6",
+          "color": "info"
+         }
+        ],
+        "conceptId": "bad-bishop"
+       }
+      },
+      {
+       "fen": "r1bqkbnr/pp3ppp/2n1p3/2ppP3/3P4/2P2N2/PP3PPP/RNBQKB1R b KQkq - 1 5",
+       "coach": {
+        "text": "Cure one — swing it round the side. Play ...b6 and ...Ba6, taking the bishop OUT of the chain on the queenside and offering to trade it for White's good light-squared bishop. Trading your worst piece for his best is a fine bargain.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "c8",
+          "to": "a6",
+          "color": "good"
+         },
+         {
+          "kind": "highlight",
+          "square": "b6",
+          "color": "focus"
+         }
+        ],
+        "conceptId": "bad-bishop"
+       }
+      },
+      {
+       "fen": "r1bqkbnr/pp3ppp/2n1p3/2ppP3/3P4/2P2N2/PP3PPP/RNBQKB1R b KQkq - 1 5",
+       "coach": {
+        "text": "Cure two — open the front door with ...f6. Striking e5 (the head of White's chain) does double duty: it opens the f-file for a rook AND clears the e6-pawn's path so the bishop can finally breathe on the c8-h3 diagonal. We will drill this break next lesson — it is the French's most thematic lever.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "f7",
+          "to": "f6",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "f6",
+          "to": "e5",
+          "color": "good"
+         }
+        ],
+        "conceptId": "f6-break"
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Free the bishop on the flank",
+     "intro": {
+      "text": "Black's bishop is stuck on c8 behind the e6/d5 wall. White's light-squared bishop has reached d3, its best diagonal. Begin the manoeuvre that trades off your bad bishop for his good one."
+     },
+     "steps": [
+      {
+       "fen": "r2qkbnr/pp1b1ppp/2n1p3/2ppP3/3P4/2PB1N2/PP3PPP/RNBQK2R b KQkq - 3 6",
+       "coach": {
+        "text": "Black to move. Your light-squared bishop has reached d7 but it is still hemmed in. White's bishop sits proudly on d3. Play the pawn move that opens a path for your bishop to a6, where it will offer to swap for White's strong d3-bishop.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d3",
+          "color": "bad",
+          "label": "his good bishop"
+         },
+         {
+          "kind": "circle",
+          "square": "a6",
+          "color": "focus"
+         }
+        ],
+        "conceptId": "bad-bishop"
+       },
+       "solutionUci": [
+        "b7b6"
+       ],
+       "successLine": {
+        "text": "6...b6! Now ...Ba6 comes next, and after Bxa6 you have traded your WORST piece for White's best minor piece. The bad bishop problem is solved by elimination. This regrouping — ...Bd7, ...b6, ...Ba6 — is a French workhorse.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "b6",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "d7",
+          "to": "a6",
+          "color": "good"
+         }
+        ],
+        "conceptId": "bad-bishop"
+       },
+       "retryLine": {
+        "text": "Think about the bishop's ROUTE. It can't go forward through d5/e6. The way out is the a6-square — but it needs ...b6 first to clear the path. Play ...b6.",
+        "conceptId": "bad-bishop"
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down: trade your worst piece",
+     "intro": {
+      "text": "Knowing which piece is bad — yours or the opponent's — wins games. Train tactics that exploit a trapped or out-of-play minor piece."
+     },
+     "puzzle": {
+      "themes": [
+       "trappedPiece",
+       "hangingPiece"
+      ],
+      "ratingLo": 1450,
+      "ratingHi": 1620,
+      "count": 6
+     }
+    }
+   ]
+  },
+  {
+   "id": "l3-advance-mainline",
+   "title": "The Advance: Mainline and the ...c5/...f6 Breaks",
+   "kind": "opening",
+   "summary": "The full Advance main line with ...Qb6 pressure on d4 and b2, plus the ...f6 break on the head of the chain.",
+   "segments": [
+    {
+     "kind": "teach",
+     "title": "Piling on d4 with ...Qb6",
+     "intro": {
+      "text": "In the Advance, after ...c5 and ...Nc6 the d4-pawn is attacked twice and defended twice. We add a THIRD attacker — and aim at a second target — with ...Qb6."
+     },
+     "steps": [
+      {
+       "fen": "r1bqkbnr/pp3ppp/2n1p3/2ppP3/3P4/2P2N2/PP3PPP/RNBQKB1R b KQkq - 1 5",
+       "coach": {
+        "text": "1.e4 e6 2.d4 d5 3.e5 c5 4.c3 Nc6 5.Nf3. d4 is attacked by c5 and Nc6, defended by c3 and Nf3 — balanced for now. We tip the scales with 5...Qb6.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d4",
+          "color": "focus",
+          "label": "2 vs 2"
+         },
+         {
+          "kind": "arrow",
+          "from": "d8",
+          "to": "b6",
+          "color": "good"
+         }
+        ],
+        "conceptId": "c5-break"
+       }
+      },
+      {
+       "fen": "r1b1kbnr/pp3ppp/1qn1p3/2ppP3/3P4/2P2N2/PP3PPP/RNBQKB1R w KQkq - 2 6",
+       "coach": {
+        "text": "5...Qb6! A textbook French move. The queen hits d4 a THIRD time, and from b6 she also stares down the a7-g1 diagonal at b2 and the soft f2-point. White can no longer comfortably develop his light-squared bishop to d3 (it would block the d-file and drop the d4-pawn to ...cxd4), so he is already a little awkward.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "b6",
+          "to": "d4",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "b6",
+          "to": "b2",
+          "color": "good"
+         }
+        ],
+        "conceptId": "c5-break"
+       }
+      },
+      {
+       "fen": "r1b1kbnr/pp3ppp/1qn1p3/3pP3/3p4/5N2/PP2BPPP/RNBQK2R b KQkq - 0 7",
+       "coach": {
+        "text": "A common sequence is 6.Be2 cxd4 7.cxd4, when the c-file opens for Black's rooks and the isolated d4-pawn is a permanent target. Black continues ...Nge7 (heading to f5 to bite d4 again) or ...Bd7-...Rc8. White has space; Black has concrete pressure on a fixed weakness. This is a healthy French.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d4",
+          "color": "bad",
+          "label": "isolated, weak"
+         },
+         {
+          "kind": "highlight",
+          "square": "c8",
+          "color": "info",
+          "label": "open c-file"
+         }
+        ],
+        "conceptId": "c5-break"
+       }
+      }
+     ]
+    },
+    {
+     "kind": "teach",
+     "title": "The ...f6 break on the head",
+     "intro": {
+      "text": "...c5 hits the base. The other lever, ...f6, hits the HEAD of the chain on e5. It opens the position for Black's pieces — especially the bad bishop — and seizes the initiative when timed right."
+     },
+     "steps": [
+      {
+       "fen": "r1bqk1nr/pp3ppp/1bn1p3/2ppP3/3P4/2PB1N2/PP3PPP/RNBQK2R b KQkq - 2 6",
+       "coach": {
+        "text": "Here Black has developed ...Bb6 (lined up on the a7-g1 diagonal, aiming at d4 once the c5-pawn trades off) and is ready for the second break. With pieces aimed at d4 and the centre under tension, ...f6 strikes e5. If White ever lets the chain dissolve, Black's pieces flood the centre and that c8-bishop finally sees daylight.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "f7",
+          "to": "f6",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "f6",
+          "to": "e5",
+          "color": "good"
+         },
+         {
+          "kind": "highlight",
+          "square": "e5",
+          "color": "focus",
+          "label": "the head"
+         }
+        ],
+        "conceptId": "f6-break"
+       }
+      },
+      {
+       "fen": "r1bqk1nr/pp4pp/1bn1p3/2ppp3/3P4/2PB1N2/PP3PPP/RNBQK2R w KQkq - 0 7",
+       "coach": {
+        "text": "After ...f6 exf6 ...Nxf6 (or ...Qxf6) the e5-pawn is gone, the f-file is half-open for Black's rook, and the e6/d5 pawns can advance to free the bishop. The diagram shows the moment after ...fxe5 — Black has dissolved White's spearhead and gets active, open piece play. Two breaks, two targets: ...c5 at the base, ...f6 at the head.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "e5",
+          "color": "good",
+          "label": "head removed"
+         },
+         {
+          "kind": "highlight",
+          "square": "f8",
+          "color": "info",
+          "label": "open f-file"
+         }
+        ],
+        "conceptId": "f6-break"
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Add the third attacker",
+     "intro": {
+      "text": "1.e4 e6 2.d4 d5 3.e5 c5 4.c3 Nc6 5.Nf3. The d4-pawn is attacked twice, defended twice. Bring up the piece that adds a third attacker AND a second target on b2."
+     },
+     "steps": [
+      {
+       "fen": "r1bqkbnr/pp3ppp/2n1p3/2ppP3/3P4/2P2N2/PP3PPP/RNBQKB1R b KQkq - 1 5",
+       "coach": {
+        "text": "Black to move. d4 is the target. Two attack it, two defend it — you need one more. Which piece can pressure d4 a third time and also rake the long dark diagonal toward b2?",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d4",
+          "color": "focus"
+         },
+         {
+          "kind": "circle",
+          "square": "b6",
+          "color": "focus"
+         }
+        ],
+        "conceptId": "c5-break"
+       },
+       "solutionUci": [
+        "d8b6"
+       ],
+       "successLine": {
+        "text": "5...Qb6! The queen joins the assault on d4 and adds pressure on b2 and f2. White is tied down defending d4 and can't develop his bishop to its best square. This is the engine of the whole Advance French for Black.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "b6",
+          "to": "d4",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "b6",
+          "to": "b2",
+          "color": "good"
+         }
+        ],
+        "conceptId": "c5-break"
+       },
+       "retryLine": {
+        "text": "You want a THIRD attacker on d4 that also creates a new threat. The knight on c6 and pawn on c5 already hit d4. The queen swinging to b6 adds the third hit AND eyes b2. Play ...Qb6.",
+        "conceptId": "c5-break"
+       }
+      }
+     ]
+    },
+    {
+     "kind": "model",
+     "title": "Walkthrough: the Advance main line",
+     "intro": {
+      "text": "Watch the Advance flow from move one. I name the purpose of each Black move. Memorise the IDEAS — base, head, bad bishop — not just the squares."
+     },
+     "line": [
+      {
+       "uci": "e2e4",
+       "coach": {
+        "text": "1.e4 — White claims the centre."
+       }
+      },
+      {
+       "uci": "e7e6",
+       "coach": {
+        "text": "1...e6 — prepare ...d5 with support. The French.",
+        "conceptId": "french-idea"
+       }
+      },
+      {
+       "uci": "d2d4",
+       "coach": {
+        "text": "2.d4 — White builds the big centre."
+       }
+      },
+      {
+       "uci": "d7d5",
+       "coach": {
+        "text": "2...d5 — now challenge e4, backed by the e6-pawn.",
+        "conceptId": "french-idea"
+       }
+      },
+      {
+       "uci": "e4e5",
+       "coach": {
+        "text": "3.e5 — White pushes past and locks the chain.",
+        "conceptId": "pawn-chain"
+       }
+      },
+      {
+       "uci": "c7c5",
+       "coach": {
+        "text": "3...c5! — strike the BASE of the chain on d4.",
+        "conceptId": "c5-break"
+       }
+      },
+      {
+       "uci": "c2c3",
+       "coach": {
+        "text": "4.c3 — White props up d4."
+       }
+      },
+      {
+       "uci": "b8c6",
+       "coach": {
+        "text": "4...Nc6 — develop and hit d4 a second time.",
+        "conceptId": "c5-break"
+       }
+      },
+      {
+       "uci": "g1f3",
+       "coach": {
+        "text": "5.Nf3 — White defends d4 again and develops."
+       }
+      },
+      {
+       "uci": "d8b6",
+       "coach": {
+        "text": "5...Qb6 — the third attacker; also eyes b2 and f2.",
+        "conceptId": "c5-break"
+       }
+      },
+      {
+       "uci": "f1e2",
+       "coach": {
+        "text": "6.Be2 — a modest square; d3 is denied by the d-file pressure."
+       }
+      },
+      {
+       "uci": "c8d7",
+       "coach": {
+        "text": "6...Bd7 — prepare ...b6/...Ba6 to swap off the bad bishop, and connect for ...Rc8.",
+        "conceptId": "bad-bishop"
+       }
+      },
+      {
+       "uci": "e1g1",
+       "coach": {
+        "text": "7.O-O — White castles."
+       }
+      },
+      {
+       "uci": "c5d4",
+       "coach": {
+        "text": "7...cxd4 — open the c-file and fix d4 as a weakness.",
+        "conceptId": "c5-break"
+       }
+      },
+      {
+       "uci": "c3d4",
+       "coach": {
+        "text": "8.cxd4 — White recaptures; now d4 is isolated and weak."
+       }
+      },
+      {
+       "uci": "g8e7",
+       "coach": {
+        "text": "8...Nge7 — heading for f5, the perfect square to bite d4 once more. Black has a clear plan: ...Nf5, ...Rc8, pressure the weakness, free the bishop. A full, sound French.",
+        "conceptId": "c5-break"
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down: punish the weak d4",
+     "intro": {
+      "text": "When you fix a pawn as a weakness and pile up on it, tactics follow. Train pins and forks that win a defended-but-overloaded pawn or piece."
+     },
+     "puzzle": {
+      "themes": [
+       "pin",
+       "fork"
+      ],
+      "ratingLo": 1450,
+      "ratingHi": 1620,
+      "count": 6
+     }
+    }
+   ]
+  },
+  {
+   "id": "l4-exchange",
+   "title": "The Exchange Variation",
+   "kind": "variation",
+   "summary": "3.exd5 exd5 — the symmetrical, open line. Harmless if Black develops actively and gets the bishop out of the chain.",
+   "segments": [
+    {
+     "kind": "teach",
+     "title": "Symmetry is not a draw",
+     "intro": {
+      "text": "Some White players sidestep the whole battle with 3.exd5 exd5 — the Exchange. The structure is symmetrical and dead-level on paper. It is also the one French line where your bad bishop is suddenly FREE — so use that."
+     },
+     "steps": [
+      {
+       "fen": "rnbqkbnr/ppp2ppp/8/3p4/3P4/8/PPP2PPP/RNBQKBNR w KQkq - 0 4",
+       "coach": {
+        "text": "After 3.exd5 exd5 the e-file is open and the pawns are mirror images. The key point: with the e-pawn gone, your light-squared bishop is no longer buried — it can develop to f5 or g4, OUTSIDE the chain, before any ...e-pawn locks it in. The French bishop is finally a good bishop.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "c8",
+          "color": "good",
+          "label": "now FREE"
+         },
+         {
+          "kind": "highlight",
+          "square": "e8",
+          "color": "info",
+          "label": "open e-file"
+         }
+        ],
+        "conceptId": "exchange-equal"
+       }
+      },
+      {
+       "fen": "r2qkbnr/ppp2ppp/2n5/3p1b2/3P4/2N5/PPP2PPP/R1BQKBNR w KQkq - 5 5",
+       "coach": {
+        "text": "A model set-up: ...Nc6, ...Bf5 (out before ...c6/...e6 can box it in), then ...Bd6, ...Nf6, ...Qd7 and castle — often queenside to play for a kingside pawn storm and a real game. Symmetry only draws if BOTH sides play passively. Develop with purpose and contest the open e-file, and the Exchange is no problem at all.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "f5",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "f8",
+          "to": "d6",
+          "color": "info"
+         }
+        ],
+        "conceptId": "exchange-equal"
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Get the good bishop out",
+     "intro": {
+      "text": "1.e4 e6 2.d4 d5 3.exd5 exd5 4.Nf3 Nc6. The e-file is open and your light-squared bishop is free for once. Develop it ACTIVELY — outside the pawn structure — before anything can shut it in."
+     },
+     "steps": [
+      {
+       "fen": "r1bqkbnr/ppp2ppp/2n5/3p4/3P4/5N2/PPP2PPP/RNBQKB1R b KQkq - 2 4",
+       "coach": {
+        "text": "Black to move. This is the bishop that was bad all chapter — and now it is free. Put it on its best active diagonal, where it eyes White's kingside and isn't blocked by a pawn.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "f5",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "c8",
+          "color": "good"
+         }
+        ],
+        "conceptId": "exchange-equal"
+       },
+       "solutionUci": [
+        "c8f5",
+        "c8g4"
+       ],
+       "successLine": {
+        "text": "4...Bf5! (4...Bg4 is equally good.) The once-bad bishop is now your best piece — active, outside the chain, and hard for White to challenge. This is the whole point of the Exchange for Black: free the problem piece and play a normal, balanced game.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "f5",
+          "color": "good"
+         }
+        ],
+        "conceptId": "exchange-equal"
+       },
+       "retryLine": {
+        "text": "The e-file is OPEN — so your light-squared bishop can finally leave home. Don't bury it with ...e6 ideas; develop it actively to f5 or g4 first.",
+        "conceptId": "exchange-equal"
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down: open-file tactics",
+     "intro": {
+      "text": "The Exchange gives open files and active pieces. Train the discovered attacks and skewers that fire down open lines."
+     },
+     "puzzle": {
+      "themes": [
+       "discoveredAttack",
+       "skewer"
+      ],
+      "ratingLo": 1450,
+      "ratingHi": 1620,
+      "count": 6
+     }
+    }
+   ]
+  },
+  {
+   "id": "l5-knight-tarrasch",
+   "title": "The Knight & Tarrasch Lines",
+   "kind": "variation",
+   "summary": "3.Nc3 and 3.Nd2 defend e4 instead of pushing. How to meet each, and the freeing ...c5 against the Tarrasch.",
+   "segments": [
+    {
+     "kind": "teach",
+     "title": "When White defends e4",
+     "intro": {
+      "text": "Instead of pushing or trading, White can DEFEND e4 with a knight: 3.Nc3 (the main line) or 3.Nd2 (the Tarrasch). The centre stays tense. You meet both by hitting the centre at once — and against 3.Nd2 there is a clean freeing break."
+     },
+     "steps": [
+      {
+       "fen": "rnbqkbnr/ppp2ppp/4p3/3p4/3PP3/2N5/PPP2PPP/R1BQKBNR b KQkq - 1 3",
+       "coach": {
+        "text": "3.Nc3 — the Knight Variation, the most testing. White defends e4 and keeps the tension. Black's two great replies are 3...Nf6 (hitting e4 again; White pushes 4.e5 and we get a sharp pawn-chain fight) and 3...Bb4 (the Winawer — pinning the c3-knight, the sharpest line in all the French). Both are fully sound; pick the fight that suits you.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "e4",
+          "color": "info",
+          "label": "defended"
+         },
+         {
+          "kind": "arrow",
+          "from": "g8",
+          "to": "f6",
+          "color": "good"
+         }
+        ],
+        "conceptId": "knight-lines"
+       }
+      },
+      {
+       "fen": "rnbqkbnr/ppp2ppp/4p3/3p4/3PP3/2N5/PPP2PPP/R1BQKBNR b KQkq - 1 3",
+       "coach": {
+        "text": "The trap to know in the Nc3 line: after 3...Nf6 4.e5 the knight is kicked; retreat it to d7 with 4...Nfd7 (NOT a square where it's stuck), then strike with ...c5 and ...Nc6 — the same base-attacking plan as the Advance. Never let White gain free tempi shoving your pieces around; always have a centre break ready.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "f6",
+          "to": "d7",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "c7",
+          "to": "c5",
+          "color": "good"
+         }
+        ],
+        "conceptId": "knight-lines"
+       }
+      },
+      {
+       "fen": "rnbqkbnr/ppp2ppp/4p3/3p4/3PP3/8/PPPN1PPP/R1BQKBNR b KQkq - 1 3",
+       "coach": {
+        "text": "3.Nd2 — the Tarrasch. The knight defends e4 but, unlike Nc3, it does NOT block the c-pawn and cannot be pinned by ...Bb4. The flaw: the d2-knight is passive and blocks White's own pieces. So Black hits the centre with the freeing 3...c5 at once — attacking d4 before White is organised. (3...Nf6 is the other main reply.)",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d2",
+          "color": "bad",
+          "label": "passive knight"
+         },
+         {
+          "kind": "arrow",
+          "from": "c7",
+          "to": "c5",
+          "color": "good"
+         }
+        ],
+        "conceptId": "knight-lines"
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "The freeing break vs the Tarrasch",
+     "intro": {
+      "text": "1.e4 e6 2.d4 d5 3.Nd2. The knight on d2 is passive and the centre is still fluid. Hit it immediately with the move that frees your game."
+     },
+     "steps": [
+      {
+       "fen": "rnbqkbnr/ppp2ppp/4p3/3p4/3PP3/8/PPPN1PPP/R1BQKBNR b KQkq - 1 3",
+       "coach": {
+        "text": "Black to move. White chose the passive 3.Nd2. Strike at the centre — the same pawn that attacks d4 in every French — to free your position before White can build.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d4",
+          "color": "focus"
+         },
+         {
+          "kind": "circle",
+          "square": "c5",
+          "color": "focus"
+         }
+        ],
+        "conceptId": "knight-lines"
+       },
+       "solutionUci": [
+        "c7c5"
+       ],
+       "successLine": {
+        "text": "3...c5! The thematic freeing break. Because the d2-knight is passive, this strike is especially strong here — Black gets easy, active development with ...Nc6 and ...Nf6, and the cramped feeling of the French evaporates. The Tarrasch holds no terror once you know ...c5.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "c5",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "c5",
+          "to": "d4",
+          "color": "good"
+         }
+        ],
+        "conceptId": "knight-lines"
+       },
+       "retryLine": {
+        "text": "Same idea as the whole chapter: hit the centre, hit d4. The d2-knight is passive, so striking now is even better than usual. Play ...c5.",
+        "conceptId": "knight-lines"
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down: seize the initiative",
+     "intro": {
+      "text": "When you free your game and White's pieces are passive, you take over. Train kingside attacks against a lagging defender."
+     },
+     "puzzle": {
+      "themes": [
+       "kingsideAttack",
+       "sacrifice"
+      ],
+      "ratingLo": 1450,
+      "ratingHi": 1620,
+      "count": 6
+     }
+    }
+   ]
+  },
+  {
+   "id": "l6-play-it",
+   "title": "Play It: The French in Action",
+   "kind": "practice",
+   "summary": "A final tactics tune-up, one last check of the core breaks, then play the French against the engine as Black.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up: final tune-up",
+     "intro": {
+      "text": "Last reps before the live game. The sharpest patterns from the locked-then-opened centres you've been studying."
+     },
+     "puzzle": {
+      "themes": [
+       "fork",
+       "pin",
+       "discoveredAttack"
+      ],
+      "ratingLo": 1450,
+      "ratingHi": 1620,
+      "count": 6
+     }
+    },
+    {
+     "kind": "guided",
+     "title": "Choose your break",
+     "intro": {
+      "text": "One last check before you play. White has locked the centre with 3.e5. Play the move that defines Black's plan for the entire game."
+     },
+     "steps": [
+      {
+       "fen": "rnbqkbnr/ppp2ppp/4p3/3pP3/3P4/8/PPP2PPP/RNBQKBNR b KQkq - 0 3",
+       "coach": {
+        "text": "Black to move against the Advance. You know where White's chain rests. Strike its base.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d4",
+          "color": "focus",
+          "label": "base"
+         }
+        ],
+        "conceptId": "c5-break"
+       },
+       "solutionUci": [
+        "c7c5"
+       ],
+       "successLine": {
+        "text": "3...c5! Every time. Hit the base, follow with ...Nc6 and ...Qb6, prepare ...f6 and ...b6/...Ba6 to free the bishop. You now own the whole French plan. Go play it against a real opponent.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "c5",
+          "color": "good"
+         }
+        ],
+        "conceptId": "c5-break"
+       },
+       "retryLine": {
+        "text": "The chain's base is d4. Which pawn attacks d4? The c-pawn — ...c5. That's the move that runs the whole defence.",
+        "conceptId": "c5-break"
+       }
+      }
+     ]
+    },
+    {
+     "kind": "boss",
+     "title": "Boss: play the French as Black",
+     "bossIntro": {
+      "text": "Now you play it. You are Black. Answer 1.e4 with 1...e6 and 2...d5. If White pushes 3.e5, lock in and attack the base: ...c5, ...Nc6, ...Qb6, with ...f6 and ...b6/...Ba6 to free the bad bishop. If he trades on d5, develop the freed bishop actively and fight the open e-file. If he defends with a knight, hit the centre with ...c5 or ...Nf6. Pawn breaks at the base and head, free the bishop, and don't sit passively. Show me you understand the WHY."
+     },
+     "bossFen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+     "bossUserColor": "black",
+     "bossEngineElo": 1700
+    }
+   ]
+  }
+ ],
+ "test": {
+  "passThreshold": 0.7,
+  "questions": [
+   {
+    "kind": "mc",
+    "prompt": "Why does Black play 1...e6 before ...d5 in the French, rather than ...d5 at once like the Scandinavian?",
+    "options": [
+     "To open the diagonal for the dark-squared bishop",
+     "So that ...d5 challenges e4 with SUPPORT — the e6-pawn backs it up",
+     "To prepare an early ...Qd6",
+     "To stop White from castling kingside"
+    ],
+    "answerIndex": 1,
+    "explain": "1...e6 props up the coming ...d5. When d5 challenges e4 it is supported, so Black gets a solid, well-anchored centre instead of the queen sortie the Scandinavian invites."
+   },
+   {
+    "kind": "mc",
+    "prompt": "After 1.e4 e6 2.d4 d5 3.e5 the centre locks into pawn chains. Where should Black attack White's chain?",
+    "options": [
+     "At its head, the e5-pawn, only with pieces",
+     "At its base, the d4-pawn, with ...c5",
+     "On the h-file with ...h5",
+     "Nowhere — the centre is closed, so play on the wings only"
+    ],
+    "answerIndex": 1,
+    "explain": "A pawn chain is attacked at its BASE. White's base is d4, so ...c5 is the defining break. (...f6 later hits the head on e5 — the second lever.)"
+   },
+   {
+    "kind": "mc",
+    "prompt": "What is the 'bad bishop' in the French, and what's a standard cure?",
+    "options": [
+     "The dark-squared bishop; cure it by playing ...g6 and ...Bg7",
+     "The light-squared bishop on c8, buried behind e6/d5; cure it with ...b6 and ...Ba6, or with ...f6",
+     "The king's bishop; cure it by castling queenside",
+     "There is no bad bishop in the French"
+    ],
+    "answerIndex": 1,
+    "explain": "The light-squared bishop is trapped behind its own e6/d5 pawns. Free it by swinging it out via ...b6/...Ba6 (trading it for White's good bishop) or by opening the chain with ...f6."
+   },
+   {
+    "kind": "mc",
+    "prompt": "Against 3.Nd2 (the Tarrasch), why is the immediate 3...c5 such a good reply?",
+    "options": [
+     "It wins the d4-pawn by force",
+     "The d2-knight is passive and doesn't support an early e5 push, so striking the centre frees Black at once",
+     "It threatens checkmate",
+     "It pins the knight on d2"
+    ],
+    "answerIndex": 1,
+    "explain": "3.Nd2 is passive — the knight blocks White's own pieces and can't be pinned. ...c5 hits d4 immediately and gives Black free, active development before White is organised."
+   },
+   {
+    "kind": "play",
+    "prompt": "1.e4. Begin the French Defence.",
+    "fen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+    "solutionUci": [
+     "e7e6"
+    ],
+    "explain": "1...e6 — preparing 2...d5 with support. The solid, counterattacking French."
+   },
+   {
+    "kind": "play",
+    "prompt": "1.e4 e6 2.d4. Strike at White's centre, backed by your e6-pawn.",
+    "fen": "rnbqkbnr/pppp1ppp/4p3/8/3PP3/8/PPP2PPP/RNBQKBNR b KQkq - 0 2",
+    "solutionUci": [
+     "d7d5"
+    ],
+    "explain": "2...d5 challenges e4. Supported by e6, the pawn is safe — White must now push (3.e5), trade (3.exd5), or defend (3.Nc3/3.Nd2)."
+   },
+   {
+    "kind": "play",
+    "prompt": "1.e4 e6 2.d4 d5 3.Nc3 Nf6 4.e5 Nfd7 5.f4 (the Steinitz). White built a big chain, but its base is still d4. Play the break that attacks it.",
+    "fen": "rnbqkb1r/pppn1ppp/4p3/3pP3/3P1P2/2N5/PPP3PP/R1BQKBNR b KQkq - 0 5",
+    "solutionUci": [
+     "c7c5"
+    ],
+    "explain": "5...c5! Same idea, new line: attack the base d4. After tucking the knight to d7, Black strikes the centre with ...c5 and ...Nc6 — the same base-attack plan that runs the whole French, here against the Nc3 push."
+   },
+   {
+    "kind": "play",
+    "prompt": "1.e4 e6 2.d4 d5 3.e5 c5 4.c3 Nc6 5.Be2. White has developed quietly. Bring your queen to the square where she presses d4 a third time and rakes the diagonal toward b2.",
+    "fen": "r1bqkbnr/pp3ppp/2n1p3/2ppP3/3P4/2P5/PP2BPPP/RNBQK1NR b KQkq - 2 5",
+    "solutionUci": [
+     "d8b6"
+    ],
+    "explain": "5...Qb6! From b6 the queen piles on d4 and eyes b2 and f2 down the a7-g1 diagonal. This pressure is the engine of Black's whole Advance plan, whatever order White develops in."
+   },
+   {
+    "kind": "play",
+    "prompt": "1.e4 e6 2.d4 d5 3.exd5 exd5 4.Nf3 Bd6 5.Be2 — the Exchange. The e-file is open, so your light-squared bishop is free for once. Develop it actively, outside the pawns.",
+    "fen": "rnbqk1nr/ppp2ppp/3b4/3p4/3P4/5N2/PPP1BPPP/RNBQK2R b KQkq - 3 5",
+    "solutionUci": [
+     "c8f5",
+     "c8g4"
+    ],
+    "explain": "5...Bf5 (or 5...Bg4). Post the once-bad bishop actively, outside the pawn chain. That is the whole point of the Exchange for Black: free the problem piece and play a normal, balanced game before any pawn can box it in."
+   },
+   {
+    "kind": "play",
+    "prompt": "1.e4 e6 2.d4 d5 3.Nd2 Nf6 4.e5 Nfd7 5.Bd3 (the Tarrasch). Your knight has tucked back to d7. Now play the freeing break that hits d4.",
+    "fen": "rnbqkb1r/pppn1ppp/4p3/3pP3/3P4/3B4/PPPN1PPP/R1BQK1NR b KQkq - 2 5",
+    "solutionUci": [
+     "c7c5"
+    ],
+    "explain": "5...c5! The thematic freeing break — exactly the plan against the Tarrasch. With the d2-knight passive, striking d4 gives Black easy, active play with ...Nc6 to follow."
+   },
+   {
+    "kind": "judge",
+    "prompt": "1.e4 e6 2.d4 d5 3.e5 c5 4.c3 Nc6 5.Nf3 Qb6 6.Be2 cxd4 7.cxd4. Black continued 7...Nge7, heading for f5. Was that a good move?",
+    "fen": "r1b1kb1r/pp2nppp/1qn1p3/3pP3/3P4/5N2/PP2BPPP/RNBQK2R w KQkq - 1 8",
+    "lastMoveUci": "g8e7",
+    "verdict": "correct",
+    "explain": "Correct — model French play. The knight reroutes to f5 to hit the now-isolated d4-pawn a third time, while the c-file is open for Black's rooks. Concrete pressure on a fixed weakness."
+   },
+   {
+    "kind": "judge",
+    "prompt": "1.e4 e6 2.d4 d5 3.exd5 exd5 4.Nf3 Nc6. This is the OPEN Exchange structure, with no e5-pawn to attack. Black played 4...f6. Was that a good move?",
+    "fen": "r1bqkbnr/ppp3pp/2n2p2/3p4/3P4/5N2/PPP2PPP/RNBQKB1R w KQkq - 0 5",
+    "lastMoveUci": "f7f6",
+    "verdict": "blunder",
+    "explain": "Bad. In the OPEN Exchange structure there is no e5-pawn to attack, so ...f6 just creates holes (e6, g6), exposes the king, and blocks the very diagonal the freed c8-bishop wants. Here you develop the bishop to f5/g4, not lock it in."
+   },
+   {
+    "kind": "judge",
+    "prompt": "1.e4 e6 2.d4 d5 3.Nc3 Nf6 4.e5. The knight on f6 is attacked. Black retreated with 4...Nfd7, keeping the option of ...c5. Was that a good move?",
+    "fen": "rnbqkb1r/pppn1ppp/4p3/3pP3/3P4/2N5/PPP2PPP/R1BQKBNR w KQkq - 1 5",
+    "lastMoveUci": "f6d7",
+    "verdict": "correct",
+    "explain": "Correct. 4...Nfd7 is the standard retreat — the knight stays flexible and Black follows with ...c5 and ...Nc6, the same base-attack plan. Retreating to a stuck square or allowing free tempi would be the error."
+   },
+   {
+    "kind": "judge",
+    "prompt": "1.e4 e6 2.d4 d5 3.e5 c5 4.c3 Nc6 5.Nf3 Qb6. White, ignoring the pressure, played the natural-looking 6.Bd3. Was White's move good?",
+    "fen": "r1b1kbnr/pp3ppp/1qn1p3/2ppP3/3P4/2PB1N2/PP3PPP/RNBQK2R b KQkq - 1 6",
+    "lastMoveUci": "f1d3",
+    "verdict": "blunder",
+    "explain": "A blunder. 6.Bd3?? blocks the d-file's defence of d4, so 6...cxd4 7.cxd4 Nxd4! wins a pawn — the bishop no longer guards the structure and the knight grabs d4 cleanly. This is exactly why ...Qb6 ties White down and keeps his bishop off d3."
+   }
+  ]
+ },
+ "eloFloor": 1440
+}

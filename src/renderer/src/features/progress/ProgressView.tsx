@@ -17,14 +17,14 @@ import './progress.css'
 export type ProgressNavTarget = 'play' | 'puzzles' | 'analysis'
 
 export interface ProgressViewProps {
-  /** Optional: navigate elsewhere (e.g. open a game in analysis). */
+  /** Optional: navigate elsewhere within the app. */
   onNavigate?: (view: ProgressNavTarget) => void
+  /** Open a saved game (by id) in the Analysis board. */
+  onOpenGame?: (gameId: number) => void
 }
 
-export default function ProgressView({ onNavigate }: ProgressViewProps = {}): JSX.Element {
+export default function ProgressView({ onOpenGame }: ProgressViewProps = {}): JSX.Element {
   const { data } = useProgressData()
-
-  const openGame = onNavigate ? (_gameId: number) => onNavigate('analysis') : undefined
 
   return (
     <div className="progress-view">
@@ -51,7 +51,7 @@ export default function ProgressView({ onNavigate }: ProgressViewProps = {}): JS
         <ResultsBreakdown games={data.trendGames} />
       </div>
 
-      <GamesTable onOpenGame={openGame} />
+      <GamesTable onOpenGame={onOpenGame} />
     </div>
   )
 }

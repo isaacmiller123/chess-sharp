@@ -3,6 +3,11 @@ import { DEFAULT_PIECE_SET, normalizePieceSet, type PieceSetId } from '../board/
 
 export type BoardTheme = 'brown' | 'green' | 'blue' | 'grey' | 'purple' | 'wood' | 'slate' | 'ice'
 
+/** App chrome themes. Each id maps 1:1 to a palette block in styles/tokens.css
+ *  ('light' is the `:root` base; the rest are `[data-theme='<id>']` overrides). */
+export const APP_THEMES = ['light', 'dark', 'midnight', 'forest', 'ocean', 'sepia'] as const
+export type AppTheme = (typeof APP_THEMES)[number]
+
 /** Analysis search depth: a fixed ply count, or 'max' (let the engine run to its ceiling). */
 export type AnalysisDepth = number | 'max'
 
@@ -18,14 +23,36 @@ export const ANALYSIS_DEPTH_MAX = 30
 export const PLAY_THINK_MS_MIN = 100
 export const PLAY_THINK_MS_MAX = 3000
 
+/** Sound-effect packs: synthesized 'standard', retro 'classic', or recorded 'real' board sounds. */
+export const SOUND_THEMES = ['standard', 'classic', 'real'] as const
+export type SoundTheme = (typeof SOUND_THEMES)[number]
+
 export interface AppSettings {
-  theme: 'light' | 'dark'
+  theme: AppTheme
   boardTheme: BoardTheme
   pieceSet: PieceSetId
   showLegal: boolean
   coordinates: boolean
   animation: boolean
   sound: boolean
+  /** Master sound-effect volume, 0..1. */
+  soundVolume: number
+  /** Which sound-effect pack plays for moves/captures/etc. */
+  soundTheme: SoundTheme
+  /** Allow takeback (undo) requests during Play. */
+  allowTakebacks: boolean
+  /** Promote straight to a queen without showing the piece picker. */
+  autoQueen: boolean
+  /** Ask before resigning a game in Play. */
+  confirmResign: boolean
+  /** Play the ticking warning when a clock runs low in timed Play. */
+  lowTimeWarning: boolean
+  /** Show hint buttons (School/Puzzles/Play coaching) — off for a harder game. */
+  hintsEnabled: boolean
+  /** Draw the engine's best-move arrows on the Analysis board. */
+  showEngineArrows: boolean
+  /** Show the evaluation bar beside analysis boards. */
+  showEvalBar: boolean
   username: string
   avatar: string | null // data URL
   /** Candidate lines to request from the analysis engine (1–5). */
@@ -44,6 +71,15 @@ const DEFAULTS: AppSettings = {
   coordinates: true,
   animation: true,
   sound: true,
+  soundVolume: 0.7,
+  soundTheme: 'standard',
+  allowTakebacks: true,
+  autoQueen: false,
+  confirmResign: true,
+  lowTimeWarning: true,
+  hintsEnabled: true,
+  showEngineArrows: true,
+  showEvalBar: true,
   username: 'User',
   avatar: null,
   analysisMultiPV: 3,
@@ -60,6 +96,29 @@ function clampInt(value: unknown, min: number, max: number, fallback: number): n
   return Math.min(max, Math.max(min, Math.round(n)))
 }
 
+/** Clamp a possibly-stale fractional pref (no rounding — used for 0..1 volume). */
+function clampFloat(value: unknown, min: number, max: number, fallback: number): number {
+  const n = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(n)) return fallback
+  return Math.min(max, Math.max(min, n))
+}
+
+/** Coerce a stored flag to a real boolean; anything non-boolean falls back. */
+function asBool(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback
+}
+
+/** Coerce a stored theme to a known id. Unknown/removed ids (or pre-union
+ *  values) migrate to the default rather than leaving a dangling data-theme. */
+function normalizeTheme(value: unknown): AppTheme {
+  return APP_THEMES.includes(value as AppTheme) ? (value as AppTheme) : DEFAULTS.theme
+}
+
+/** Coerce a stored sound theme to a known id; unknown/absent values take the default. */
+function normalizeSoundTheme(value: unknown): SoundTheme {
+  return SOUND_THEMES.includes(value as SoundTheme) ? (value as SoundTheme) : DEFAULTS.soundTheme
+}
+
 /** Coerce a stored analysis depth into a valid ply count or the 'max' sentinel. */
 function normalizeDepth(value: unknown): AnalysisDepth {
   if (value === 'max') return 'max'
@@ -72,8 +131,19 @@ function load(): AppSettings {
     if (raw) {
       const stored = JSON.parse(raw) as Partial<AppSettings>
       const merged = { ...DEFAULTS, ...stored }
-      // Coerce a possibly-stale/removed piece set back to a known id.
+      // Coerce a possibly-stale/removed theme or piece set back to a known id.
+      merged.theme = normalizeTheme(stored.theme)
       merged.pieceSet = normalizePieceSet(stored.pieceSet)
+      // QoL flags added after v1 shipped: absent or corrupt values take defaults.
+      merged.autoQueen = asBool(stored.autoQueen, DEFAULTS.autoQueen)
+      merged.confirmResign = asBool(stored.confirmResign, DEFAULTS.confirmResign)
+      merged.lowTimeWarning = asBool(stored.lowTimeWarning, DEFAULTS.lowTimeWarning)
+      merged.hintsEnabled = asBool(stored.hintsEnabled, DEFAULTS.hintsEnabled)
+      merged.showEngineArrows = asBool(stored.showEngineArrows, DEFAULTS.showEngineArrows)
+      merged.showEvalBar = asBool(stored.showEvalBar, DEFAULTS.showEvalBar)
+      merged.soundVolume = clampFloat(stored.soundVolume, 0, 1, DEFAULTS.soundVolume)
+      merged.soundTheme = normalizeSoundTheme(stored.soundTheme)
+      merged.allowTakebacks = asBool(stored.allowTakebacks, DEFAULTS.allowTakebacks)
       // Defend Analysis/Play against corrupt or out-of-range stored values.
       merged.analysisMultiPV = clampInt(
         stored.analysisMultiPV,
@@ -96,7 +166,7 @@ function load(): AppSettings {
   return DEFAULTS
 }
 
-/** Appearance + engine prefs reset by the Settings "reset to defaults" action (Profile is preserved). */
+/** Appearance + gameplay + engine prefs reset by the Settings "reset to defaults" action (Profile is preserved). */
 const RESETTABLE_KEYS = [
   'theme',
   'boardTheme',
@@ -105,6 +175,15 @@ const RESETTABLE_KEYS = [
   'coordinates',
   'animation',
   'sound',
+  'soundVolume',
+  'soundTheme',
+  'allowTakebacks',
+  'autoQueen',
+  'confirmResign',
+  'lowTimeWarning',
+  'hintsEnabled',
+  'showEngineArrows',
+  'showEvalBar',
   'analysisMultiPV',
   'analysisDepth',
   'playThinkMs'

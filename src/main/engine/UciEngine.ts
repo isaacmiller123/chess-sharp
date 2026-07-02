@@ -107,7 +107,10 @@ export class UciEngine extends EventEmitter {
   }
 
   async start(): Promise<void> {
-    const proc = spawn(this.exePath, [], { stdio: ['pipe', 'pipe', 'pipe'] })
+    // shell:false (the default, stated explicitly) — launch the binary directly on
+    // every OS. Never set shell:true or windowsHide here: they change argument
+    // handling and are unnecessary for a path-resolved engine binary.
+    const proc = spawn(this.exePath, [], { stdio: ['pipe', 'pipe', 'pipe'], shell: false })
     this.proc = proc
     proc.stdout.setEncoding('utf-8')
     proc.stdout.on('data', (chunk: string) => this.onData(chunk))
@@ -253,7 +256,9 @@ export class UciEngine extends EventEmitter {
     }
   }
 
-  /** Graceful quit, then hard kill as a Windows-safe fallback. */
+  // Graceful UCI `quit`, then a hard kill as a fallback. Universal across OSes:
+  // Windows ignores SIGTERM (so the explicit kill is what actually stops it),
+  // while macOS/Linux also honor the kill — no platform-conditional logic needed.
   async quit(): Promise<void> {
     if (!this.proc) return
     this.write('quit')

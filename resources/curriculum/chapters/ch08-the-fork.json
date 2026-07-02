@@ -1,0 +1,1871 @@
+{
+ "id": "ch08-the-fork",
+ "band": "08",
+ "order": 8,
+ "title": "The Fork — Winning Material by Double Attack",
+ "subtitle": "One piece, two targets. Attack two things at once and the enemy can only save one.",
+ "estMinutes": 38,
+ "concepts": [
+  {
+   "id": "fork",
+   "name": "The Fork",
+   "short": "One piece attacks two enemy targets at once. The opponent can answer only one threat — so you win the other."
+  },
+  {
+   "id": "knight-fork",
+   "name": "The Knight Fork",
+   "short": "The knight's scattered leaps hit squares on no shared line, so its two victims can never defend each other. The deadliest forker."
+  },
+  {
+   "id": "royal-fork",
+   "name": "The Royal Fork",
+   "short": "A fork that checks the king and attacks the queen together. The king must move first — and the queen falls."
+  },
+  {
+   "id": "family-fork",
+   "name": "The Family Fork",
+   "short": "A knight check that also hits a rook (or other heavy piece). The king steps aside; you take the second target."
+  },
+  {
+   "id": "the-check-forces",
+   "name": "A Check Is Forcing",
+   "short": "When the fork gives check, the king MUST respond — it cannot rescue the other piece. That is why forks with check almost always win."
+  },
+  {
+   "id": "pawn-fork",
+   "name": "The Pawn Fork",
+   "short": "A single pawn attacks two pieces diagonally. The cheapest attacker of all — neither victim can take it without loss."
+  },
+  {
+   "id": "queen-fork",
+   "name": "The Queen Fork",
+   "short": "The queen's reach lets her strike two targets on different lines at once — most often a check plus a loose piece."
+  },
+  {
+   "id": "loose-pieces",
+   "name": "Loose Pieces Invite Forks",
+   "short": "Undefended pieces are fork-fuel. A fork wins because the second target is loose — find their loose pieces, guard your own."
+  },
+  {
+   "id": "make-the-fork",
+   "name": "Forcing the Fork",
+   "short": "Often the fork is one move away: a check, a capture, or a threat first drives an enemy piece onto the square that lets you fork."
+  }
+ ],
+ "lessons": [
+  {
+   "id": "l1-what-is-a-fork",
+   "title": "What Is a Fork? — The Knight Strikes Two",
+   "kind": "concept",
+   "summary": "One piece, two targets, one move. The knight's geometry makes it the cruellest forker of all.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up — win the loose piece",
+     "intro": {
+      "text": "You have learned to take what is free. Today you learn to MAKE it free. First, warm the eye: in each position a piece hangs to a fork — find the move that attacks two things and play it. One move."
+     },
+     "puzzle": {
+      "themes": [
+       "fork"
+      ],
+      "ratingLo": 700,
+      "ratingHi": 850,
+      "count": 3
+     }
+    },
+    {
+     "kind": "teach",
+     "title": "Two targets at once",
+     "steps": [
+      {
+       "fen": "4k3/8/8/4N3/8/8/8/4K3 w - - 0 1",
+       "conceptId": "knight-fork",
+       "coach": {
+        "conceptId": "knight-fork",
+        "text": "A fork is the simplest brutal idea in chess: one of your pieces attacks two of theirs at the same time. They move one to safety; you take the other. And no piece forks like the knight. Look at it on e5 — eight landing squares, and no two of them share a rank, file, or diagonal. That scatter is the secret: the knight's two victims can never guard each other, because nothing connects them.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "e5",
+          "color": "focus",
+          "label": "N"
+         },
+         {
+          "kind": "arrow",
+          "from": "e5",
+          "to": "c6",
+          "color": "info"
+         },
+         {
+          "kind": "arrow",
+          "from": "e5",
+          "to": "d7",
+          "color": "info"
+         },
+         {
+          "kind": "arrow",
+          "from": "e5",
+          "to": "f7",
+          "color": "info"
+         },
+         {
+          "kind": "arrow",
+          "from": "e5",
+          "to": "g6",
+          "color": "info"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "4q1k1/8/8/8/6N1/8/8/6K1 w - - 0 1",
+       "conceptId": "royal-fork",
+       "coach": {
+        "conceptId": "royal-fork",
+        "text": "Here is the cruellest of all — the royal fork. The knight leaps from g4 to f6 and in one move checks the king on g8 and attacks the queen on e8. Now feel why it wins. A check must be answered THIS move — the king has to crawl away — and while he saves himself, no one defends the queen. He moves the king; you take the queen. King and queen skewered on a single leap. Burn this picture into your eye.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "g4",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "g4",
+          "to": "f6",
+          "color": "good",
+          "label": "Nf6+"
+         },
+         {
+          "kind": "highlight",
+          "square": "g8",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "e8",
+          "color": "bad"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "r3k3/8/8/3N4/8/8/8/4K3 w - - 0 1",
+       "conceptId": "family-fork",
+       "coach": {
+        "conceptId": "family-fork",
+        "text": "The same shape against king and rook is called the family fork. The knight springs from d5 to c7 — check to the king on e8, and the rook on a8 attacked in the same instant. Why can the rook never be saved? Because the move is CHECK. The king's safety comes first, always; he answers the check, and the rook is left for you. A knight, a king, and a rook in this geometry — memorise it; it wins games at every level.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "d5",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "c7",
+          "color": "good",
+          "label": "Nc7+"
+         },
+         {
+          "kind": "highlight",
+          "square": "e8",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "a8",
+          "color": "bad"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "k1q5/ppp5/6r1/3N4/8/8/5PPP/7K w - - 0 1",
+       "conceptId": "loose-pieces",
+       "coach": {
+        "conceptId": "loose-pieces",
+        "text": "And a fork needs no check at all — only two loose targets that cannot help each other. The knight leaps from d5 to e7 and strikes both the queen on c8 and the rook on g6 at once. Look hard: the black king is tucked away on a8, so this is NOT a check — Black gets a completely free move to answer. And it changes nothing. The queen and rook sit too far apart to defend each other, and neither can reach e7 to take the knight. Black saves his queen, the richer piece; you take the rook he was forced to abandon. THIS is the purest fork — not forced by a check, but won because two undefended pieces can never guard one another. Loose pieces are fork-fuel: hunt the enemy's, guard your own.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "d5",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "e7",
+          "color": "good",
+          "label": "Ne7"
+         },
+         {
+          "kind": "highlight",
+          "square": "c8",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "g6",
+          "color": "bad"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Find the fork",
+     "steps": [
+      {
+       "fen": "4q1k1/8/8/3N4/8/8/8/6K1 w - - 0 1",
+       "conceptId": "royal-fork",
+       "coach": {
+        "conceptId": "royal-fork",
+        "text": "Your hand now. White to move. The king sits on g8, the queen on e8 — and one knight leap from d5 touches them both. Find the royal fork.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "d5",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "g8",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "e8",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "d5f6"
+       ],
+       "successLine": {
+        "conceptId": "royal-fork",
+        "text": "Nf6+. Check to the king, and the queen attacked in the same breath. He must move the king out of check; then you take the queen for nothing. That is the royal fork — the shape that wins more queens than any other.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "f6",
+          "color": "good",
+          "label": "fork"
+         },
+         {
+          "kind": "arrow",
+          "from": "f6",
+          "to": "g8",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "f6",
+          "to": "e8",
+          "color": "bad"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "No. A fork strikes two targets together. From d5, find the single square that checks the king on g8 AND attacks the queen on e8. Count the knight's leaps."
+       }
+      },
+      {
+       "fen": "r3k3/8/4N3/8/8/8/8/4K3 w - - 0 1",
+       "conceptId": "family-fork",
+       "coach": {
+        "conceptId": "family-fork",
+        "text": "White to move. The king on e8, a rook in the corner on a8. The knight on e6 has one leap that checks the king and hits the rook at once. Find the family fork.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "e6",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "e8",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "a8",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "e6c7"
+       ],
+       "successLine": {
+        "conceptId": "family-fork",
+        "text": "Nc7+. The king is checked, the rook is hit — and because it is check, the rook cannot be saved. He moves the king; the rook is yours. The family fork: the knight's bread and butter.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "c7",
+          "color": "good",
+          "label": "fork"
+         },
+         {
+          "kind": "arrow",
+          "from": "c7",
+          "to": "e8",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "c7",
+          "to": "a8",
+          "color": "bad"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "Not that one. The knight must give check and attack the rook in a single move. Which one square reaches both e8 and a8?"
+       }
+      },
+      {
+       "fen": "6k1/8/8/7N/4r3/8/8/6K1 w - - 0 1",
+       "conceptId": "knight-fork",
+       "coach": {
+        "conceptId": "knight-fork",
+        "text": "White to move. The black king on g8, a loose rook out on e4. The knight on h5 can land on one square that checks the king and attacks the rook below. Find the fork.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "h5",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "g8",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "e4",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "h5f6"
+       ],
+       "successLine": {
+        "conceptId": "knight-fork",
+        "text": "Nf6+. The check drags the king away, and the rook on e4 is left hanging. The very same f6 leap, a different victim — the shape repeats forever. Learn to see it in an instant.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "f6",
+          "color": "good",
+          "label": "fork"
+         },
+         {
+          "kind": "arrow",
+          "from": "f6",
+          "to": "g8",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "f6",
+          "to": "e4",
+          "color": "bad"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "No. The leap must check the king on g8 and hit the rook on e4 together. Which square from h5 reaches both?"
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down — strike two at once",
+     "intro": {
+      "text": "Now cold, from real games. Each position holds a fork — a knight, most often, attacking two pieces at once. Find the double blow and play it."
+     },
+     "puzzle": {
+      "themes": [
+       "fork"
+      ],
+      "ratingLo": 800,
+      "ratingHi": 950,
+      "count": 4
+     }
+    }
+   ]
+  },
+  {
+   "id": "l2-knight-forks",
+   "title": "Knight Forks — Win the Piece",
+   "kind": "tactics",
+   "summary": "Seeing the fork is half the job. Now play it out, take the second piece — and learn to spot the shape on a crowded board.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up — find the knight fork",
+     "intro": {
+      "text": "The knight is the great forker, so we drill it hard. Warm up: in each position a knight leap wins material. Find it and play it."
+     },
+     "puzzle": {
+      "themes": [
+       "fork"
+      ],
+      "ratingLo": 780,
+      "ratingHi": 920,
+      "count": 3
+     }
+    },
+    {
+     "kind": "teach",
+     "title": "Take what you win",
+     "steps": [
+      {
+       "fen": "r3k3/8/8/3N4/8/8/8/4K3 w - - 0 1",
+       "conceptId": "the-check-forces",
+       "coach": {
+        "conceptId": "the-check-forces",
+        "text": "Spotting the fork is only the start — you must finish it. Watch the whole transaction. Nc7+ forks the king and the rook. Because it is CHECK, the king must answer it and nothing else — he steps to d7, say. That is the whole power of the forcing move: the king has no time to save anyone. And now the second half: the rook still sits on a8, defenceless. Nxa8 — the rook is yours, and you are the exchange to the good. See the move, but always see the move AFTER it.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "d5",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "c7",
+          "color": "good",
+          "label": "1. Nc7+"
+         },
+         {
+          "kind": "arrow",
+          "from": "c7",
+          "to": "a8",
+          "color": "info",
+          "label": "2. Nxa8"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "N7/3k4/8/8/8/8/8/4K3 b - - 0 1",
+       "conceptId": "family-fork",
+       "coach": {
+        "conceptId": "family-fork",
+        "text": "There it is — the king ran to d7, and the knight has eaten the rook: it sits on a8 now, the prize collected. You gave a single knight move and won a whole rook. This is the rhythm of every fork: the forcing move first, the harvest second. Hold one warning in your mind for the next board, though — a fork only wins if the second target cannot escape OR be defended in that one tempo.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a8",
+          "color": "good",
+          "label": "rook won"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "k5q1/5ppp/2r5/3N4/8/8/PPP5/1K6 w - - 0 1",
+       "conceptId": "knight-fork",
+       "coach": {
+        "conceptId": "knight-fork",
+        "text": "And the fork without a check — pure geometry. The knight leaps from d5 to e7 and strikes the queen on g8 and the rook on c6 in the same instant. The black king is far away on a8, so there is no check — Black is handed a totally free move. It does him no good: his queen and rook stand too far apart to guard each other, and neither can step to e7 to capture the knight. He rescues the queen, the more valuable piece; you collect the rook. The lesson: when two enemy pieces sit a knight's leap apart and neither defends the landing square, the fork wins even with the enemy free to reply.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "d5",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "e7",
+          "color": "good",
+          "label": "Ne7"
+         },
+         {
+          "kind": "highlight",
+          "square": "g8",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "c6",
+          "color": "bad"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Fork it and win",
+     "steps": [
+      {
+       "fen": "6k1/8/8/5q2/6N1/8/5PP1/6K1 w - - 0 1",
+       "conceptId": "royal-fork",
+       "coach": {
+        "conceptId": "royal-fork",
+        "text": "A new royal-fork picture. White to move. The king on g8, the queen out on f5, your knight on g4. One leap into the corner checks the king and attacks the queen at once. Win her.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "g4",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "g8",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "f5",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "g4h6"
+       ],
+       "successLine": {
+        "conceptId": "royal-fork",
+        "text": "Nh6+. A royal fork from a square you had to hunt for — h6 sits a knight's leap from BOTH the king on g8 and the queen on f5. He saves the king; Nxf5 takes the queen. The royal fork is not always the tidy Nf6 picture — train your eye to spot it wherever king and queen stand a knight's leap from one square.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "h6",
+          "color": "good",
+          "label": "fork"
+         },
+         {
+          "kind": "arrow",
+          "from": "h6",
+          "to": "g8",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "h6",
+          "to": "f5",
+          "color": "bad"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "The king is on g8, the queen on f5. From g4, find the one leap — into the corner at h6 — that checks the king and attacks the queen at once."
+       }
+      },
+      {
+       "fen": "7k/4r1p1/8/8/5N2/8/5PP1/6K1 w - - 0 1",
+       "conceptId": "knight-fork",
+       "coach": {
+        "conceptId": "knight-fork",
+        "text": "Now the knight wins a rook on a fresh shape. White to move. The king is cornered on h8, a rook sits on e7, and your knight on f4 has one leap that checks the king and attacks the rook together. Find it and win the rook.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "f4",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "h8",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "e7",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "f4g6"
+       ],
+       "successLine": {
+        "conceptId": "knight-fork",
+        "text": "Ng6+. The knight springs to g6 — check to the king on h8, and the rook on e7 attacked in the same leap. He must answer the check; then Nxe7 collects the rook (with another check, no less). A different leap, a different corner — the same forking idea.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "g6",
+          "color": "good",
+          "label": "fork"
+         },
+         {
+          "kind": "arrow",
+          "from": "g6",
+          "to": "h8",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "g6",
+          "to": "e7",
+          "color": "bad"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "The king is on h8, the rook on e7. From f4, find the one leap that checks the king in the corner and attacks the rook at once — the square is g6."
+       }
+      },
+      {
+       "fen": "k1q5/ppp5/8/3N1r2/8/8/5PPP/6K1 w - - 0 1",
+       "conceptId": "knight-fork",
+       "coach": {
+        "conceptId": "knight-fork",
+        "text": "No check this time — just two loose pieces a knight's leap apart. White to move. The queen sits on c8, a rook on f5; the knight on d5 can land on one square that strikes them both. The black king is off in the corner, so the enemy gets a free reply — but neither target defends the other, and neither can take the knight. Fork them and win material.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "d5",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "c8",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "f5",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "d5e7"
+       ],
+       "successLine": {
+        "conceptId": "knight-fork",
+        "text": "Ne7, forking the queen and the rook with no check at all. Black is free to move — and it does not matter, because the two targets cannot help each other. He saves the queen, the richer piece; Nxf5 then wins the rook he had to leave behind. A fork is just two attacks the enemy cannot both answer.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "e7",
+          "color": "good",
+          "label": "fork"
+         },
+         {
+          "kind": "arrow",
+          "from": "e7",
+          "to": "c8",
+          "color": "bad"
+         },
+         {
+          "kind": "arrow",
+          "from": "e7",
+          "to": "f5",
+          "color": "bad"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "The queen is on c8, the rook on f5. Find the one square the knight reaches from d5 that attacks both of them together — a knight's leap to e7."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down — the knight wins material",
+     "intro": {
+      "text": "Knight forks from real games, a touch sharper. See the leap that hits two pieces, play it, and pocket the one that cannot run."
+     },
+     "puzzle": {
+      "themes": [
+       "fork"
+      ],
+      "ratingLo": 820,
+      "ratingHi": 980,
+      "count": 4
+     }
+    }
+   ]
+  },
+  {
+   "id": "l3-pawn-and-queen-forks",
+   "title": "Pawn & Queen Forks",
+   "kind": "tactics",
+   "summary": "The cheapest forker and the richest: a pawn that splits two pieces, and a queen that checks while she robs.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up — any piece can fork",
+     "intro": {
+      "text": "The knight is not the only forker. Today, the pawn and the queen. Warm up first: each position holds a fork by some piece — find it and play it."
+     },
+     "puzzle": {
+      "themes": [
+       "fork"
+      ],
+      "ratingLo": 760,
+      "ratingHi": 900,
+      "count": 3
+     }
+    },
+    {
+     "kind": "teach",
+     "title": "The cheapest and the richest",
+     "steps": [
+      {
+       "fen": "4k3/3n1n2/8/4P3/8/8/8/4K3 w - - 0 1",
+       "conceptId": "pawn-fork",
+       "coach": {
+        "conceptId": "pawn-fork",
+        "text": "Never sneer at a pawn. It forks too — and it is the most humiliating forker of all, because the victim it takes was worth three times as much. The pawn pushes e5 to e6 and attacks both knights at once, on d7 and f7, along its two capture diagonals. And here is the point: neither knight can capture the pawn — from d7 and f7 the e6 square is simply not a knight's leap away. He saves one knight, the pawn eats the other. A one-point pawn winning a whole piece — that is the cheapest fork on the board.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "e5",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "e5",
+          "to": "e6",
+          "color": "good",
+          "label": "e6"
+         },
+         {
+          "kind": "highlight",
+          "square": "d7",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "f7",
+          "color": "bad"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "6k1/6pp/8/8/8/1n6/8/3QK3 w - - 0 1",
+       "conceptId": "queen-fork",
+       "coach": {
+        "conceptId": "queen-fork",
+        "text": "Now the queen — the richest forker, because she moves on every line. Watch her double attack. Qd5+ checks the king on g8 down the long diagonal, and the very same queen on d5 eyes the loose knight on b3 along the other diagonal. Two arms of one move: a check on one, a capture on the other. He must answer the check; the knight is hers. The queen forks by reaching far on two lines at once.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "d1",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "d1",
+          "to": "d5",
+          "color": "good",
+          "label": "Qd5+"
+         },
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "g8",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "b3",
+          "color": "bad"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "4k3/8/8/1n6/8/8/8/Q5K1 w - - 0 1",
+       "conceptId": "queen-fork",
+       "coach": {
+        "conceptId": "queen-fork",
+        "text": "The queen forks on straight lines too, not only diagonals. Qe5+ swings up the long diagonal to e5, and from there she checks the king straight down the e-FILE, while along the fifth RANK she strikes the loose knight on b5. The check comes with a free knight attached — and the knight cannot capture her, for e5 is no knight's leap from b5. When you bring the queen to a square, always ask: from here, do I hit the king AND something else? She forks far more often than beginners ever notice.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a1",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "a1",
+          "to": "e5",
+          "color": "good",
+          "label": "Qe5+"
+         },
+         {
+          "kind": "arrow",
+          "from": "e5",
+          "to": "e8",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "e5",
+          "to": "b5",
+          "color": "bad"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Fork with pawn and queen",
+     "steps": [
+      {
+       "fen": "4k3/8/2n1n3/8/3P4/8/8/4K3 w - - 0 1",
+       "conceptId": "pawn-fork",
+       "coach": {
+        "conceptId": "pawn-fork",
+        "text": "White to move. Two black knights, on c6 and e6 — and your pawn on d4 one push from splitting them. Push it and fork both. From d5 neither knight can take the pawn back, so one of them must fall.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "d4",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "c6",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "e6",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "d4d5"
+       ],
+       "successLine": {
+        "conceptId": "pawn-fork",
+        "text": "d5, forking both knights. One pawn, two pieces — and neither can capture it: d5 is no knight's leap from c6 or e6. He rescues one; you win the other for a single pawn. The cheapest fork on the board.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "d5",
+          "color": "good",
+          "label": "fork"
+         },
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "c6",
+          "color": "bad"
+         },
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "e6",
+          "color": "bad"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "The pawn captures diagonally forward. From d4, push to d5 — from there it attacks both c6 and e6 at once. Make the push."
+       }
+      },
+      {
+       "fen": "6k1/6pp/8/8/8/1n6/5PPP/3Q2K1 w - - 0 1",
+       "conceptId": "queen-fork",
+       "coach": {
+        "conceptId": "queen-fork",
+        "text": "White to move. The king on g8, a loose knight on b3. Your queen on d1 can reach one square that checks the king on one diagonal and attacks the knight on the other. Find the queen fork.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "d1",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "g8",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "b3",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "d1d5"
+       ],
+       "successLine": {
+        "conceptId": "queen-fork",
+        "text": "Qd5+. The check forces the king to move; the knight on b3 has no such reprieve and falls. One queen, two diagonals, two targets. Always look for the square where her check comes with a gift attached.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "d5",
+          "color": "good",
+          "label": "fork"
+         },
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "g8",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "b3",
+          "color": "bad"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "You want one square that does two jobs: check the king on g8 and attack the knight on b3. Both lie on diagonals through d5 — put the queen there."
+       }
+      },
+      {
+       "fen": "4k3/8/7b/8/8/8/8/Q5K1 w - - 0 1",
+       "conceptId": "queen-fork",
+       "coach": {
+        "conceptId": "queen-fork",
+        "text": "White to move. King on e8, a loose bishop on h6. Your queen on a1 has one square — the far corner — from which she checks the king along a straight line AND attacks the bishop along another, while the bishop cannot strike back. Find it.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a1",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "e8",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "h6",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "a1h8"
+       ],
+       "successLine": {
+        "conceptId": "queen-fork",
+        "text": "Qh8+. Up the long diagonal to the corner — and from h8 she checks the king straight along the eighth RANK and attacks the bishop straight down the h-FILE. The bishop cannot answer: from h6 it has no move to h8. The king must step out of the rank-check first; then Qxh6 collects the bishop. A check on one straight line, a capture on another — the queen's signature.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "h8",
+          "color": "good",
+          "label": "fork"
+         },
+         {
+          "kind": "arrow",
+          "from": "h8",
+          "to": "e8",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "h8",
+          "to": "h6",
+          "color": "bad"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "You want a square that checks the king straight along the eighth rank AND hits the bishop on h6 down a file, while keeping the queen safe. The corner — h8 — does both."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down — pawns and queens that fork",
+     "intro": {
+      "text": "Now drill the two new forkers. In each, your opponent moves first; then a pawn push or a queen move wins two targets at once. Find the double attack and take your prize."
+     },
+     "puzzle": {
+      "themes": [
+       "fork"
+      ],
+      "ratingLo": 820,
+      "ratingHi": 980,
+      "count": 4,
+      "boards": [
+       {
+        "id": "ch8-l3c-01",
+        "fen": "6k1/5ppp/3n1n2/8/4P3/8/5PPP/6K1 b - - 0 1",
+        "moves": [
+         "g8h8",
+         "e4e5"
+        ],
+        "rating": 840
+       },
+       {
+        "id": "ch8-l3c-02",
+        "fen": "6k1/5ppp/1n1n4/8/2P5/8/5PPP/6K1 b - - 0 1",
+        "moves": [
+         "g8h8",
+         "c4c5"
+        ],
+        "rating": 870
+       },
+       {
+        "id": "ch8-l3c-03",
+        "fen": "6k1/6pp/1n6/8/8/8/5PPP/2Q3K1 b - - 0 1",
+        "moves": [
+         "b6a4",
+         "c1c4"
+        ],
+        "rating": 920
+       },
+       {
+        "id": "ch8-l3c-04",
+        "fen": "4kb2/8/8/8/8/8/8/Q5K1 b - - 0 1",
+        "moves": [
+         "f8h6",
+         "a1h8"
+        ],
+        "rating": 900
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "l4-rook-bishop-king-forks",
+   "title": "Rook, Bishop & King Forks",
+   "kind": "tactics",
+   "summary": "Every piece forks. The rook on a rank-and-file, the bishop on two diagonals, even the king in the endgame.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up — spot the double attack",
+     "intro": {
+      "text": "We finish the family of forkers: rook, bishop, and even the king. Warm up first — each position has a fork waiting. Find it."
+     },
+     "puzzle": {
+      "themes": [
+       "fork"
+      ],
+      "ratingLo": 800,
+      "ratingHi": 940,
+      "count": 3
+     }
+    },
+    {
+     "kind": "teach",
+     "title": "The rest of the family",
+     "steps": [
+      {
+       "fen": "2k5/6Rb/1P6/8/8/8/8/4K3 w - - 0 1",
+       "conceptId": "fork",
+       "coach": {
+        "conceptId": "fork",
+        "text": "The rook forks where its rank meets its file. It slides along the seventh rank to c7 — guarded by your pawn on b6, so the king cannot simply take it. Now look at the cross. Up the c-file the rook checks the king on c8; along the seventh rank it strikes the loose bishop on h7. The king must step off the c-file, and the bishop — far away on the rank — cannot be saved. A rook forks on the intersection of a rank and a file: hunt for the square where that cross catches the king and a loose piece together. Note the pawn — a forking piece that the king could just capture is no fork at all.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "g7",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "g7",
+          "to": "c7",
+          "color": "good",
+          "label": "Rc7+"
+         },
+         {
+          "kind": "arrow",
+          "from": "c7",
+          "to": "c8",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "c7",
+          "to": "h7",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "b6",
+          "color": "good"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "r5k1/8/8/8/8/5B2/8/4K3 w - - 0 1",
+       "conceptId": "fork",
+       "coach": {
+        "conceptId": "fork",
+        "text": "The bishop forks on its two diagonals. From f3 it swings to d5: one diagonal runs up to the king on g8 — check — and the other runs across to the rook on a8. He saves the king; the rook is yours. Remember, though, the bishop's curse: both targets must sit on its ONE colour. A bishop can only ever fork two pieces of the same square-colour. Keep that limit in mind and the bishop fork is a fine weapon.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "f3",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "f3",
+          "to": "d5",
+          "color": "good",
+          "label": "Bd5+"
+         },
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "g8",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "a8",
+          "color": "bad"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "k7/8/8/3pKp2/3P1P2/8/P6P/8 w - - 0 1",
+       "conceptId": "fork",
+       "coach": {
+        "conceptId": "fork",
+        "text": "Even the king forks — in the endgame, when the heavy pieces are gone and he marches up the board as a fighting piece. Here the king steps from e5 to e6 and attacks both black pawns at once, on d5 and f5. Neither pawn can flee far — they are blocked head-on by your own pawns — and the far-off black king cannot defend them. He saves one; your king eats the other. A pawn is small, but in an endgame a single extra pawn decides the game. Never forget: the king, too, wins material with a double attack.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "e5",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "e5",
+          "to": "e6",
+          "color": "good",
+          "label": "Ke6"
+         },
+         {
+          "kind": "highlight",
+          "square": "d5",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "f5",
+          "color": "bad"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Fork with the whole army",
+     "steps": [
+      {
+       "fen": "2k5/R6b/1P6/8/8/8/8/4K3 w - - 0 1",
+       "conceptId": "fork",
+       "coach": {
+        "conceptId": "fork",
+        "text": "White to move. The king on c8, a loose bishop on h7, your rook on a7 — and your pawn on b6 guarding the c7 square ahead. Slide the rook along the seventh rank to the square that checks the king up the c-file and attacks the bishop. Fork them — and because the pawn defends it, the king cannot take it.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a7",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "c8",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "h7",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "b6",
+          "color": "good"
+         }
+        ]
+       },
+       "solutionUci": [
+        "a7c7"
+       ],
+       "successLine": {
+        "conceptId": "fork",
+        "text": "Rc7+. The cross of the c-file and the seventh rank — check to the king, attack on the bishop. The b6 pawn guards c7, so the king cannot capture; he must step off the file, and the bishop falls. The rook forks exactly where its lines intersect a king and a loose piece.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "c7",
+          "color": "good",
+          "label": "fork"
+         },
+         {
+          "kind": "arrow",
+          "from": "c7",
+          "to": "c8",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "c7",
+          "to": "h7",
+          "color": "bad"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "Keep the rook on the seventh rank, where the bishop sits, and find the square that also checks the king up the c-file. That square is c7 — and your b6 pawn guards it."
+       }
+      },
+      {
+       "fen": "6k1/pp6/8/8/2r5/5B2/PPP5/1K6 w - - 0 1",
+       "conceptId": "fork",
+       "coach": {
+        "conceptId": "fork",
+        "text": "White to move — the bishop fork on a fuller board. King on g8, a loose rook on c4, both light squares, both reachable by your bishop on f3. Find the diagonal cross that checks the king and forks the rook.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "f3",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "g8",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "c4",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "f3d5"
+       ],
+       "successLine": {
+        "conceptId": "fork",
+        "text": "Bd5+. From d5 one diagonal runs up to the king on g8 — check — and the other runs down to the rook on c4. Both light squares, as they must be for a bishop. The king moves; Bxc4 wins the rook. A clean bishop fork, clutter and all.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "d5",
+          "color": "good",
+          "label": "fork"
+         },
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "g8",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "c4",
+          "color": "bad"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "Both targets are light squares. From f3, the square d5 sees the king on g8 up one diagonal and the rook on c4 along the other. Put the bishop there."
+       }
+      },
+      {
+       "fen": "k7/8/8/2pKp3/2P1P3/8/P6P/8 w - - 0 1",
+       "conceptId": "fork",
+       "coach": {
+        "conceptId": "fork",
+        "text": "An endgame. White to move. Two black pawns on c5 and e5, blocked head-on by your own, and the enemy king stranded in the corner. Step your king forward to the square between the pawns and attack them both.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "d5",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "c5",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "e5",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "d5d6"
+       ],
+       "successLine": {
+        "conceptId": "fork",
+        "text": "Kd6, forking both pawns. The king is a fighting piece once the danger has passed — and here he wins a pawn with a double attack the distant enemy king cannot prevent. One pawn does not sound like much, but in a king-and-pawn endgame it is often the whole game. Use your king; he is stronger than you think.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "d6",
+          "color": "good",
+          "label": "fork"
+         },
+         {
+          "kind": "arrow",
+          "from": "d6",
+          "to": "c5",
+          "color": "bad"
+         },
+         {
+          "kind": "arrow",
+          "from": "d6",
+          "to": "e5",
+          "color": "bad"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "The king attacks every square beside it. Step from d5 to d6 — from there it touches both c5 and e5. The enemy king is too far to defend either pawn."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down — rook and bishop double attacks",
+     "intro": {
+      "text": "Drill the heavy and the long-range forkers. Your opponent moves first; then a rook on its rank-and-file cross, or a bishop on its two diagonals, checks the king and wins a loose piece. Do not reach for the knight — find the right piece for each."
+     },
+     "puzzle": {
+      "themes": [
+       "fork"
+      ],
+      "ratingLo": 860,
+      "ratingHi": 1000,
+      "count": 4,
+      "boards": [
+       {
+        "id": "ch8-l4c-01",
+        "fen": "k7/6n1/8/8/2R5/8/8/4K3 b - - 0 1",
+        "moves": [
+         "g7e8",
+         "c4c8"
+        ],
+        "rating": 880
+       },
+       {
+        "id": "ch8-l4c-02",
+        "fen": "1k3r2/6pp/8/8/8/2B5/5PPP/6K1 b - - 0 1",
+        "moves": [
+         "f8f4",
+         "c3e5"
+        ],
+        "rating": 940
+       },
+       {
+        "id": "ch8-l4c-03",
+        "fen": "2r3k1/pp6/8/8/8/5B2/PPP5/1K6 b - - 0 1",
+        "moves": [
+         "c8c4",
+         "f3d5"
+        ],
+        "rating": 960
+       },
+       {
+        "id": "ch8-l4c-04",
+        "fen": "7k/2n5/8/8/1R6/8/8/4K3 b - - 0 1",
+        "moves": [
+         "c7a8",
+         "b4b8"
+        ],
+        "rating": 900
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "l5-making-the-fork",
+   "title": "Making the Fork — Forcing Moves First",
+   "kind": "practice",
+   "summary": "The fork is rarely a gift; you build it. A check, a capture, or a threat first drives an enemy piece onto the fork square.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up — see the fork coming",
+     "intro": {
+      "text": "The last skill is the hardest and the most useful: making a fork that is not yet there. Warm up with forks in one move — then we learn to set them up."
+     },
+     "puzzle": {
+      "themes": [
+       "fork"
+      ],
+      "ratingLo": 840,
+      "ratingHi": 980,
+      "count": 3
+     }
+    },
+    {
+     "kind": "teach",
+     "title": "Build the fork with a forcing move",
+     "steps": [
+      {
+       "fen": "6k1/4nppp/2N5/3q1r2/8/8/5PPP/6K1 w - - 0 1",
+       "conceptId": "make-the-fork",
+       "coach": {
+        "conceptId": "make-the-fork",
+        "text": "Most forks must be MADE. The forcing move is your tool: a check, a capture, or a hard threat that leaves the enemy no choice but to walk a piece into your fork. Here the knight on c6 captures: Nxe7. It takes the knight on e7 — and from e7 it forks the queen on d5 and the rook on f5 at once. A capture that lands on a forking square: two pieces threatened, one tempo to save them. He keeps one; you take the other — here the queen. The capture did double duty. Always ask where your captures LAND, not just what they take.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "c6",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "c6",
+          "to": "e7",
+          "color": "good",
+          "label": "Nxe7"
+         },
+         {
+          "kind": "highlight",
+          "square": "d5",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "f5",
+          "color": "bad"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "2q4k/6p1/8/5N2/8/8/6K1/R7 w - - 0 1",
+       "conceptId": "make-the-fork",
+       "coach": {
+        "conceptId": "make-the-fork",
+        "text": "Now a two-move build — the heart of the skill. The king hides on h8; the knight on f5 cannot fork it yet. So FORCE it. Rh1+ — a check up the open h-file. The king has nowhere else: g7 is blocked by his own pawn, and the knight on f5 covers it anyway. He MUST crawl to g8, exactly where you want him. The forcing move won nothing itself; it herded the king onto the fork square.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a1",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "a1",
+          "to": "h1",
+          "color": "good",
+          "label": "1. Rh1+"
+         },
+         {
+          "kind": "arrow",
+          "from": "h8",
+          "to": "g8",
+          "color": "info",
+          "label": "...Kg8"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "2q3k1/6p1/8/5N2/8/8/6K1/7R w - - 0 1",
+       "conceptId": "royal-fork",
+       "coach": {
+        "conceptId": "royal-fork",
+        "text": "And the harvest. With the king dragged to g8, the knight strikes: Ne7+ — check to the king and a fork of the queen on c8 in the same leap. The g7 pawn cannot touch the knight on e7, so it stands safe. He must move the king again; then Nxc8 wins the queen. This is how strong players win: not by waiting for a fork to appear, but by forcing the position until it must. See the fork you WANT, then find the forcing move that builds it.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "f5",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "f5",
+          "to": "e7",
+          "color": "good",
+          "label": "2. Ne7+"
+         },
+         {
+          "kind": "highlight",
+          "square": "g8",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "c8",
+          "color": "bad"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Make it and take it",
+     "steps": [
+      {
+       "fen": "r3k3/2b5/4N3/8/8/8/8/4K3 w - - 0 1",
+       "conceptId": "make-the-fork",
+       "coach": {
+        "conceptId": "make-the-fork",
+        "text": "White to move. Your knight on e6 can capture the bishop on c7 AND land on a square that checks the king on e8 and attacks the rook in the corner. Find the capture that makes the fork.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "e6",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "e8",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "a8",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "e6c7"
+       ],
+       "successLine": {
+        "conceptId": "make-the-fork",
+        "text": "Nxc7+. A bishop pocketed on the way in — and from c7 the knight checks the king and forks the rook on a8. Because it is check, the king must move and the rook cannot be saved: Nxa8 takes that too. A capture that lands on a forking square is two tactics in one move — always check where your captures LAND.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "c7",
+          "color": "good",
+          "label": "fork"
+         },
+         {
+          "kind": "arrow",
+          "from": "c7",
+          "to": "e8",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "c7",
+          "to": "a8",
+          "color": "bad"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "Look at where the knight LANDS, not just what it takes. From e6, the capture on c7 puts the knight on a square that checks the king on e8 and attacks the rook on a8. Make it."
+       }
+      },
+      {
+       "fen": "2r4k/6p1/8/3N4/8/8/6K1/R7 w - - 0 1",
+       "conceptId": "make-the-fork",
+       "coach": {
+        "conceptId": "make-the-fork",
+        "text": "White to move — the two-move build, a fresh shape. The king hides on h8 and a rook sits on c8. Your knight on d5 cannot fork them yet. First, the forcing move: give the check up the open h-file that drives the king to g8, so that next move Ne7+ forks the king and the rook. Play the forcing move.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a1",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "h8",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "c8",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "a1h1"
+       ],
+       "successLine": {
+        "conceptId": "make-the-fork",
+        "text": "Rh1+. The king has no choice — g7 is blocked by its own pawn, so it must crawl to g8, onto the very square the knight wants. Now Ne7+ forks king and rook, and Nxc8 wins the rook. You did not wait for the fork; you forced it into being. That is the master's habit.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "h1",
+          "color": "good",
+          "label": "check"
+         },
+         {
+          "kind": "arrow",
+          "from": "h1",
+          "to": "h8",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "h8",
+          "to": "g8",
+          "color": "info"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "The fork is not there yet — make it. The king on h8 must be forced to g8 first. Which rook move gives a check up the open h-file?"
+       }
+      },
+      {
+       "fen": "6k1/5ppp/4n1n1/8/5P2/8/6PP/6K1 w - - 0 1",
+       "conceptId": "pawn-fork",
+       "coach": {
+        "conceptId": "pawn-fork",
+        "text": "A simpler build to finish. White to move. Two black knights, on e6 and g6, sit a pawn-push apart. Advance the pawn to fork them both, and win a piece for a pawn.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "f4",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "e6",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "g6",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "f4f5"
+       ],
+       "successLine": {
+        "conceptId": "pawn-fork",
+        "text": "f5, forking both knights. The humblest forcing move there is — a pawn push that attacks two pieces, and neither can take it back: f5 is no knight's leap from e6 or g6. He saves one; the pawn takes the other. Even a beginner's pawn ends careers when it forks.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "f5",
+          "color": "good",
+          "label": "fork"
+         },
+         {
+          "kind": "arrow",
+          "from": "f5",
+          "to": "e6",
+          "color": "bad"
+         },
+         {
+          "kind": "arrow",
+          "from": "f5",
+          "to": "g6",
+          "color": "bad"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "Push the pawn from f4 to f5. From there it attacks both e6 and g6 — a pawn fork of the two knights."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down — find and force the fork",
+     "intro": {
+      "text": "The chapter's payoff. Sharper forks from real games — some are there for the taking, some you must build with a forcing move first. See the two targets, find the move that wins one of them."
+     },
+     "puzzle": {
+      "themes": [
+       "fork"
+      ],
+      "ratingLo": 900,
+      "ratingHi": 1040,
+      "count": 5
+     }
+    },
+    {
+     "kind": "boss",
+     "title": "Win material — fork the apprentice",
+     "bossFen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+     "bossEngineElo": 900,
+     "bossUserColor": "white",
+     "bossIntro": {
+      "conceptId": "fork",
+      "text": "Now play it for real. You are White against my apprentice. Develop your knights to active central squares, keep one eye always on his king and queen, and the moment two of his pieces stand a knight's leap apart — or a pawn push or a queen check catches two at once — strike. Do not wait for the fork; make it. Win me material with a double attack, then convert. Begin."
+     }
+    }
+   ]
+  }
+ ],
+ "test": {
+  "passThreshold": 0.7,
+  "questions": [
+   {
+    "kind": "mc",
+    "prompt": "What is a fork?",
+    "options": [
+     "One piece attacking two enemy targets at the same time",
+     "Two pieces defending the same square",
+     "A pawn reaching the last rank to promote",
+     "Trapping the enemy king with no escape"
+    ],
+    "answerIndex": 0,
+    "explain": "A fork is a double attack: one piece threatens two enemy targets at once. The opponent can answer only one, so you win the other."
+   },
+   {
+    "kind": "mc",
+    "prompt": "Why does a fork that gives CHECK almost always win the second piece?",
+    "options": [
+     "Because a check ends the game immediately",
+     "Because the king must answer the check first, so the other piece cannot be saved",
+     "Because you can never capture a checking piece",
+     "Because the queen is always the second target"
+    ],
+    "answerIndex": 1,
+    "explain": "A check must be answered that very move. While the opponent rescues the king, no one can defend or move the other forked piece — so it falls."
+   },
+   {
+    "kind": "mc",
+    "prompt": "Which piece makes the deadliest forks, and why?",
+    "options": [
+     "The bishop, because it moves the farthest",
+     "The rook, because it controls a whole rank and file",
+     "The knight, because its two targets sit on no shared line and cannot defend each other",
+     "The pawn, because it is the cheapest piece"
+    ],
+    "answerIndex": 2,
+    "explain": "The knight's leaps land on squares that share no rank, file, or diagonal. Its two victims can never guard one another or block the attack — the perfect double attack."
+   },
+   {
+    "kind": "play",
+    "prompt": "White to move. The king is on g8 and the queen on e8. Play the royal fork that wins the queen.",
+    "fen": "4qrk1/pp3p1p/8/3N4/8/8/PP3PPP/6K1 w - - 0 1",
+    "solutionUci": [
+     "d5f6"
+    ],
+    "explain": "Nf6+ checks the king and attacks the queen on e8. No pawn guards f6, so the knight is safe; the king must move out of check, and then Nxe8 wins the queen — the royal fork."
+   },
+   {
+    "kind": "play",
+    "prompt": "White to move. Deliver the family fork that wins the rook in the corner.",
+    "fen": "r3k2r/pp3ppp/2p5/3N4/8/8/PP3PPP/4K3 w - - 0 1",
+    "solutionUci": [
+     "d5c7"
+    ],
+    "explain": "Nc7+ forks the king on e8 and the rook on a8. Because it is check, the king must step aside and the rook cannot be saved; Nxa8 follows."
+   },
+   {
+    "kind": "play",
+    "prompt": "White to move. One pawn push attacks both black knights. Fork them.",
+    "fen": "6k1/5ppp/3n1n2/8/4P3/8/5PPP/6K1 w - - 0 1",
+    "solutionUci": [
+     "e4e5"
+    ],
+    "explain": "e5 attacks both knights, on d6 and f6, along its two capture diagonals. Neither knight can capture the pawn — e5 is no knight's leap from d6 or f6 — so White wins a piece for a pawn."
+   },
+   {
+    "kind": "play",
+    "prompt": "White to move. The king is on g8 and a knight sits loose on a4. Find the queen fork that wins the knight.",
+    "fen": "6k1/6pp/8/8/n7/8/5PPP/2Q3K1 w - - 0 1",
+    "solutionUci": [
+     "c1c4"
+    ],
+    "explain": "Qc4+ checks the king up the diagonal to g8 and, on the same move, attacks the knight on a4 along the fourth rank. The queen cannot simply grab the knight in one move from c1 — only the fork wins it: the king must answer the check, then Qxa4 collects the piece."
+   },
+   {
+    "kind": "play",
+    "prompt": "White to move. Build the fork: give the check that drives the king onto the square where your knight will fork king and queen next move.",
+    "fen": "2q4k/6p1/8/5N2/8/8/6K1/R7 w - - 0 1",
+    "solutionUci": [
+     "a1h1"
+    ],
+    "explain": "Rh1+ forces the king to g8 — its only square, since g7 is blocked by its own pawn and covered by the knight. Then Ne7+ forks king and queen, and Nxc8 wins her — a fork made by a forcing move."
+   },
+   {
+    "kind": "judge",
+    "prompt": "White just played Nc7+. Was that a good move or a blunder?",
+    "fen": "r3k3/2N5/8/8/8/8/8/4K3 b - - 1 1",
+    "lastMoveUci": "d5c7",
+    "verdict": "correct",
+    "explain": "Correct. Nc7+ is a family fork: it checks the king on e8 and attacks the rook on a8. The king must move, then Nxa8 wins the rook — a clean gain of material."
+   },
+   {
+    "kind": "judge",
+    "prompt": "White had a knight on d5 and played the quiet pawn move h2-h3. Judge that choice.",
+    "fen": "4q1k1/pp3p1p/8/3N4/8/7P/PP3P2/6K1 b - - 0 1",
+    "lastMoveUci": "h2h3",
+    "verdict": "blunder",
+    "explain": "A blunder — White missed a winning fork. Nf6+ was a royal fork: no pawn guards f6, so it safely checks the king on g8 and attacks the queen on e8. The king must move and the queen falls. The quiet h3 throws the win away. Always look for your forks before you make a slow move."
+   },
+   {
+    "kind": "judge",
+    "prompt": "Black just played the queen to d5. White has a pawn on e4. Was moving the queen there sound, or a blunder?",
+    "fen": "6k1/8/8/3q1b2/4P3/8/8/6K1 w - - 1 2",
+    "lastMoveUci": "d8d5",
+    "verdict": "blunder",
+    "explain": "A blunder — Black walked into a pawn fork. The pawn on e4 attacks both d5 and f5, hitting the queen and the bishop at once. White plays exd5, winning the queen for a pawn. Never park two pieces on a pawn's two capture squares."
+   },
+   {
+    "kind": "play",
+    "prompt": "White to move. The king is on b8 and a rook sits loose on f4. Find the bishop fork that wins the rook.",
+    "fen": "1k6/6pp/8/8/5r2/2B5/5PPP/6K1 w - - 0 1",
+    "solutionUci": [
+     "c3e5"
+    ],
+    "explain": "Be5+ is a bishop fork on its two diagonals: it checks the king on b8 up one diagonal and attacks the rook on f4 along the other. The king must answer the check; then Bxf4 wins the rook. A bishop can only ever fork two pieces of its own colour — here both are dark squares."
+   },
+   {
+    "kind": "judge",
+    "prompt": "White just played Rc7+, with a pawn already on b6. Good move or a blunder?",
+    "fen": "2k5/2R4n/1P6/8/8/8/8/4K3 b - - 1 1",
+    "lastMoveUci": "a7c7",
+    "verdict": "correct",
+    "explain": "Correct — a rook fork on the cross of the c-file and the seventh rank. Rc7+ checks the king up the c-file and attacks the knight on h7 along the rank. The b6 pawn guards c7, so the king cannot capture the rook — it must step off the file, and Rxh7 wins the knight."
+   },
+   {
+    "kind": "judge",
+    "prompt": "An endgame. White just stepped the king from f5 to f6, between the two black pawns. Good move or a pointless shuffle?",
+    "fen": "k7/8/5K2/4p1p1/4P1P1/8/8/8 b - - 1 1",
+    "lastMoveUci": "f5f6",
+    "verdict": "correct",
+    "explain": "Correct — even the king forks. Kf6 attacks both black pawns at once, on e5 and g5, and each is blocked head-on by a white pawn so neither can run. The far-off black king cannot defend them both: Black saves one, White's king eats the other. In a king-and-pawn endgame, that single extra pawn is often the whole game."
+   }
+  ]
+ },
+ "eloFloor": 820
+}

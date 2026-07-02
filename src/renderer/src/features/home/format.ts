@@ -1,9 +1,8 @@
 // Pure, React-free formatting helpers for the Home dashboard.
-// Type-only import from shared is allowed (we never edit shared files).
 import type {
-  CurriculumBand,
-  CurriculumLesson,
-  GameRow
+  GameRow,
+  SchoolChapterMeta,
+  SchoolMastery
 } from '../../../../shared/types'
 
 /**
@@ -93,62 +92,50 @@ export function opponentLabelOf(game: GameRow): string {
   return 'Opponent'
 }
 
-export interface BandPick {
-  band: CurriculumBand
-  /** True when the rating sits below the lowest band's floor (still placed in it). */
-  belowFloor: boolean
+/** Number of School chapters the learner has completed. */
+export function schoolCompletedCount(mastery: SchoolMastery | null): number {
+  return (mastery?.chapters ?? []).filter((c) => c.completed).length
+}
+
+export interface SchoolNextStep {
+  /** placement = not placed yet; continue = resume an in-progress chapter;
+   *  start = begin the next unlocked chapter; review = all unlocked done. */
+  mode: 'placement' | 'continue' | 'start' | 'review'
+  title: string
 }
 
 /**
- * Pick the curriculum band a given rating belongs to. Bands are sorted by
- * `order`; we choose the highest band whose `ratingFloor` the rating clears,
- * falling back to the first band when the rating is below every floor. Returns
- * null only for an empty tree. Tolerates unsorted input and NaN ratings.
+ * The single most useful next School action for the Home card: take placement
+ * if not placed, continue an in-progress chapter, else start the next unlocked
+ * chapter, else (everything unlocked is done) review. Null when no chapters.
  */
-export function pickBand(bands: CurriculumBand[], rating: number): BandPick | null {
-  if (!bands || bands.length === 0) return null
-  const sorted = [...bands].sort((a, b) => a.order - b.order)
-  const r = Number.isFinite(rating) ? rating : 0
-  let chosen = sorted[0]
-  let belowFloor = r < sorted[0].ratingFloor
-  for (const band of sorted) {
-    if (r >= band.ratingFloor) {
-      chosen = band
-      belowFloor = false
-    }
+export function nextSchoolStep(
+  chapters: SchoolChapterMeta[],
+  mastery: SchoolMastery | null
+): SchoolNextStep | null {
+  if (!chapters || chapters.length === 0) return null
+  const prog = new Map((mastery?.chapters ?? []).map((c) => [c.chapterId, c]))
+  // New-model chapters record per-lesson completion (mastery.lessons) and may
+  // never bump segmentsDone — a chapter with any lesson done is also in progress.
+  const lessonStarted = new Set((mastery?.lessons ?? []).map((l) => l.chapterId))
+  const ordered = [...chapters].sort((a, b) => a.order - b.order)
+
+  // Everything locked => placement hasn't been done yet.
+  if (!ordered.some((c) => !c.locked)) {
+    return { mode: 'placement', title: 'Take your placement game' }
   }
-  return { band: chosen, belowFloor }
-}
+  const inProgress = ordered.find(
+    (c) =>
+      !c.locked &&
+      !prog.get(c.id)?.completed &&
+      ((prog.get(c.id)?.segmentsDone ?? 0) > 0 || lessonStarted.has(c.id))
+  )
+  if (inProgress) return { mode: 'continue', title: inProgress.title }
 
-/**
- * Suggest the next lesson within a band for a given rating: the first lesson
- * (by unit order, then lesson position) whose rating range contains the rating,
- * else the first lesson whose range starts at or above the rating, else the
- * band's very first lesson. Returns null if the band has no lessons.
- */
-export function suggestNextLesson(
-  band: CurriculumBand,
-  rating: number
-): CurriculumLesson | null {
-  const units = [...(band.units ?? [])].sort((a, b) => a.order - b.order)
-  const lessons: CurriculumLesson[] = []
-  for (const unit of units) lessons.push(...(unit.lessons ?? []))
-  if (lessons.length === 0) return null
-  const r = Number.isFinite(rating) ? rating : 0
+  const nextNew = ordered.find((c) => !c.locked && !prog.get(c.id)?.completed)
+  if (nextNew) return { mode: 'start', title: nextNew.title }
 
-  const inRange = lessons.find((l) => r >= l.ratingRange[0] && r <= l.ratingRange[1])
-  if (inRange) return inRange
-
-  const ahead = lessons.find((l) => l.ratingRange[0] >= r)
-  if (ahead) return ahead
-
-  return lessons[0]
-}
-
-/** Title-case a curriculum lesson kind for display ('endgame' -> 'Endgame'). */
-export function lessonKindLabel(kind: string): string {
-  if (!kind) return ''
-  return kind.charAt(0).toUpperCase() + kind.slice(1)
+  return { mode: 'review', title: 'Review your chapters' }
 }
 
 /**

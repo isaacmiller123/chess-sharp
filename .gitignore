@@ -35,6 +35,9 @@ release/
 /resources/engine/**/*.exe
 /resources/engine/**/*.dll
 /resources/engine/stockfish*
+# Extensionless Unix binaries in per-platform subfolders (mac/, linux/): stockfish, lc0
+/resources/engine/**/stockfish
+/resources/engine/**/lc0
 /resources/engine/*.nnue
 /resources/engine/**/*.nnue
 /resources/engine/weights/

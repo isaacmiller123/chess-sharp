@@ -1,0 +1,74 @@
+/* ============================================================
+   PieceIcon (board/PieceIcon.tsx) — inline piece artwork that
+   matches the board's active piece set, plus layout for its two
+   consumers that own no CSS file of their own: the promotion
+   picker buttons (.promo-choice lives in app.css) and the Play
+   player-card captured stacks (.chip-captured lives in play.css).
+   Tokens only; everything namespaced under .piece-icon /
+   .chip-captured-stack.
+
+   The DOM PieceIcon builds must keep matching both selector
+   shapes that deliver piece artwork:
+     .cg-wrap piece.<role>.<color>                (cburnett default)
+     .pieces-<set> .cg-wrap piece.<role>.<color>  (styles/pieces.css)
+   ============================================================ */
+.piece-icon {
+  display: inline-block;
+  flex: none;
+  vertical-align: middle;
+  line-height: 0;
+}
+/* Neutralise chessground's board geometry: chessground.base.css sizes
+   `.cg-wrap piece` as an absolutely-positioned 12.5% board square with
+   z-index/will-change for drag animation. Here the artwork simply fills the
+   icon box. Specificity (0,2,1) beats the base rule's (0,1,1), and the
+   piece-set selectors above it only ever set background-image. */
+.piece-icon .cg-wrap {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.piece-icon .cg-wrap piece {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+  z-index: auto;
+  will-change: auto;
+  pointer-events: none;
+}
+
+/* ---- Promotion picker (board/PromotionPicker.tsx) ---- */
+/* The button centers its inline content natively; the artwork just gets a
+   gentle lift on hover to echo the button's accent state. */
+.promo-choice .piece-icon {
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.promo-choice:hover .piece-icon {
+  transform: scale(1.08);
+}
+@media (prefers-reduced-motion: reduce) {
+  .promo-choice .piece-icon {
+    transition: none;
+  }
+  .promo-choice:hover .piece-icon {
+    transform: none;
+  }
+}
+
+/* ---- Captured-material stacks (features/play/PlayerChip.tsx) ---- */
+/* Same-role pieces overlap chess.com-style; role groups are separated by
+   .chip-captured's own gap (play.css). 16px icons + 8px negative margin =
+   a tight half-piece overlap that keeps the card height stable. */
+.chip-captured-stack {
+  display: inline-flex;
+  align-items: center;
+}
+.chip-captured-stack .piece-icon + .piece-icon {
+  margin-left: calc(-1 * var(--space-3));
+}

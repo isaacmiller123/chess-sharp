@@ -1,6 +1,10 @@
 /* Design tokens (single source of visual truth) — from docs/ui-ux.md §6.
-   Light is :root; dark overrides under [data-theme="dark"]. No hard-coded
-   color/space/radius/shadow/font value should appear outside this file. */
+   Light is :root; every other app theme overrides the SAME custom-property
+   names under its [data-theme="X"] block (dark, midnight, forest, ocean,
+   sepia — the union in state/settings.tsx must match the blocks here). No
+   hard-coded color/space/radius/shadow/font value should appear outside this
+   file (sole exception: theme/board PREVIEW swatches in SettingsView, which
+   must show palettes that are not currently active). */
 
 :root {
   /* Backgrounds & surfaces */
@@ -169,6 +173,197 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* Midnight — near-black OLED chrome with a cool blue accent. Blacker and
+   cooler than dark; surfaces stay barely-lifted so OLED panels read true. */
+[data-theme='midnight'] {
+  --bg-page: #08090c;
+  --bg-subtle: #0d0f14;
+  --surface: #12141a;
+  --surface-2: #191c24;
+  --border: #242834;
+  --border-strong: #333949;
+
+  --text-primary: #ccd2dd;
+  --text-secondary: #939bab;
+  --text-muted: #6a7181;
+  --text-inverse: #08090c;
+
+  --accent: #4f9cf7;
+  --accent-hover: #66abfa;
+  --accent-active: #7ab6fb;
+  --accent-soft: #101d31;
+  --on-accent: #ffffff;
+
+  --success: #74b83e;
+  --success-soft: #17260e;
+  --danger: #ee6b64;
+  --danger-soft: #331416;
+  --warning: #e3a54b;
+  --warning-soft: #2d2110;
+  --info: #66abfa;
+
+  --focus-ring: #66abfa;
+
+  --eval-white: #e9eaee;
+  --eval-black: #0a0b0f;
+  --eval-mid: #888888;
+
+  --class-brilliant: #2bc4bd;
+  --class-best: #79b94a;
+  --class-good: #8fae66;
+  --class-book: #b89a76;
+  --class-inaccuracy: #e6b25e;
+  --class-mistake: #e89a52;
+  --class-blunder: #e0504d;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.7);
+}
+
+/* Forest — deep green-grey surfaces with a warm club-board green accent. */
+[data-theme='forest'] {
+  --bg-page: #151a16;
+  --bg-subtle: #1a201b;
+  --surface: #202822;
+  --surface-2: #28312a;
+  --border: #354038;
+  --border-strong: #455247;
+
+  --text-primary: #c9d2c9;
+  --text-secondary: #97a397;
+  --text-muted: #6f7c6f;
+  --text-inverse: #151a16;
+
+  --accent: #81b64c;
+  --accent-hover: #8fc45c;
+  --accent-active: #9bcd6b;
+  --accent-soft: #22301a;
+  --on-accent: #ffffff;
+
+  --success: #7bb33a;
+  --success-soft: #1e2b15;
+  --danger: #e0716a;
+  --danger-soft: #38201d;
+  --warning: #dfa74f;
+  --warning-soft: #322611;
+  --info: #5fa3d8;
+
+  --focus-ring: #8fc45c;
+
+  --eval-white: #e7eae4;
+  --eval-black: #0e120e;
+  --eval-mid: #888888;
+
+  --class-brilliant: #2bc4bd;
+  --class-best: #79b94a;
+  --class-good: #8fae66;
+  --class-book: #b89a76;
+  --class-inaccuracy: #e6b25e;
+  --class-mistake: #e89a52;
+  --class-blunder: #e0504d;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+/* Ocean — dark blue-slate chrome with a cyan accent. on-accent flips to a
+   deep ink because bright cyan cannot carry white text. */
+[data-theme='ocean'] {
+  --bg-page: #0f151d;
+  --bg-subtle: #141c26;
+  --surface: #1a2430;
+  --surface-2: #22303f;
+  --border: #2e3f51;
+  --border-strong: #3e5266;
+
+  --text-primary: #c6d3de;
+  --text-secondary: #91a3b3;
+  --text-muted: #687a8a;
+  --text-inverse: #0f151d;
+
+  --accent: #29b6cd;
+  --accent-hover: #43c3d8;
+  --accent-active: #58cde0;
+  --accent-soft: #0d2733;
+  --on-accent: #06272f;
+
+  --success: #71b954;
+  --success-soft: #172b14;
+  --danger: #e8636f;
+  --danger-soft: #351a20;
+  --warning: #e0ab52;
+  --warning-soft: #2e2412;
+  --info: #43c3d8;
+
+  --focus-ring: #43c3d8;
+
+  --eval-white: #e6ecef;
+  --eval-black: #0a1016;
+  --eval-mid: #7d909c;
+
+  --class-brilliant: #2bc4bd;
+  --class-best: #79b94a;
+  --class-good: #8fae66;
+  --class-book: #b89a76;
+  --class-inaccuracy: #e6b25e;
+  --class-mistake: #e89a52;
+  --class-blunder: #e0504d;
+
+  --shadow-sm: 0 1px 2px rgba(2, 8, 14, 0.45);
+  --shadow-md: 0 2px 8px rgba(2, 8, 14, 0.55);
+  --shadow-lg: 0 8px 24px rgba(2, 8, 14, 0.65);
+}
+
+/* Sepia — warm light cream chrome with a book-leather brown accent. A light
+   theme: darker semantic hues than :root so they hold contrast on cream. */
+[data-theme='sepia'] {
+  --bg-page: #f5eedd;
+  --bg-subtle: #ede3cd;
+  --surface: #faf5e8;
+  --surface-2: #eee4cf;
+  --border: #dccfb2;
+  --border-strong: #c6b48e;
+
+  --text-primary: #40331f;
+  --text-secondary: #6f5f45;
+  --text-muted: #99896b;
+  --text-inverse: #faf5e8;
+
+  --accent: #8a5f34;
+  --accent-hover: #7b5329;
+  --accent-active: #6d4a24;
+  --accent-soft: #eddfc4;
+  --on-accent: #ffffff;
+
+  --success: #5e8c28;
+  --success-soft: #e4ecce;
+  --danger: #b8442f;
+  --danger-soft: #f3ddd5;
+  --warning: #a96f1d;
+  --warning-soft: #f2e5c8;
+  --info: #486f9e;
+
+  --focus-ring: #8a5f34;
+
+  --eval-white: #f4efe1;
+  --eval-black: #46392a;
+  --eval-mid: #9c8d74;
+
+  --class-brilliant: #14948f;
+  --class-best: #5a8f2f;
+  --class-good: #6f8c48;
+  --class-book: #96733f;
+  --class-inaccuracy: #c08a2e;
+  --class-mistake: #bf7426;
+  --class-blunder: #b23c2e;
+
+  --shadow-sm: 0 1px 2px rgba(92, 70, 40, 0.1);
+  --shadow-md: 0 2px 8px rgba(92, 70, 40, 0.14);
+  --shadow-lg: 0 8px 24px rgba(92, 70, 40, 0.18);
 }
 
 /* Board square colors (per-theme wrapper classes, independent of light/dark chrome) */

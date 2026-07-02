@@ -4,7 +4,7 @@ import {
   Swords,
   Cpu,
   Puzzle,
-  GraduationCap,
+  School as SchoolIcon,
   BookOpen,
   User,
   Settings as SettingsIcon,
@@ -19,8 +19,7 @@ export type ViewKey =
   | 'play'
   | 'analysis'
   | 'puzzles'
-  | 'lessons'
-  | 'famous'
+  | 'school'
   | 'openings'
   | 'progress'
   | 'settings'
@@ -30,7 +29,7 @@ export const NAV: { key: ViewKey; label: string; Icon: LucideIcon }[] = [
   { key: 'play', label: 'Play', Icon: Swords },
   { key: 'analysis', label: 'Analysis', Icon: Cpu },
   { key: 'puzzles', label: 'Puzzles', Icon: Puzzle },
-  { key: 'lessons', label: 'Lessons', Icon: GraduationCap },
+  { key: 'school', label: 'School', Icon: SchoolIcon },
   { key: 'openings', label: 'Openings', Icon: BookOpen },
   { key: 'progress', label: 'Progress', Icon: User }
 ]

@@ -1,235 +1,429 @@
+// Play setup — a three-tab experience:
+//   "Local"         play on this machine: vs Stockfish (tiered Elo slider,
+//                   piece-icon color picker, shared TimeControlPicker) OR
+//                   "Over the board" (two humans, one screen — OtbSetup).
+//   "Online"        LAN play — renders <OnlineTab/> (owned by another builder).
+//   "Grandmasters"  the persona gallery (PersonaGallery) + detail (PersonaDetail)
+//                   with its own Challenge flow.
+// State stays in PlayView (this component is controlled). All styling lives in
+// setup.css (namespaced .psetup-/.qm-/.otb-/.pgal-/.pdet-).
+
+import type { CSSProperties } from 'react'
+import { Crown, Cpu, Users, Swords, Wifi } from 'lucide-react'
+import { ENGINE_ELO_FLOOR, type FamousGameMeta, type Persona } from '@shared/types'
 import { EngineAvatar } from '../../components/Avatar'
-import type { Persona } from '../../../../shared/types'
-import { TIME_CONTROLS } from './timeControl'
+import { TimeControlPicker } from './TimeControlPicker'
+import type { TimeControl } from './timeControl'
+import { PersonaGallery } from './PersonaGallery'
+import { PersonaDetail } from './PersonaDetail'
+import { OtbSetup } from './OtbSetup'
+import OnlineTab, { type OnlineStage } from './OnlineTab'
 
 export type ColorChoice = 'white' | 'black' | 'random'
+/** Legacy alias kept for callers: engine = vs-Stockfish, persona = Grandmasters. */
 export type OpponentMode = 'engine' | 'persona'
+/** Top-level Play tab. */
+export type PlayTab = 'local' | 'online' | 'grandmasters'
+/** Which Local sub-mode is active. */
+export type LocalMode = 'engine' | 'otb'
+
+export interface OtbConfig {
+  whiteName: string
+  blackName: string
+  autoFlip: boolean
+}
 
 export interface SetupCardProps {
-  mode: OpponentMode
+  /** Active top-level tab. */
+  tab: PlayTab
+  /** Active Local sub-mode (vs computer / over the board). */
+  localMode: LocalMode
   elo: number
   colorChoice: ColorChoice
-  /** Selected time-control id (see timeControl.ts). */
-  timeControlId: string
+  /** The selected time control (shared across engine, OTB and Grandmasters). */
+  timeControl: TimeControl
+  /** Over-the-board config (names + auto-flip). */
+  otb: OtbConfig
   personas: Persona[]
   personasLoading: boolean
   selectedPersonaId: string | null
-  onMode: (m: OpponentMode) => void
+  /** Famous-game metadata by id (labels PersonaDetail's games list). */
+  famousGames: Record<string, FamousGameMeta>
+  /** Live online-session stage (from OnlineTab via PlayView): 'lobby'/'game'
+   *  lock the other tabs (switching would unmount the tab and tear the session
+   *  down); 'game' also hands the card the full play width. */
+  onlineStage: OnlineStage
+  onTab: (t: PlayTab) => void
+  onLocalMode: (m: LocalMode) => void
   onElo: (v: number) => void
   onColor: (c: ColorChoice) => void
-  onTimeControl: (id: string) => void
-  onSelectPersona: (id: string) => void
+  onTimeControl: (tc: TimeControl) => void
+  onOtb: (patch: Partial<OtbConfig>) => void
+  /** OnlineTab's stage reports, threaded up to PlayView's state. */
+  onOnlineStage: (stage: OnlineStage) => void
+  /** null returns the Grandmasters tab from detail to the gallery. */
+  onSelectPersona: (id: string | null) => void
+  /** Start the currently-configured game (engine, OTB, or persona challenge). */
   onStart: () => void
+  /** Open a famous game in Analysis (threaded from App via PlayView). */
+  onOpenFamousGame?: (famousId: string) => void
 }
 
-const ELO_MIN = 1320
+const ELO_MIN = 100
 const ELO_MAX = 3190
 
-const PRESETS: { label: string; elo: number }[] = [
-  { label: 'Beginner', elo: 1320 },
-  { label: 'Casual', elo: 1500 },
-  { label: 'Club', elo: 1800 },
-  { label: 'Expert', elo: 2100 },
-  { label: 'Master', elo: 2500 },
-  { label: 'Max', elo: 3190 }
-]
-
-const COLORS: { key: ColorChoice; label: string }[] = [
-  { key: 'white', label: 'White' },
-  { key: 'black', label: 'Black' },
-  { key: 'random', label: 'Random' }
-]
-
-const MODES: { key: OpponentMode; label: string }[] = [
-  { key: 'engine', label: 'Engine' },
-  { key: 'persona', label: 'Grandmaster style' }
-]
-
-/** Clamp 0..1 style weight to a percentage for the meter fill. */
-function pct(v: number): number {
-  return Math.max(0, Math.min(1, v)) * 100
+// Named strength tiers along the slider. `min` bounds the band (a tier is
+// active from its min up to the next tier's min); `jump` is the representative
+// Elo a chip click sets. Below ENGINE_ELO_FLOOR (1320) Stockfish can't be
+// weakened natively — the main process approximates those tiers with an
+// Elo-scaled softmax over MultiPV lines, hence the honesty footnote in the UI.
+interface Tier {
+  name: string
+  min: number
+  jump: number
+  blurb: string
 }
 
-function StyleMeter({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="persona-meter">
-      <span className="persona-meter-label">{label}</span>
-      <span className="persona-meter-track" aria-hidden>
-        <span className="persona-meter-fill" style={{ width: `${pct(value)}%` }} />
+const TIERS: Tier[] = [
+  {
+    name: 'Beginner',
+    min: ELO_MIN,
+    jump: 250,
+    blurb: 'Just learned the moves — hangs pieces and misses mate in one.'
+  },
+  {
+    name: 'Novice',
+    min: 500,
+    jump: 650,
+    blurb: 'Grabs free material but walks into forks, pins and back-rank tricks.'
+  },
+  {
+    name: 'Casual',
+    min: 850,
+    jump: 1000,
+    blurb: 'Plays sensible openings, then loses the thread in the middlegame.'
+  },
+  {
+    name: 'Amateur',
+    min: 1150,
+    jump: 1300,
+    blurb: 'Develops and castles on time; sharp tactics still slip through.'
+  },
+  {
+    name: 'Intermediate',
+    min: 1450,
+    jump: 1550,
+    blurb: 'A solid club-night opponent that punishes careless moves.'
+  },
+  {
+    name: 'Club',
+    min: 1750,
+    jump: 1850,
+    blurb: 'Positionally aware, and converts extra material with clean technique.'
+  },
+  {
+    name: 'Expert',
+    min: 2050,
+    jump: 2200,
+    blurb: 'Calculates deeply and rarely blunders. Bring a plan.'
+  },
+  {
+    name: 'Master',
+    min: 2350,
+    jump: 2500,
+    blurb: 'Master strength — precise, patient and unforgiving.'
+  },
+  {
+    name: 'Grandmaster',
+    min: 2700,
+    jump: 2850,
+    blurb: 'Elite strength. Every inaccuracy gets exploited.'
+  },
+  {
+    name: 'Maximum',
+    min: 3050,
+    jump: ELO_MAX,
+    blurb: 'Full-power Stockfish. Objectively hopeless — good luck.'
+  }
+]
+
+function tierFor(elo: number): Tier {
+  let t = TIERS[0]
+  for (const tier of TIERS) if (elo >= tier.min) t = tier
+  return t
+}
+
+const COLOR_OPTIONS: { key: ColorChoice; label: string; hint: string }[] = [
+  { key: 'white', label: 'White', hint: 'You move first' },
+  { key: 'black', label: 'Black', hint: 'Engine moves first' },
+  { key: 'random', label: 'Random', hint: 'Coin flip' }
+]
+
+/** Piece-icon disc for the color picker (random = split white/black disc). */
+function ColorDisc({ choice }: { choice: ColorChoice }) {
+  if (choice === 'random') {
+    return (
+      <span className="qm-disc is-random" aria-hidden>
+        <span className="qm-disc-glyph is-white">♔</span>
+        <span className="qm-disc-glyph is-black">♚</span>
       </span>
-    </div>
+    )
+  }
+  return (
+    <span className={`qm-disc is-${choice}`} aria-hidden>
+      {choice === 'white' ? '♔' : '♚'}
+    </span>
   )
 }
 
-function PersonaCard({
-  persona,
-  selected,
-  onSelect
+/** The vs-Stockfish configurator (Local → vs Computer). */
+function EngineSetup({
+  elo,
+  colorChoice,
+  timeControl,
+  onElo,
+  onColor,
+  onTimeControl,
+  onStart
 }: {
-  persona: Persona
-  selected: boolean
-  onSelect: () => void
+  elo: number
+  colorChoice: ColorChoice
+  timeControl: TimeControl
+  onElo: (v: number) => void
+  onColor: (c: ColorChoice) => void
+  onTimeControl: (tc: TimeControl) => void
+  onStart: () => void
 }) {
+  const tier = tierFor(elo)
+  const fillPct = ((elo - ELO_MIN) / (ELO_MAX - ELO_MIN)) * 100
   return (
-    <button
-      type="button"
-      className={`persona-card${selected ? ' is-selected' : ''}`}
-      onClick={onSelect}
-      aria-pressed={selected}
-    >
-      <div className="persona-card-head">
-        <EngineAvatar size={40} />
-        <div className="persona-card-meta">
-          <span className="persona-card-name">{persona.name}</span>
-          <span className="persona-card-era muted small">{persona.era}</span>
+    <section className="psetup-panel qm" aria-label="Play vs Stockfish setup">
+      <header className="qm-head">
+        <EngineAvatar size={44} />
+        <div className="qm-head-meta">
+          <h2>Stockfish</h2>
+          <span className="muted small">
+            The classic engine opponent — dial it from first-timer to world-beater.
+          </span>
         </div>
-        <span className="eval-chip persona-card-elo">{persona.peakElo}</span>
+      </header>
+
+      <div className="psetup-field">
+        <div className="qm-strength-row">
+          <span className="psetup-label" id="qm-strength-label">
+            Strength
+          </span>
+          <span className="qm-readout">
+            <span className="qm-readout-elo num">{elo}</span>
+            <span className="qm-readout-tier">{tier.name}</span>
+          </span>
+        </div>
+        <input
+          className="qm-range"
+          type="range"
+          min={ELO_MIN}
+          max={ELO_MAX}
+          step={10}
+          value={elo}
+          aria-labelledby="qm-strength-label"
+          aria-valuetext={`${elo} Elo — ${tier.name}`}
+          style={{ '--fill': `${fillPct}%` } as CSSProperties}
+          onChange={(e) => onElo(Number(e.target.value))}
+        />
+        <div className="qm-tiers" role="group" aria-label="Strength presets">
+          {TIERS.map((t) => (
+            <button
+              key={t.name}
+              type="button"
+              className={`qm-tier${t === tier ? ' on' : ''}`}
+              title={`${t.name} · ~${t.jump} Elo`}
+              onClick={() => onElo(t.jump)}
+            >
+              {t.name}
+            </button>
+          ))}
+        </div>
+        <p className="qm-blurb" aria-live="polite">
+          <strong>{tier.name}</strong> — {tier.blurb}
+        </p>
+        {elo < ENGINE_ELO_FLOOR && (
+          <p className="qm-floor-note muted">
+            Below {ENGINE_ELO_FLOOR} the engine is softened artificially, so ratings there are
+            approximate.
+          </p>
+        )}
       </div>
-      <p className="persona-card-bio">{persona.bio}</p>
-      <div className="persona-card-style">
-        <StyleMeter label="Aggression" value={persona.style.aggression} />
-        <StyleMeter label="Risk" value={persona.style.risk} />
+
+      <div className="psetup-field">
+        <span className="psetup-label">Play as</span>
+        <div className="qm-colors" role="group" aria-label="Play as">
+          {COLOR_OPTIONS.map((c) => (
+            <button
+              key={c.key}
+              type="button"
+              className={`qm-color${colorChoice === c.key ? ' on' : ''}`}
+              aria-pressed={colorChoice === c.key}
+              onClick={() => onColor(c.key)}
+            >
+              <ColorDisc choice={c.key} />
+              <span className="qm-color-label">{c.label}</span>
+              <span className="qm-color-hint muted">{c.hint}</span>
+            </button>
+          ))}
+        </div>
       </div>
-    </button>
+
+      <div className="psetup-field">
+        <span className="psetup-label">Time control</span>
+        <TimeControlPicker value={timeControl} onChange={onTimeControl} />
+      </div>
+
+      <button type="button" className="btn psetup-start" onClick={onStart}>
+        <span className="psetup-start-main">Start game</span>
+        <span className="psetup-start-sub num">
+          vs Stockfish · {tier.name} · {elo} Elo
+        </span>
+      </button>
+    </section>
   )
 }
 
 export function SetupCard({
-  mode,
+  tab,
+  localMode,
   elo,
   colorChoice,
-  timeControlId,
+  timeControl,
+  otb,
   personas,
   personasLoading,
   selectedPersonaId,
-  onMode,
+  famousGames,
+  onlineStage,
+  onTab,
+  onLocalMode,
   onElo,
   onColor,
   onTimeControl,
+  onOtb,
+  onOnlineStage,
   onSelectPersona,
-  onStart
+  onStart,
+  onOpenFamousGame
 }: SetupCardProps) {
-  const selectedPersona = personas.find((p) => p.id === selectedPersonaId) ?? null
-  const canStart = mode === 'engine' || selectedPersona !== null
+  const selectedPersona =
+    tab === 'grandmasters' ? (personas.find((p) => p.id === selectedPersonaId) ?? null) : null
+
+  const TABS: { key: PlayTab; label: string; icon: typeof Swords }[] = [
+    { key: 'local', label: 'Local', icon: Swords },
+    { key: 'online', label: 'Online', icon: Wifi },
+    { key: 'grandmasters', label: 'Grandmasters', icon: Crown }
+  ]
+
+  // While an online session is live (lobby or game), switching tabs would
+  // unmount OnlineTab, whose cleanup tears the whole session down (hosted code
+  // dies / live game is abandoned). Lock the other tabs until the user leaves
+  // via the tab's own Cancel/Leave affordances.
+  const onlineLocked = tab === 'online' && onlineStage !== 'idle'
+  // A live online game reuses GameView — hand it the full play width.
+  const onlineGameLive = tab === 'online' && onlineStage === 'game'
 
   return (
-    <div className="setup-grid">
-      <section className="card setup-card">
-        <div className="setup-opponent">
-          <EngineAvatar size={48} />
-          <div className="setup-opponent-meta">
-            <h2>{mode === 'persona' ? selectedPersona?.name ?? 'Grandmaster style' : 'Stockfish'}</h2>
-            <span className="muted small">
-              {mode === 'persona'
-                ? selectedPersona
-                  ? `In the style of ${selectedPersona.name} · ${selectedPersona.peakElo} Elo`
-                  : 'Choose a grandmaster to play in their style'
-                : `Strength ${elo} Elo`}
-            </span>
-          </div>
-        </div>
+    <div
+      className={`psetup${tab === 'grandmasters' ? ' is-wide' : ''}${onlineGameLive ? ' is-game' : ''}`}
+    >
+      <div className="psetup-tabs" role="tablist" aria-label="Play mode">
+        {TABS.map((t) => {
+          const Icon = t.icon
+          const locked = onlineLocked && t.key !== 'online'
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
+              className={`psetup-tab${tab === t.key ? ' on' : ''}`}
+              disabled={locked}
+              title={locked ? 'Leave the online game first' : undefined}
+              onClick={() => onTab(t.key)}
+            >
+              <Icon size={15} aria-hidden />
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
 
-        <div className="setup-field">
-          <span className="setup-label">Opponent</span>
-          <div className="segmented mode-row">
-            {MODES.map((m) => (
-              <button
-                key={m.key}
-                className={`seg${mode === m.key ? ' on' : ''}`}
-                onClick={() => onMode(m.key)}
-              >
-                {m.label}
-              </button>
-            ))}
+      {tab === 'local' ? (
+        <div className="psetup-local">
+          <div className="psetup-subtabs" role="tablist" aria-label="Local mode">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={localMode === 'engine'}
+              className={`psetup-subtab${localMode === 'engine' ? ' on' : ''}`}
+              onClick={() => onLocalMode('engine')}
+            >
+              <Cpu size={14} aria-hidden />
+              vs Computer
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={localMode === 'otb'}
+              className={`psetup-subtab${localMode === 'otb' ? ' on' : ''}`}
+              onClick={() => onLocalMode('otb')}
+            >
+              <Users size={14} aria-hidden />
+              Over the board
+            </button>
           </div>
-        </div>
 
-        {mode === 'engine' ? (
-          <div className="setup-field">
-            <div className="setup-label-row">
-              <span className="setup-label">Engine strength</span>
-              <span className="num elo-readout">{elo}</span>
-            </div>
-            <input
-              className="elo-range"
-              type="range"
-              min={ELO_MIN}
-              max={ELO_MAX}
-              step={10}
-              value={elo}
-              aria-label="Engine Elo"
-              onChange={(e) => onElo(Number(e.target.value))}
+          {localMode === 'engine' ? (
+            <EngineSetup
+              elo={elo}
+              colorChoice={colorChoice}
+              timeControl={timeControl}
+              onElo={onElo}
+              onColor={onColor}
+              onTimeControl={onTimeControl}
+              onStart={onStart}
             />
-            <div className="preset-row">
-              {PRESETS.map((p) => (
-                <button
-                  key={p.label}
-                  className={`seg${elo === p.elo ? ' on' : ''}`}
-                  onClick={() => onElo(p.elo)}
-                  title={`${p.label} (${p.elo})`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="setup-field">
-            <span className="setup-label">Grandmaster</span>
-            {personasLoading ? (
-              <div className="persona-empty muted small">Loading grandmasters…</div>
-            ) : personas.length === 0 ? (
-              <div className="persona-empty muted small">No grandmaster styles are available.</div>
-            ) : (
-              <div className="persona-gallery">
-                {personas.map((p) => (
-                  <PersonaCard
-                    key={p.id}
-                    persona={p}
-                    selected={p.id === selectedPersonaId}
-                    onSelect={() => onSelectPersona(p.id)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="setup-field">
-          <span className="setup-label">Play as</span>
-          <div className="segmented color-row">
-            {COLORS.map((c) => (
-              <button
-                key={c.key}
-                className={`seg${colorChoice === c.key ? ' on' : ''}`}
-                onClick={() => onColor(c.key)}
-              >
-                {c.label}
-              </button>
-            ))}
-          </div>
+          ) : (
+            <OtbSetup
+              whiteName={otb.whiteName}
+              blackName={otb.blackName}
+              timeControl={timeControl}
+              autoFlip={otb.autoFlip}
+              onWhiteName={(whiteName) => onOtb({ whiteName })}
+              onBlackName={(blackName) => onOtb({ blackName })}
+              onTimeControl={onTimeControl}
+              onAutoFlip={(autoFlip) => onOtb({ autoFlip })}
+              onStart={onStart}
+            />
+          )}
         </div>
-
-        <div className="setup-field">
-          <span className="setup-label">Time control</span>
-          <div className="segmented time-row" role="group" aria-label="Time control">
-            {TIME_CONTROLS.map((tc) => (
-              <button
-                key={tc.id}
-                className={`seg${timeControlId === tc.id ? ' on' : ''}`}
-                aria-pressed={timeControlId === tc.id}
-                onClick={() => onTimeControl(tc.id)}
-              >
-                {tc.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <button className="btn setup-start" onClick={onStart} disabled={!canStart}>
-          Start game
-        </button>
-      </section>
+      ) : tab === 'online' ? (
+        <OnlineTab
+          initialTimeControl={timeControl}
+          onTimeControl={onTimeControl}
+          onStage={onOnlineStage}
+        />
+      ) : selectedPersona ? (
+        <PersonaDetail
+          persona={selectedPersona}
+          famousGames={famousGames}
+          colorChoice={colorChoice}
+          timeControl={timeControl}
+          onColor={onColor}
+          onTimeControl={onTimeControl}
+          onBack={() => onSelectPersona(null)}
+          onChallenge={onStart}
+          onOpenFamousGame={onOpenFamousGame}
+        />
+      ) : (
+        <PersonaGallery personas={personas} loading={personasLoading} onOpen={onSelectPersona} />
+      )}
     </div>
   )
 }

@@ -7,9 +7,14 @@ import { formatRelativeDate, opponentLabelOf, resultChipLabel, resultKind } from
 export interface RecentGamesCardProps {
   games: GameRow[]
   onNavigate: (view: HomeNavTarget) => void
+  onOpenGame: (gameId: number) => void
 }
 
-export default function RecentGamesCard({ games, onNavigate }: RecentGamesCardProps): JSX.Element {
+export default function RecentGamesCard({
+  games,
+  onNavigate,
+  onOpenGame
+}: RecentGamesCardProps): JSX.Element {
   const rows = games.slice(0, 5)
 
   return (
@@ -39,7 +44,7 @@ export default function RecentGamesCard({ games, onNavigate }: RecentGamesCardPr
               <li key={g.id}>
                 <button
                   className="game-row"
-                  onClick={() => onNavigate('analysis')}
+                  onClick={() => onOpenGame(g.id)}
                   aria-label={`Review game vs ${opponentLabelOf(g)}`}
                 >
                   <span className={`result-chip ${kind}`}>{resultChipLabel(kind)}</span>

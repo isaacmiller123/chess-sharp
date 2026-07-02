@@ -1,6 +1,8 @@
+import { useMemo } from 'react'
 import { Sparkles } from 'lucide-react'
-import type { EloBand, GameReview, ReviewSideSummary } from '@shared/types'
+import type { EloBand, GameReview } from '@shared/types'
 import { EvalGraph } from '../../panels/EvalGraph'
+import { badgeMeta, countBadges, BADGE_TABLE_ORDER, type ReviewBadge } from './badges'
 
 export interface ReviewPanelProps {
   review: GameReview | null
@@ -61,18 +63,11 @@ export function ReviewPanel({
 
         {review && !running && (
           <>
-            <div className="review-grid">
-              <SideStat label="White" side={review.white} />
-              <SideStat label="Black" side={review.black} />
-            </div>
+            <SummaryTable review={review} />
 
-            <div className="review-elo">
-              <EloReadout label="White" band={review.whiteElo} />
-              <EloReadout label="Black" band={review.blackElo} />
-              <p className="review-elo-note muted small">
-                Performance estimate for this game — separate from your Glicko rating.
-              </p>
-            </div>
+            <p className="review-elo-note muted small">
+              Performance estimate for this game — separate from your Glicko rating.
+            </p>
 
             <div className="review-graph-wrap">
               <EvalGraph moveEvals={review.moveEvals} currentPly={currentPly} onSeek={onSeek} />
@@ -81,6 +76,8 @@ export function ReviewPanel({
             <button className="btn ghost review-rerun" onClick={onRun} disabled={!canReview}>
               Re-run review
             </button>
+            {/* A failed re-run must not look like a silent no-op over the old review. */}
+            {error && <p className="review-error small">{error}</p>}
           </>
         )}
       </div>
@@ -88,32 +85,102 @@ export function ReviewPanel({
   )
 }
 
-function SideStat({ label, side }: { label: string; side: ReviewSideSummary }) {
+/**
+ * Chess.com-style review sidebar table: per-side accuracy (big), estimated
+ * performance band, ACPL, then one row per badge class with the colored icon
+ * and each side's count.
+ */
+function SummaryTable({ review }: { review: GameReview }) {
+  const whiteCounts = useMemo(() => countBadges(review.moveEvals, 'white'), [review.moveEvals])
+  const blackCounts = useMemo(() => countBadges(review.moveEvals, 'black'), [review.moveEvals])
+
+  // Fixed chess.com rows; Forced is appended only when it actually occurred.
+  const rows: ReviewBadge[] = useMemo(() => {
+    const base = [...BADGE_TABLE_ORDER]
+    if ((whiteCounts.get('Forced') ?? 0) + (blackCounts.get('Forced') ?? 0) > 0) {
+      base.push('Forced')
+    }
+    return base
+  }, [whiteCounts, blackCounts])
+
   return (
-    <div className="review-side">
-      <div className="review-side-head small muted">{label}</div>
-      <div className="review-accuracy num">{side.accuracy.toFixed(1)}%</div>
-      <div className="review-accuracy-cap small muted">accuracy</div>
-      <div className="review-acpl small">
-        <span className="muted">ACPL</span> <span className="num">{side.acpl}</span>
+    <div className="rv-table" role="table" aria-label="Review summary by side">
+      <div className="rv-row rv-players" role="row">
+        <span className="rv-cell rv-player" role="columnheader">
+          White
+        </span>
+        <span className="rv-cell" role="columnheader" aria-hidden />
+        <span className="rv-cell rv-player" role="columnheader">
+          Black
+        </span>
       </div>
-      <div className="review-counts small muted num">
-        <span className="tone-inaccuracy" title="Inaccuracies">{side.inaccuracies} ?!</span>
-        <span className="tone-mistake" title="Mistakes">{side.mistakes} ?</span>
-        <span className="tone-blunder" title="Blunders">{side.blunders} ??</span>
+
+      <div className="rv-row rv-accuracy-row" role="row">
+        <span className="rv-cell rv-acc rv-acc-white num" role="cell">
+          {review.white.accuracy.toFixed(1)}
+        </span>
+        <span className="rv-cell rv-label" role="cell">
+          Accuracy
+        </span>
+        <span className="rv-cell rv-acc rv-acc-black num" role="cell">
+          {review.black.accuracy.toFixed(1)}
+        </span>
       </div>
+
+      <div className="rv-row" role="row">
+        <EloCell band={review.whiteElo} />
+        <span className="rv-cell rv-label" role="cell">
+          Game rating
+        </span>
+        <EloCell band={review.blackElo} />
+      </div>
+
+      <div className="rv-row rv-acpl-row" role="row">
+        <span className="rv-cell num" role="cell">
+          {review.white.acpl}
+        </span>
+        <span className="rv-cell rv-label" role="cell">
+          Avg. CP loss
+        </span>
+        <span className="rv-cell num" role="cell">
+          {review.black.acpl}
+        </span>
+      </div>
+
+      {rows.map((badge) => {
+        const meta = badgeMeta(badge)
+        const w = whiteCounts.get(badge) ?? 0
+        const b = blackCounts.get(badge) ?? 0
+        // Chess.com keeps every class visible; rows nobody hit just dim.
+        const zero = w === 0 && b === 0
+        return (
+          <div className={`rv-row rv-badge-row${zero ? ' rv-row-zero' : ''}`} role="row" key={badge}>
+            <span className={`rv-cell rv-count num${w > 0 ? ` tone-${meta.tone}` : ' rv-zero'}`} role="cell">
+              {w}
+            </span>
+            <span className={`rv-cell rv-badge-label tone-${meta.tone}`} role="cell">
+              <span className={`bchip bchip-${meta.tone}`} aria-hidden>
+                {meta.glyph}
+              </span>
+              {meta.label}
+            </span>
+            <span className={`rv-cell rv-count num${b > 0 ? ` tone-${meta.tone}` : ' rv-zero'}`} role="cell">
+              {b}
+            </span>
+          </div>
+        )
+      })}
     </div>
   )
 }
 
-function EloReadout({ label, band }: { label: string; band: EloBand }) {
+function EloCell({ band }: { band: EloBand }) {
   return (
-    <div className="elo-readout">
-      <span className="elo-label small muted">{label} est. Elo</span>
-      <span className="elo-value num">{Math.round(band.est)}</span>
-      <span className="elo-range small muted num">
+    <span className="rv-cell rv-elo" role="cell">
+      <span className="rv-elo-est num">{Math.round(band.est)}</span>
+      <span className="rv-elo-range small muted num">
         {Math.round(band.low)}–{Math.round(band.high)}
       </span>
-    </div>
+    </span>
   )
 }

@@ -6,6 +6,11 @@ export interface PuzzlePromptProps {
   phase: Phase
   userColor: Color
   correctSan?: string | null
+  /** Retry-on-wrong: the fail is recorded but the learner is still solving. */
+  keepTrying?: boolean
+  /** The line was completed AFTER the fail was recorded ("solved, but the
+   *  first try counted"). Only meaningful with phase 'failed'. */
+  lateSolve?: boolean
 }
 
 function colorLabel(c: Color): string {
@@ -13,7 +18,13 @@ function colorLabel(c: Color): string {
 }
 
 /** Turn prompt + status banner. Mirrors the lichess solving header. */
-export function PuzzlePrompt({ phase, userColor, correctSan }: PuzzlePromptProps): JSX.Element {
+export function PuzzlePrompt({
+  phase,
+  userColor,
+  correctSan,
+  keepTrying = false,
+  lateSolve = false
+}: PuzzlePromptProps): JSX.Element {
   let cls = 'panel pad puzzle-prompt'
   let title: string
   let subtitle: string
@@ -26,8 +37,15 @@ export function PuzzlePrompt({ phase, userColor, correctSan }: PuzzlePromptProps
       break
     case 'failed':
       cls += ' is-failed'
-      title = 'Not quite'
-      subtitle = correctSan ? `Best was ${correctSan}.` : 'That was not the move.'
+      if (lateSolve) {
+        // Retry-on-wrong: they found the line in the end, but the first wrong
+        // try already counted — say so honestly without hiding the finish.
+        title = 'Solved — counted as failed'
+        subtitle = 'Only the first try is rated. On to the next one.'
+      } else {
+        title = 'Not quite'
+        subtitle = correctSan ? `Best was ${correctSan}.` : 'That was not the move.'
+      }
       break
     case 'empty':
       title = 'No puzzles'
@@ -44,8 +62,15 @@ export function PuzzlePrompt({ phase, userColor, correctSan }: PuzzlePromptProps
     case 'leadin':
     case 'solving':
     default:
-      title = `Find the best move for ${colorLabel(userColor)}`
-      subtitle = 'Your move.'
+      if (keepTrying) {
+        // Retry-on-wrong: the fail is on the books; the board is live again.
+        cls += ' is-keeptrying'
+        title = 'Recorded as failed — keep trying'
+        subtitle = `Take your time and find the move for ${colorLabel(userColor)}.`
+      } else {
+        title = `Find the best move for ${colorLabel(userColor)}`
+        subtitle = 'Your move.'
+      }
       break
   }
 

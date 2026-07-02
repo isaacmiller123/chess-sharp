@@ -1,0 +1,1314 @@
+[
+  {
+    "id": "morphy",
+    "name": "Paul Morphy",
+    "title": "GM",
+    "country": "United States",
+    "years": "1837-1884",
+    "era": "Romantic",
+    "peakElo": 2690,
+    "peakYear": 1859,
+    "modernElo": 2475,
+    "modernEloNote": "Expert consensus puts Morphy around 2350-2550 against today's field: his open-game tactics and development principles were a century ahead, but he never faced modern defensive technique and knows none of 165 years of opening theory - 2475 splits that range honestly.",
+    "styleDesc": "Morphy plays 1.e4 and races every piece into play before striking - Evans Gambits, King's Gambits and the Ruy Lopez, always aiming at f7 and the uncastled king. His sacrifices are not wild gambles but the logical payoff of a lead in development and open lines. Endgames are handled cleanly but he would rather never reach one.",
+    "timeStyle": "blitzer",
+    "bio": "A New Orleans prodigy who crushed the American field at 20, then toured Europe in 1858-59 and demolished every master who would face him, including Anderssen. Widely considered the first truly modern player for his understanding of development and open lines. He retired from chess at 22 and never played seriously again.",
+    "style": {
+      "aggression": 0.85,
+      "risk": 0.55,
+      "prefersAttack": true,
+      "prefersSolid": false
+    },
+    "photoCommonsFile": "File:Paul Morphy.jpg",
+    "repertoireWhite": [
+      "e4 e5 Nf3 Nc6 Bc4 Bc5 b4 Bxb4 c3 Ba5 d4",
+      "e4 e5 f4 exf4 Nf3 g5 Bc4 g4 O-O",
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O",
+      "e4 e5 Nf3 d6 d4 Bg4 dxe5 Bxf3 Qxf3 dxe5 Bc4",
+      "e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4 exd4 cxd4"
+    ],
+    "repertoireBlack": [
+      "e4 e5 Nf3 Nc6 Nc3 Nf6 Bb5 Bc5 O-O O-O",
+      "e4 e5 f4 exf4 Nf3 g5 h4 g4",
+      "e4 e5 Nf3 Nc6 Bc4 Bc5 b4 Bxb4 c3 Ba5",
+      "d4 f5 c4 Nf6 Nc3 e6"
+    ],
+    "famousGames": [
+      {
+        "white": "Paul Morphy",
+        "black": "Duke Karl of Brunswick / Count Isouard",
+        "event": "Paris Opera House (casual game)",
+        "year": 1858,
+        "result": "1-0",
+        "significance": "The Opera Game - the most famous demonstration of development and open lines ever played, ending in a queen-sacrifice mate.",
+        "movetext": "1. e4 e5 2. Nf3 d6 3. d4 Bg4 4. dxe5 Bxf3 5. Qxf3 dxe5 6. Bc4 Nf6 7. Qb3 Qe7 8. Nc3 c6 9. Bg5 b5 10. Nxb5 cxb5 11. Bxb5+ Nbd7 12. O-O-O Rd8 13. Rxd7 Rxd7 14. Rd1 Qe6 15. Bxd7+ Nxd7 16. Qb8+ Nxb8 17. Rd8#"
+      },
+      {
+        "white": "Louis Paulsen",
+        "black": "Paul Morphy",
+        "event": "1st American Chess Congress, New York",
+        "year": 1857,
+        "result": "0-1",
+        "significance": "Morphy's stunning 17...Qxf3!! queen sacrifice - he calculated the forced win for twelve minutes before playing it.",
+        "movetext": "1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Bb5 Bc5 5. O-O O-O 6. Nxe5 Re8 7. Nxc6 dxc6 8. Bc4 b5 9. Be2 Nxe4 10. Nxe4 Rxe4 11. Bf3 Re6 12. c3 Qd3 13. b4 Bb6 14. a4 bxa4 15. Qxa4 Bd7 16. Ra2 Rae8 17. Qa6 Qxf3 18. gxf3 Rg6+ 19. Kh1 Bh3 20. Rd1 Bg2+ 21. Kg1 Bxf3+ 22. Kf1 Bg2+ 23. Kg1 Bh3+ 24. Kh1 Bxf2 25. Qf1 Bxf1 26. Rxf1 Re2 27. Ra1 Rh6 28. d4 Be3"
+      }
+    ]
+  },
+  {
+    "id": "anderssen",
+    "name": "Adolf Anderssen",
+    "title": "GM",
+    "country": "Germany",
+    "years": "1818-1879",
+    "era": "Romantic",
+    "peakElo": 2600,
+    "peakYear": 1862,
+    "modernElo": 2300,
+    "modernEloNote": "The greatest pure attacker of the Romantic era, but his all-gambit repertoire and casual defense would be ruthlessly refuted by anyone with modern technique - roughly FM strength today.",
+    "styleDesc": "Anderssen plays gambit chess in its purest form: King's Gambits and Evans Gambits, pawns and pieces thrown at the enemy king for open lines. He calculates mating combinations better than anyone of his generation and will sacrifice both rooks and the queen if a mate is at the end of it. Defense and endgames interest him only as a last resort.",
+    "timeStyle": "steady",
+    "bio": "A Breslau mathematics teacher who became the world's leading player by winning London 1851, the first international tournament, and London 1862. His Immortal and Evergreen games are the two most celebrated attacking miniatures in chess history. He was defeated decisively by Morphy in 1858 and by Steinitz in 1866, bookending the Romantic era.",
+    "style": {
+      "aggression": 0.95,
+      "risk": 0.9,
+      "prefersAttack": true,
+      "prefersSolid": false
+    },
+    "photoCommonsFile": "File:Adolf Anderssen.jpg",
+    "repertoireWhite": [
+      "e4 e5 f4 exf4 Bc4 Qh4+ Kf1 b5 Bxb5",
+      "e4 e5 Nf3 Nc6 Bc4 Bc5 b4 Bxb4 c3 Ba5 d4 exd4 O-O",
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 d3",
+      "a3 e5 c4 Nf6 Nc3 d5 cxd5 Nxd5 e3"
+    ],
+    "repertoireBlack": [
+      "e4 e5 f4 exf4 Nf3 g5 h4 g4 Ne5 Nf6",
+      "e4 e5 Nf3 Nc6 Bc4 Bc5 b4 Bxb4 c3 Ba5",
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6",
+      "d4 f5 c4 Nf6 Nc3 e6 Nf3 Be7"
+    ],
+    "famousGames": [
+      {
+        "white": "Adolf Anderssen",
+        "black": "Lionel Kieseritzky",
+        "event": "Casual game, London",
+        "year": 1851,
+        "result": "1-0",
+        "significance": "The Immortal Game - White sacrifices bishop, both rooks and the queen to mate with his three remaining minor pieces.",
+        "movetext": "1. e4 e5 2. f4 exf4 3. Bc4 Qh4+ 4. Kf1 b5 5. Bxb5 Nf6 6. Nf3 Qh6 7. d3 Nh5 8. Nh4 Qg5 9. Nf5 c6 10. g4 Nf6 11. Rg1 cxb5 12. h4 Qg6 13. h5 Qg5 14. Qf3 Ng8 15. Bxf4 Qf6 16. Nc3 Bc5 17. Nd5 Qxb2 18. Bd6 Bxg1 19. e5 Qxa1+ 20. Ke2 Na6 21. Nxg7+ Kd8 22. Qf6+ Nxf6 23. Be7#"
+      },
+      {
+        "white": "Adolf Anderssen",
+        "black": "Jean Dufresne",
+        "event": "Casual game, Berlin",
+        "year": 1852,
+        "result": "1-0",
+        "significance": "The Evergreen Game - 19.Rad1!! sets up a queen sacrifice and one of the most beautiful mating combinations ever played.",
+        "movetext": "1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Ba5 6. d4 exd4 7. O-O d3 8. Qb3 Qf6 9. e5 Qg6 10. Re1 Nge7 11. Ba3 b5 12. Qxb5 Rb8 13. Qa4 Bb6 14. Nbd2 Bb7 15. Ne4 Qf5 16. Bxd3 Qh5 17. Nf6+ gxf6 18. exf6 Rg8 19. Rad1 Qxf3 20. Rxe7+ Nxe7 21. Qxd7+ Kxd7 22. Bf5+ Ke8 23. Bd7+ Kf8 24. Bxe7#"
+      }
+    ]
+  },
+  {
+    "id": "steinitz",
+    "name": "Wilhelm Steinitz",
+    "title": "GM",
+    "country": "Austria / United States",
+    "years": "1836-1900",
+    "era": "Classical",
+    "peakElo": 2800,
+    "peakYear": 1876,
+    "modernElo": 2450,
+    "modernEloNote": "The inventor of positional chess would grasp modern ideas faster than any Romantic, but his cramped defensive setups and king walks are known refuted territory today - around 2450 against current opposition.",
+    "styleDesc": "Steinitz plays for the accumulation of small advantages: the bishop pair, better pawn structure, a safe king. He is happy to defend cramped but sound positions, believing an attack is only justified when the position demands it - and when it is, he executes it with Romantic-era sharpness. His openings favor slow d3/c3 Ruy Lopez structures and his own gambit lines where the king marches up the board.",
+    "timeStyle": "tanker",
+    "bio": "The first official World Champion (1886-1894) and the father of positional chess. He overturned the Romantic dogma that attack was mandatory, proving that defense and pawn structure win games, and defended his theories in print as fiercely as over the board. Born in Prague, he spent his later career in New York and died in poverty.",
+    "style": {
+      "aggression": 0.45,
+      "risk": 0.4,
+      "prefersAttack": false,
+      "prefersSolid": true
+    },
+    "photoCommonsFile": "File:Wilhelm Steinitz2.jpg",
+    "repertoireWhite": [
+      "e4 e5 Nf3 Nc6 Bb5 Nf6 d3 d6 c3 g6 Nbd2 Bg7",
+      "e4 e5 Nc3 Nc6 f4 exf4 d4 Qh4+ Ke2",
+      "e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4 exd4 cxd4 Bb4+ Nc3",
+      "d4 d5 c4 e6 Nc3 Nf6 Bf4 Be7 e3 O-O"
+    ],
+    "repertoireBlack": [
+      "e4 e5 Nf3 Nc6 Bb5 d6 d4 Bd7 Nc3 Nf6",
+      "e4 e6 d4 d5 Nc3 Nf6 e5 Nfd7 f4 c5",
+      "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O",
+      "e4 e5 Nf3 Nc6 Bc4 Bc5 b4 Bxb4 c3 Bc5"
+    ],
+    "famousGames": [
+      {
+        "white": "Wilhelm Steinitz",
+        "black": "Curt von Bardeleben",
+        "event": "Hastings",
+        "year": 1895,
+        "result": "1-0",
+        "significance": "The Battle of Hastings - the untouchable rook on e7/f7/g7 forces a mate in ten; von Bardeleben left the hall rather than resign.",
+        "movetext": "1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. c3 Nf6 5. d4 exd4 6. cxd4 Bb4+ 7. Nc3 d5 8. exd5 Nxd5 9. O-O Be6 10. Bg5 Be7 11. Bxd5 Bxd5 12. Nxd5 Qxd5 13. Bxe7 Nxe7 14. Re1 f6 15. Qe2 Qd7 16. Rac1 c6 17. d5 cxd5 18. Nd4 Kf7 19. Ne6 Rhc8 20. Qg4 g6 21. Ng5+ Ke8 22. Rxe7+ Kf8 23. Rf7+ Kg8 24. Rg7+ Kh8 25. Rxh7+"
+      },
+      {
+        "white": "Wilhelm Steinitz",
+        "black": "Mikhail Chigorin",
+        "event": "World Championship rematch (game 4), Havana",
+        "year": 1892,
+        "result": "1-0",
+        "significance": "Steinitz's slow d3 Ruy Lopez build-up erupts in the double rook sacrifice 24.Rxh7+! - positional play crowned by combination.",
+        "movetext": "1. e4 e5 2. Nf3 Nc6 3. Bb5 Nf6 4. d3 d6 5. c3 g6 6. Nbd2 Bg7 7. Nf1 O-O 8. Ba4 Nd7 9. Ne3 Nc5 10. Bc2 Ne6 11. h4 Ne7 12. h5 d5 13. hxg6 fxg6 14. exd5 Nxd5 15. Nxd5 Qxd5 16. Bb3 Qc6 17. Qe2 Bd7 18. Be3 Kh8 19. O-O-O Rae8 20. Qf1 a5 21. d4 exd4 22. Nxd4 Bxd4 23. Rxd4 Nxd4 24. Rxh7+ Kxh7 25. Qh1+ Kg7 26. Bh6+ Kf6 27. Qh4+ Ke5 28. Qxd4+"
+      }
+    ]
+  },
+  {
+    "id": "lasker",
+    "name": "Emanuel Lasker",
+    "title": "GM",
+    "country": "Germany",
+    "years": "1868-1941",
+    "era": "Classical",
+    "peakElo": 2878,
+    "peakYear": 1894,
+    "modernElo": 2620,
+    "modernEloNote": "Lasker's psychological pragmatism, defensive resourcefulness and fighting endgames age far better than his era's openings; he would be a dangerous 2600+ grandmaster today.",
+    "styleDesc": "Lasker plays the man, not the board: he steers toward positions his opponent dislikes, accepts objectively dubious but practically poisonous complications, and defends worse positions with legendary tenacity. His openings are simple - Ruy Lopez (including the Exchange) and classical Queen's Gambit lines - because the fight starts in the middlegame. He is arguably history's greatest counterattacker and swindler.",
+    "timeStyle": "steady",
+    "bio": "World Champion for 27 years (1894-1921), the longest reign ever, defeating Steinitz and turning back Marshall, Tarrasch, Janowski and Schlechter. A mathematician (the Lasker-Noether theorem bears his name) and philosopher who treated chess as a struggle between imperfect humans. He fled Nazi Germany in 1933 and finished his life in New York.",
+    "style": {
+      "aggression": 0.6,
+      "risk": 0.6,
+      "prefersAttack": false,
+      "prefersSolid": false
+    },
+    "photoCommonsFile": "File:Bundesarchiv Bild 102-00457, Emanuel Lasker.jpg",
+    "repertoireWhite": [
+      "e4 e5 Nf3 Nc6 Bb5 a6 Bxc6 dxc6 d4 exd4 Qxd4 Qxd4 Nxd4",
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3",
+      "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3 Nbd7",
+      "f4 d5 e3 Nf6 b3 e6 Bb2 Be7 Bd3 b6"
+    ],
+    "repertoireBlack": [
+      "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Ne4 Bxe7 Qxe7",
+      "e4 e5 Nf3 Nc6 Bb5 Nf6 O-O d6 d4 Bd7",
+      "e4 e6 d4 d5 Nc3 Nf6 Bg5 Bb4 e5 h6 Bd2 Bxc3",
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7"
+    ],
+    "famousGames": [
+      {
+        "white": "Emanuel Lasker",
+        "black": "Johann Bauer",
+        "event": "Amsterdam",
+        "year": 1889,
+        "result": "1-0",
+        "significance": "The original double bishop sacrifice (15.Bxh7+! and 17.Bxg7!) - a combination pattern named after this game and copied ever since.",
+        "movetext": "1. f4 d5 2. e3 Nf6 3. b3 e6 4. Bb2 Be7 5. Bd3 b6 6. Nc3 Bb7 7. Nf3 Nbd7 8. O-O O-O 9. Ne2 c5 10. Ng3 Qc7 11. Ne5 Nxe5 12. Bxe5 Qc6 13. Qe2 a6 14. Nh5 Nxh5 15. Bxh7+ Kxh7 16. Qxh5+ Kg8 17. Bxg7 Kxg7 18. Qg4+ Kh7 19. Rf3 e5 20. Rh3+ Qh6 21. Rxh6+ Kxh6 22. Qd7 Bf6 23. Qxb7 Kg7 24. Rf1 Rab8 25. Qd7 Rfd8 26. Qg4+ Kf8 27. fxe5 Bg7 28. e6 Rb7 29. Qg6 f6 30. Rxf6+ Bxf6 31. Qxf6+ Ke8 32. Qh8+ Ke7 33. Qg7+ Kxe6 34. Qxb7 Rd6 35. Qxa6 d4 36. exd4 cxd4 37. h4 d3 38. Qxd3"
+      },
+      {
+        "white": "Harry Nelson Pillsbury",
+        "black": "Emanuel Lasker",
+        "event": "St. Petersburg 1895/96 Quadrangular",
+        "year": 1896,
+        "result": "0-1",
+        "significance": "Lasker's most brilliant attacking game: the exchange sacrifice 17...Rxc3!! rips open the queenside and hunts Pillsbury's king across the board.",
+        "movetext": "1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Nf3 c5 5. Bg5 cxd4 6. Qxd4 Nc6 7. Qh4 Be7 8. O-O-O Qa5 9. e3 Bd7 10. Kb1 h6 11. cxd5 exd5 12. Nd4 O-O 13. Bxf6 Bxf6 14. Qh5 Nxd4 15. exd4 Be6 16. f4 Rac8 17. f5 Rxc3 18. fxe6 Ra3 19. exf7+ Rxf7 20. bxa3 Qb6+ 21. Bb5 Qxb5+ 22. Ka1 Rc7 23. Rd2 Rc4 24. Rhd1 Rc3 25. Qf5 Qc4 26. Kb2 Rxa3 27. Qe6+ Kh7 28. Kxa3 Qc3+ 29. Ka4 b5+ 30. Kxb5 Qc4+"
+      }
+    ]
+  },
+  {
+    "id": "capablanca",
+    "name": "José Raúl Capablanca",
+    "title": "GM",
+    "country": "Cuba",
+    "years": "1888-1942",
+    "era": "Classical",
+    "peakElo": 2877,
+    "peakYear": 1921,
+    "modernElo": 2680,
+    "modernEloNote": "Capablanca's positional intuition and endgame technique are essentially timeless - only the opening-preparation gap keeps 'the chess machine' below today's elite at around 2680.",
+    "styleDesc": "Capablanca plays with effortless clarity: quick development, sound structures, exchanges into favorable endgames that he converts with legendary precision. He avoids unnecessary risk almost entirely - he went eight years (1916-1924) without losing a single serious game. His Ruy Lopez and Queen's Gambit repertoires are narrow but bulletproof, and when attacked he defends with cold, exact calculation.",
+    "timeStyle": "steady",
+    "bio": "Havana-born third World Champion (1921-1927), nicknamed 'the Human Chess Machine'. He learned the moves at four by watching his father, beat Cuba's champion at twelve, and took the title from Lasker without losing a game. His natural, technique-first style became the model for Fischer, Karpov and Carlsen.",
+    "style": {
+      "aggression": 0.3,
+      "risk": 0.15,
+      "prefersAttack": false,
+      "prefersSolid": true
+    },
+    "photoCommonsFile": "File:José Raúl Capablanca 1931.jpg",
+    "repertoireWhite": [
+      "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3 Nbd7 Rc1",
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3",
+      "d4 d5 c4 e6 Nc3 Nf6 cxd5 exd5 Bg5 Be7 e3 c6",
+      "d4 Nf6 c4 e6 Nf3 d5 Bg5 Be7 e3 O-O"
+    ],
+    "repertoireBlack": [
+      "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3 Nbd7",
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7",
+      "e4 c6 d4 d5 e5 Bf5 Bd3 Bxd3 Qxd3 e6",
+      "d4 Nf6 c4 e6 Nc3 Bb4 e3 d5 a3 Bxc3+ bxc3 c5"
+    ],
+    "famousGames": [
+      {
+        "white": "José Raúl Capablanca",
+        "black": "Frank Marshall",
+        "event": "Manhattan CC Masters, New York",
+        "year": 1918,
+        "result": "1-0",
+        "significance": "Marshall unleashes his prepared Marshall Attack after years of waiting - and Capablanca refutes it over the board with ice-cold defense.",
+        "movetext": "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 O-O 8. c3 d5 9. exd5 Nxd5 10. Nxe5 Nxe5 11. Rxe5 Nf6 12. Re1 Bd6 13. h3 Ng4 14. Qf3 Qh4 15. d4 Nxf2 16. Re2 Bg4 17. hxg4 Bh2+ 18. Kf1 Bg3 19. Rxf2 Qh1+ 20. Ke2 Bxf2 21. Bd2 Bh4 22. Qh3 Rae8+ 23. Kd3 Qf1+ 24. Kc2 Bf2 25. Qf3 Qg1 26. Bd5 c5 27. dxc5 Bxc5 28. b4 Bd6 29. a4 a5 30. axb5 axb4 31. Ra6 bxc3 32. Nxc3 Bb4 33. b6 Bxc3 34. Bxc3 h6 35. b7 Re3 36. Bxf7+"
+      },
+      {
+        "white": "Ossip Bernstein",
+        "black": "José Raúl Capablanca",
+        "event": "Exhibition match (game 1), Moscow",
+        "year": 1914,
+        "result": "0-1",
+        "significance": "Capablanca's most anthologized brilliancy: the quiet queen offer 29...Qb2!! exploits the back rank and forces instant resignation.",
+        "movetext": "1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Nf3 Be7 5. Bg5 O-O 6. e3 Nbd7 7. Rc1 b6 8. cxd5 exd5 9. Qa4 Bb7 10. Ba6 Bxa6 11. Qxa6 c5 12. Bxf6 Nxf6 13. dxc5 bxc5 14. O-O Qb6 15. Qe2 c4 16. Rfd1 Rfd8 17. Nd4 Bb4 18. b3 Rac8 19. bxc4 dxc4 20. Rc2 Bxc3 21. Rxc3 Nd5 22. Rc2 c3 23. Rdc1 Rc5 24. Nb3 Rc6 25. Nd4 Rc7 26. Nb5 Rc5 27. Nxc3 Nxc3 28. Rxc3 Rxc3 29. Rxc3 Qb2"
+      }
+    ]
+  },
+  {
+    "id": "alekhine",
+    "name": "Alexander Alekhine",
+    "title": "GM",
+    "country": "Russia / France",
+    "years": "1892-1946",
+    "era": "Classical",
+    "peakElo": 2860,
+    "peakYear": 1931,
+    "modernElo": 2650,
+    "modernEloNote": "Alekhine's deep combinative vision and pioneering preparation would translate well, but modern defenders neutralize speculative attacks that his contemporaries could not - about 2650 today.",
+    "styleDesc": "Alekhine builds dynamic, tension-filled positions and then detonates them with combinations calculated further than anyone of his era. He prepares openings deeply - a novelty in his day - playing both 1.e4 and 1.d4, and as Black his own Alekhine Defense and sharp Slav lines. He wants the initiative at almost any cost and famously said he had to 'defeat the position' before defeating the opponent.",
+    "timeStyle": "tanker",
+    "bio": "Fourth World Champion (1927-1935, 1937-1946), the only champion to die holding the title. A Moscow aristocrat who fled the revolution to France, he dethroned the 'invincible' Capablanca in 1927 through sheer preparation and will. His collections of best games are still considered among the finest annotation work ever written.",
+    "style": {
+      "aggression": 0.9,
+      "risk": 0.65,
+      "prefersAttack": true,
+      "prefersSolid": false
+    },
+    "photoCommonsFile": "File:Alexander Alekhine.jpg",
+    "repertoireWhite": [
+      "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3 Nbd7 Rc1 c6",
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6",
+      "e4 e6 d4 d5 Nc3 Bb4 e5 c5 Bd2 Ne7 Nb5",
+      "d4 d5 c4 c6 Nf3 Nf6 Nc3 dxc4 a4 Bf5 Ne5"
+    ],
+    "repertoireBlack": [
+      "e4 Nf6 e5 Nd5 d4 d6 c4 Nb6 f4 dxe5 fxe5",
+      "d4 d5 c4 c6 Nf3 Nf6 Nc3 dxc4 a4 Bf5",
+      "d4 d5 c4 e6 Nc3 Nf6 Bg5 Nbd7 e3 c6 Nf3 Qa5",
+      "e4 e6 d4 d5 Nc3 Bb4 e5 c5 a3 Bxc3+ bxc3 Ne7"
+    ],
+    "famousGames": [
+      {
+        "white": "Richard Réti",
+        "black": "Alexander Alekhine",
+        "event": "Baden-Baden",
+        "year": 1925,
+        "result": "0-1",
+        "significance": "Alekhine's greatest combination: 26...Re3!! launches a fifteen-move tactical storm ending in a knight fork that wins a piece.",
+        "movetext": "1. g3 e5 2. Nf3 e4 3. Nd4 d5 4. d3 exd3 5. Qxd3 Nf6 6. Bg2 Bb4+ 7. Bd2 Bxd2+ 8. Nxd2 O-O 9. c4 Na6 10. cxd5 Nb4 11. Qc4 Nbxd5 12. N2b3 c6 13. O-O Re8 14. Rfd1 Bg4 15. Rd2 Qc8 16. Nc5 Bh3 17. Bf3 Bg4 18. Bg2 Bh3 19. Bf3 Bg4 20. Bh1 h5 21. b4 a6 22. Rc1 h4 23. a4 hxg3 24. hxg3 Qc7 25. b5 axb5 26. axb5 Re3 27. Nf3 cxb5 28. Qxb5 Nc3 29. Qxb7 Qxb7 30. Nxb7 Nxe2+ 31. Kh2 Ne4 32. Rc4 Nxf2 33. Bg2 Be6 34. Rcc2 Ng4+ 35. Kh3 Ne5+ 36. Kh2 Rxf3 37. Rxe2 Ng4+ 38. Kh3 Ne3+ 39. Kh2 Nxc2 40. Bxf3 Nd4"
+      },
+      {
+        "white": "Alexander Alekhine",
+        "black": "Aron Nimzowitsch",
+        "event": "San Remo",
+        "year": 1930,
+        "result": "1-0",
+        "significance": "The original 'Alekhine's Gun': queen behind doubled rooks on the c-file reduces Nimzowitsch to total zugzwang in the middlegame.",
+        "movetext": "1. e4 e6 2. d4 d5 3. Nc3 Bb4 4. e5 c5 5. Bd2 Ne7 6. Nb5 Bxd2+ 7. Qxd2 O-O 8. c3 b6 9. f4 Ba6 10. Nf3 Qd7 11. a4 Nbc6 12. b4 cxb4 13. cxb4 Bb7 14. Nd6 f5 15. a5 Nc8 16. Nxb7 Qxb7 17. a6 Qf7 18. Bb5 N8e7 19. O-O h6 20. Rfc1 Rfc8 21. Rc2 Qe8 22. Rac1 Rab8 23. Qe3 Rc7 24. Rc3 Qd7 25. R1c2 Kf8 26. Qc1 Rbc8 27. Ba4 b5 28. Bxb5 Ke8 29. Ba4 Kd8 30. h4"
+      }
+    ]
+  },
+  {
+    "id": "rubinstein",
+    "name": "Akiba Rubinstein",
+    "title": "GM",
+    "country": "Poland",
+    "years": "1880-1961",
+    "era": "Classical",
+    "peakElo": 2789,
+    "peakYear": 1912,
+    "modernElo": 2570,
+    "modernEloNote": "His rook endgames and harmonious opening systems (many still main lines bearing his name) hold up remarkably, but nerves and a narrow attacking arsenal cap him around 2570 against modern opposition.",
+    "styleDesc": "Rubinstein plays chess as a single unified plan: openings chosen so every piece points at the endgame he intends to reach. His Queen's Gambit systems and the Rubinstein French are models of harmony, and his rook endgames are still the textbook standard - Spielmann called them witchcraft. He attacks rarely, but when the position demands it he produces combinations as pure as his Immortal at Lodz.",
+    "timeStyle": "steady",
+    "bio": "A rabbinical student from Stawiski, Poland, who taught himself chess at 16 and by 1912 - winning five consecutive major tournaments - was the uncrowned world champion; World War I destroyed his negotiated title match with Lasker. Increasingly crippled by anthropophobia, he would hide in the corner of the hall after making each move. He retired in 1932 and survived the Holocaust hidden in a Brussels sanatorium.",
+    "style": {
+      "aggression": 0.35,
+      "risk": 0.25,
+      "prefersAttack": false,
+      "prefersSolid": true
+    },
+    "photoCommonsFile": "File:Akiba-Rubinstein.png",
+    "repertoireWhite": [
+      "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3 Nbd7 Qc2",
+      "d4 d5 c4 e6 Nc3 c5 cxd5 exd5 Nf3 Nc6 g3 Nf6 Bg2",
+      "d4 Nf6 c4 e6 Nc3 Bb4 e3 O-O Bd3 d5 Nf3 c5",
+      "d4 d5 Nf3 Nf6 c4 c6 e3 Bf5 Nc3 e6"
+    ],
+    "repertoireBlack": [
+      "e4 e6 d4 d5 Nc3 dxe4 Nxe4 Nd7 Nf3 Ngf6 Nxf6+ Nxf6",
+      "e4 e5 Nf3 Nc6 Nc3 Nf6 Bb5 Nd4 Ba4 Bc5",
+      "d4 d5 Nf3 e6 e3 c5 c4 Nc6 Nc3 Nf6",
+      "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3 Nbd7"
+    ],
+    "famousGames": [
+      {
+        "white": "Georg Rotlewi",
+        "black": "Akiba Rubinstein",
+        "event": "Lodz (All-Russian Masters)",
+        "year": 1907,
+        "result": "0-1",
+        "significance": "Rubinstein's Immortal - 22...Rxc3!! begins a queen-and-rook sacrifice cascade often called the most beautiful combination ever played.",
+        "movetext": "1. d4 d5 2. Nf3 e6 3. e3 c5 4. c4 Nc6 5. Nc3 Nf6 6. dxc5 Bxc5 7. a3 a6 8. b4 Bd6 9. Bb2 O-O 10. Qd2 Qe7 11. Bd3 dxc4 12. Bxc4 b5 13. Bd3 Rd8 14. Qe2 Bb7 15. O-O Ne5 16. Nxe5 Bxe5 17. f4 Bc7 18. e4 Rac8 19. e5 Bb6+ 20. Kh1 Ng4 21. Be4 Qh4 22. g3 Rxc3 23. gxh4 Rd2 24. Qxd2 Bxe4+ 25. Qg2 Rh3"
+      },
+      {
+        "white": "Akiba Rubinstein",
+        "black": "Emanuel Lasker",
+        "event": "St. Petersburg",
+        "year": 1909,
+        "result": "1-0",
+        "significance": "Rubinstein outplays the reigning World Champion with the combination 16.Rc1! then grinds out a flawless textbook rook endgame.",
+        "movetext": "1. d4 d5 2. Nf3 Nf6 3. c4 e6 4. Bg5 c5 5. cxd5 exd5 6. Nc3 cxd4 7. Nxd4 Nc6 8. e3 Be7 9. Bb5 Bd7 10. Bxf6 Bxf6 11. Nxd5 Bxd4 12. exd4 Qg5 13. Bxc6 Bxc6 14. Ne3 O-O-O 15. O-O Rhe8 16. Rc1 Rxe3 17. Rxc6+ bxc6 18. Qc1 Rxd4 19. fxe3 Rd7 20. Qxc6+ Kd8 21. Rf4 f5 22. Qc5 Qe7 23. Qxe7+ Kxe7 24. Rxf5 Rd1+ 25. Kf2 Rd2+ 26. Kf3 Rxb2 27. Ra5 Rb7 28. Ra6 Kf8 29. e4 Rc7 30. h4 Kf7 31. g4 Kf8 32. Kf4 Ke7 33. h5 h6 34. Kf5 Kf7 35. e5 Rb7 36. Rd6 Ke7 37. Ra6 Kf7 38. Rd6 Kf8 39. Rc6 Kf7 40. a3"
+      }
+    ]
+  },
+  {
+    "id": "botvinnik",
+    "name": "Mikhail Botvinnik",
+    "title": "GM",
+    "country": "Soviet Union",
+    "years": "1911-1995",
+    "era": "Soviet School",
+    "peakElo": 2870,
+    "peakYear": 1946,
+    "modernElo": 2720,
+    "modernEloNote": "Botvinnik invented the systematic preparation, physical training and adjournment analysis that define modern professional chess - the smallest theory gap of any pre-computer champion puts him around 2720 today.",
+    "styleDesc": "Botvinnik plays 'scientific' chess: deeply researched opening systems (his Semi-Slav Botvinnik System, French Winawer and English structures) steering into strategically complex middlegames he has studied at home. He willingly accepts static weaknesses for dynamic central control and grinds opponents down with iron logic rather than flash. A ferocious match player who twice won back the world title in revenge matches.",
+    "timeStyle": "steady",
+    "bio": "The 'Patriarch' of the Soviet chess school, World Champion 1948-57, 1958-60 and 1961-63. An electrical engineer by profession, he treated chess as a science - hygiene, preparation, and rigorous post-mortems - and his school later trained Karpov, Kasparov and Kramnik. He was the first great champion to take computer chess seriously, spending his retirement on chess algorithms.",
+    "style": {
+      "aggression": 0.55,
+      "risk": 0.4,
+      "prefersAttack": false,
+      "prefersSolid": true
+    },
+    "photoCommonsFile": "File:Botvinnik 1936.jpg",
+    "repertoireWhite": [
+      "c4 e5 Nc3 Nf6 g3 d5 cxd5 Nxd5 Bg2 Be6 Nf3 Nc6",
+      "d4 Nf6 c4 e6 Nc3 Bb4 e3 d5 a3 Bxc3+ bxc3 c5",
+      "d4 d5 c4 e6 Nc3 Nf6 cxd5 exd5 Bg5 c6 Qc2 Be7",
+      "c4 Nf6 Nc3 e6 d4 Bb4 e3 c5 Ne2 d5 a3"
+    ],
+    "repertoireBlack": [
+      "d4 d5 c4 c6 Nc3 Nf6 Nf3 e6 Bg5 dxc4 e4 b5",
+      "e4 e6 d4 d5 Nc3 Bb4 e5 c5 a3 Bxc3+ bxc3 Ne7",
+      "d4 e6 c4 f5 g3 Nf6 Bg2 d5 Nf3 c6",
+      "d4 Nf6 c4 g6 Nc3 d5 cxd5 Nxd5 e4 Nxc3 bxc3 Bg7",
+      "e4 c6 d4 d5 exd5 cxd5 c4 Nf6 Nc3 e6"
+    ],
+    "famousGames": [
+      {
+        "white": "Mikhail Botvinnik",
+        "black": "José Raúl Capablanca",
+        "event": "AVRO, Rotterdam (round 11)",
+        "year": 1938,
+        "result": "1-0",
+        "significance": "Botvinnik's masterpiece: the strategic bind culminates in 30.Ba3!! and 31.Nh5+!!, a deflection combination Capablanca cannot survive.",
+        "movetext": "1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. e3 d5 5. a3 Bxc3+ 6. bxc3 c5 7. cxd5 exd5 8. Bd3 O-O 9. Ne2 b6 10. O-O Ba6 11. Bxa6 Nxa6 12. Bb2 Qd7 13. a4 Rfe8 14. Qd3 c4 15. Qc2 Nb8 16. Rae1 Nc6 17. Ng3 Na5 18. f3 Nb3 19. e4 Qxa4 20. e5 Nd7 21. Qf2 g6 22. f4 f5 23. exf6 Nxf6 24. f5 Rxe1 25. Rxe1 Re8 26. Re6 Rxe6 27. fxe6 Kg7 28. Qf4 Qe8 29. Qe5 Qe7 30. Ba3 Qxa3 31. Nh5+ gxh5 32. Qg5+ Kf8 33. Qxf6+ Kg8 34. e7 Qc1+ 35. Kf2 Qc2+ 36. Kg3 Qd3+ 37. Kh4 Qe4+ 38. Kxh5 Qe2+ 39. Kh4 Qe4+ 40. g4 Qe1+ 41. Kh5"
+      },
+      {
+        "white": "Mikhail Botvinnik",
+        "black": "Lajos Portisch",
+        "event": "Monte Carlo",
+        "year": 1968,
+        "result": "1-0",
+        "significance": "The 57-year-old Patriarch's late-career gem: the double exchange sacrifice 16.Rxc7! and 18.Rxf7! demolishes Portisch in 26 moves.",
+        "movetext": "1. c4 e5 2. Nc3 Nf6 3. g3 d5 4. cxd5 Nxd5 5. Bg2 Be6 6. Nf3 Nc6 7. O-O Nb6 8. d3 Be7 9. a3 a5 10. Be3 O-O 11. Na4 Nxa4 12. Qxa4 Bd5 13. Rfc1 Re8 14. Rc2 Bf8 15. Rac1 Nb8 16. Rxc7 Bc6 17. R1xc6 bxc6 18. Rxf7 h6 19. Rb7 Qc8 20. Qc4+ Kh8 21. Nh4 Qxb7 22. Ng6+ Kh7 23. Be4 Bd6 24. Nxe5+ g6 25. Bxg6+ Kg7 26. Bxh6+"
+      }
+    ]
+  },
+  {
+    "id": "tal",
+    "name": "Mikhail Tal",
+    "title": "GM",
+    "country": "Soviet Union (Latvia)",
+    "years": "1936-1992",
+    "era": "Soviet School",
+    "peakElo": 2705,
+    "peakYear": 1980,
+    "modernElo": 2700,
+    "modernEloNote": "His calculation and initiative would still beat most 2700s, but engine-checked defenders refute many of his speculative sacrifices, and his fragile health limited consistency — roughly 2700 against today's field.",
+    "styleDesc": "The 'Magician from Riga' sacrificed pieces for initiative and attack, dragging opponents into irrational complications where he calculated better than anyone alive. He played open Sicilians and the Ruy Lopez with White, and the King's Indian and Modern Benoni with Black. Endgames and quiet positions bored him; he steered every game toward chaos.",
+    "timeStyle": "tanker",
+    "bio": "Youngest world champion of his time, dethroning Botvinnik in 1960 at age 23 with an avalanche of sacrifices. Chronic kidney illness cut short his reign and dogged his career, yet he remained a top-10 player for three decades and set a record 95-game unbeaten streak in 1973-74. Universally beloved for his wit, chain-smoking bravado, and pure love of the game.",
+    "style": {
+      "aggression": 0.95,
+      "risk": 0.95,
+      "prefersAttack": true,
+      "prefersSolid": false
+    },
+    "photoCommonsFile": "File:Mikhail Tal 1962.jpg",
+    "repertoireWhite": [
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3",
+      "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Bg5 e6 f4",
+      "e4 c6 d4 d5 Nc3 dxe4 Nxe4 Bf5 Ng3 Bg6 h4",
+      "e4 e6 d4 d5 Nc3 Bb4 e5 c5 a3 Bxc3+ bxc3"
+    ],
+    "repertoireBlack": [
+      "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5",
+      "d4 Nf6 c4 c5 d5 e6 Nc3 exd5 cxd5 d6 e4 g6",
+      "e4 c5 Nf3 Nc6 d4 cxd4 Nxd4 Nf6 Nc3 d6",
+      "d4 Nf6 c4 e6 Nc3 Bb4 e3 O-O"
+    ],
+    "famousGames": [
+      {
+        "white": "Mikhail Tal",
+        "black": "Vasily Smyslov",
+        "event": "Candidates Tournament, Bled/Zagreb/Belgrade",
+        "year": 1959,
+        "result": "1-0",
+        "significance": "Tal demolishes an ex-world-championship finalist with the dazzling 13.Nf5/14.Qh4 piece offer en route to winning the Candidates.",
+        "movetext": "1. e4 c6 2. d3 d5 3. Nd2 e5 4. Ngf3 Nd7 5. d4 dxe4 6. Nxe4 exd4 7. Qxd4 Ngf6 8. Bg5 Be7 9. O-O-O O-O 10. Nd6 Qa5 11. Bc4 b5 12. Bd2 Qa6 13. Nf5 Bd8 14. Qh4 bxc4 15. Qg5 Nh5 16. Nh6+ Kh8 17. Qxh5 Qxa2 18. Bc3 Nf6 19. Qxf7 Qa1+ 20. Kd2 Rxf7 21. Nxf7+ Kg8 22. Rxa1 Kxf7 23. Ne5+ Ke6 24. Nxc6 Ne4+ 25. Ke3 Bb6+ 26. Bd4 1-0"
+      },
+      {
+        "white": "Mikhail Tal",
+        "black": "Bent Larsen",
+        "event": "Candidates semifinal (game 10), Bled",
+        "year": 1965,
+        "result": "1-0",
+        "significance": "The legendary intuitive piece sacrifice 16.Nd5!? in the decisive final game of the match, which Tal won to advance.",
+        "movetext": "1. e4 c5 2. Nf3 Nc6 3. d4 cxd4 4. Nxd4 e6 5. Nc3 d6 6. Be3 Nf6 7. f4 Be7 8. Qf3 O-O 9. O-O-O Qc7 10. Ndb5 Qb8 11. g4 a6 12. Nd4 Nxd4 13. Bxd4 b5 14. g5 Nd7 15. Bd3 b4 16. Nd5 exd5 17. exd5 f5 18. Rde1 Rf7 19. h4 Bb7 20. Bxf5 Rxf5 21. Rxe7 Ne5 22. Qe4 Qf8 23. fxe5 Rf4 24. Qe3 Rf3 25. Qe2 Qxe7 26. Qxf3 dxe5 27. Re1 Rd8 28. Rxe5 Qd6 29. Qf4 Rf8 30. Qe4 b3 31. axb3 Rf1+ 32. Kd2 Qb4+ 33. c3 Qd6 34. Bc5 Qxc5 35. Re8+ Rf8 36. Qe6+ Kh8 37. Qf7 1-0"
+      }
+    ]
+  },
+  {
+    "id": "petrosian",
+    "name": "Tigran Petrosian",
+    "title": "GM",
+    "country": "Soviet Union (Armenia)",
+    "years": "1929-1984",
+    "era": "Soviet School",
+    "peakElo": 2645,
+    "peakYear": 1972,
+    "modernElo": 2680,
+    "modernEloNote": "Prophylaxis and defensive technique are exactly what engines vindicated, so his core skill ages well; a modest opening-theory gap and low ambition with White keep him near 2680 rather than higher.",
+    "styleDesc": "The supreme prophylactic player: he saw opponents' plans before they did and quietly strangled them, famously trading rook for minor piece in positional exchange sacrifices. With White he favored slow d4/c4 and flank systems (the Petrosian System vs the King's Indian, a3 vs the Queen's Indian); with Black the French, Caro-Kann and King's Indian. Almost impossible to beat — he lost fewer games than any champion of his era.",
+    "timeStyle": "steady",
+    "bio": "'Iron Tigran', world champion 1963-1969, dethroned Botvinnik and defended against Spassky in 1966 before losing the rematch. An Armenian national hero, he redefined defense and prophylaxis as weapons and made the positional exchange sacrifice his personal trademark. Away from the board he was a candidate master at... backgammon jokes aside, an editor and beloved figure of Soviet chess.",
+    "style": {
+      "aggression": 0.2,
+      "risk": 0.15,
+      "prefersAttack": false,
+      "prefersSolid": true
+    },
+    "photoCommonsFile": "File:Tigran Petrosian 1962.jpg",
+    "repertoireWhite": [
+      "d4 Nf6 c4 e6 Nf3 b6 a3 Bb7 Nc3 d5 cxd5 Nxd5",
+      "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5 d5 a5 Bg5",
+      "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3",
+      "Nf3 Nf6 g3 g6 Bg2 Bg7 O-O O-O c4 d6 Nc3",
+      "c4 e5 Nc3 Nf6 Nf3 Nc6 g3 d5 cxd5 Nxd5 Bg2 Nb6 O-O Be7 d3"
+    ],
+    "repertoireBlack": [
+      "e4 e6 d4 d5 Nc3 Bb4 e5 c5 a3 Bxc3+ bxc3 Ne7",
+      "e4 c6 d4 d5 Nc3 dxe4 Nxe4 Bf5",
+      "d4 Nf6 c4 e6 Nc3 Bb4 e3 b6",
+      "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5"
+    ],
+    "famousGames": [
+      {
+        "white": "Samuel Reshevsky",
+        "black": "Tigran Petrosian",
+        "event": "Candidates Tournament, Zurich",
+        "year": 1953,
+        "result": "1/2-1/2",
+        "significance": "The immortal positional exchange sacrifice 25...Re6!!, the defining example of giving rook for minor piece to seize the light squares.",
+        "movetext": "1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. e3 O-O 5. Bd3 d5 6. Nf3 c5 7. O-O Nc6 8. a3 Bxc3 9. bxc3 b6 10. cxd5 exd5 11. Bb2 c4 12. Bc2 Bg4 13. Qe1 Ne4 14. Nd2 Nxd2 15. Qxd2 Bh5 16. f3 Bg6 17. e4 Qd7 18. Rae1 dxe4 19. fxe4 Rfe8 20. Qf4 b5 21. Bd1 Re7 22. Bg4 Qe8 23. e5 a5 24. Re3 Rd8 25. Rfe1 Re6 26. a4 Ne7 27. Bxe6 fxe6 28. Qf1 Nd5 29. Rf3 Bd3 30. Rxd3 cxd3 31. Qxd3 b4 32. cxb4 axb4 33. a5 Ra8 34. Ra1 Qc6 35. Bc1 Qc7 36. a6 Qb6 37. Bd2 b3 38. Qc4 h6 39. h3 b2 40. Rb1 Kh8 41. Be1 1/2-1/2"
+      },
+      {
+        "white": "Tigran Petrosian",
+        "black": "Boris Spassky",
+        "event": "World Championship (game 10), Moscow",
+        "year": 1966,
+        "result": "1-0",
+        "significance": "Petrosian's double exchange sacrifice crowned by the deflection 30.Qh8+!, the key win of his successful title defense.",
+        "movetext": "1. Nf3 Nf6 2. g3 g6 3. c4 Bg7 4. Bg2 O-O 5. O-O Nc6 6. Nc3 d6 7. d4 a6 8. d5 Na5 9. Nd2 c5 10. Qc2 e5 11. b3 Ng4 12. e4 f5 13. exf5 gxf5 14. Nd1 b5 15. f3 e4 16. Bb2 exf3 17. Bxf3 Bxb2 18. Qxb2 Ne5 19. Be2 f4 20. gxf4 Bh3 21. Ne3 Bxf1 22. Rxf1 Ng6 23. Bg4 Nxf4 24. Rxf4 Rxf4 25. Be6+ Rf7 26. Ne4 Qh4 27. Nxd6 Qg5+ 28. Kh1 Ra7 29. Bxf7+ Rxf7 30. Qh8+ 1-0"
+      }
+    ]
+  },
+  {
+    "id": "smyslov",
+    "name": "Vasily Smyslov",
+    "title": "GM",
+    "country": "Soviet Union / Russia",
+    "years": "1921-2010",
+    "era": "Soviet School",
+    "peakElo": 2760,
+    "peakYear": 1957,
+    "modernElo": 2670,
+    "modernEloNote": "His harmony-based positional play and world-class endgame technique translate directly, but his pre-computer opening approach concedes ground to modern prep, landing him around 2670 today.",
+    "styleDesc": "Played by 'the hand's intuition' — smooth, harmonious piece placement, small accumulating advantages, and arguably the finest endgame technique of any world champion. With White he alternated the closed Ruy Lopez, English and Queen's Gambit; with Black his name is attached to variations of the Grünfeld, Slav, Caro-Kann and Ruy Lopez. Never forced matters, but punished the slightest disharmony.",
+    "timeStyle": "steady",
+    "bio": "Seventh world champion (1957-58), he contested three straight title matches with Botvinnik and scored better than the patriarch across all 69 games. A trained baritone who nearly chose opera over chess, he reached the Candidates final again in 1984 at age 63 — the oldest finalist ever — losing only to young Kasparov. His career at the top spanned six decades.",
+    "style": {
+      "aggression": 0.4,
+      "risk": 0.3,
+      "prefersAttack": false,
+      "prefersSolid": true
+    },
+    "photoCommonsFile": "File:Vasily Smyslov 1964.jpg",
+    "repertoireWhite": [
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O",
+      "c4 e5 Nc3 Nf6 Nf3 Nc6 g3 d5 cxd5 Nxd5 Bg2",
+      "d4 Nf6 c4 e6 Nf3 d5 Nc3 Be7 Bg5 h6 Bh4 O-O e3",
+      "d4 d5 c4 c6 Nf3 Nf6 Nc3 dxc4 a4 Bf5 e3"
+    ],
+    "repertoireBlack": [
+      "e4 e5 Nf3 Nc6 Bb5 g6",
+      "d4 Nf6 c4 g6 Nc3 d5 Nf3 Bg7 Qb3 dxc4 Qxc4 O-O e4 Bg4",
+      "d4 d5 c4 c6 Nf3 Nf6 Nc3 dxc4 a4 Bf5",
+      "e4 c6 d4 d5 Nc3 dxe4 Nxe4 Nd7"
+    ],
+    "famousGames": [
+      {
+        "white": "Mikhail Botvinnik",
+        "black": "Vasily Smyslov",
+        "event": "World Championship (game 14), Moscow",
+        "year": 1954,
+        "result": "0-1",
+        "significance": "One of the most celebrated King's Indian games ever: Smyslov's piece sacrifice 11...exd4 and 15...Qxc6 counterattack crushes the reigning champion.",
+        "movetext": "1. d4 Nf6 2. c4 g6 3. g3 Bg7 4. Bg2 O-O 5. Nc3 d6 6. Nf3 Nbd7 7. O-O e5 8. e4 c6 9. Be3 Ng4 10. Bg5 Qb6 11. h3 exd4 12. Na4 Qa6 13. hxg4 b5 14. Nxd4 bxa4 15. Nxc6 Qxc6 16. e5 Qxc4 17. Bxa8 Nxe5 18. Rc1 Qb4 19. a3 Qxb2 20. Qxa4 Bb7 21. Rb1 Nf3+ 22. Kh1 Bxa8 23. Rxb2 Nxg5+ 24. Kh2 Nf3+ 25. Kh3 Bxb2 26. Qxa7 Be4 27. a4 Kg7 28. Rd1 Be5 29. Qe7 Rc8 30. a5 Rc2 31. Kg2 Nd4+ 32. Kf1 Bf3 33. Rb1 Nc6 0-1"
+      },
+      {
+        "white": "Vasily Smyslov",
+        "black": "Zoltan Ribli",
+        "event": "Candidates semifinal (game 5), London",
+        "year": 1983,
+        "result": "1-0",
+        "significance": "At age 62 Smyslov whips up a direct kingside attack with 17.Qh7+ and 28.Rxe6+ to beat a top-five contender en route to the Candidates final.",
+        "movetext": "1. d4 Nf6 2. Nf3 e6 3. c4 d5 4. Nc3 c5 5. cxd5 Nxd5 6. e3 Nc6 7. Bd3 Be7 8. O-O O-O 9. a3 cxd4 10. exd4 Bf6 11. Qc2 h6 12. Rd1 Qb6 13. Bc4 Rd8 14. Ne2 Bd7 15. Qe4 Nce7 16. Bd3 Ba4 17. Qh7+ Kf8 18. Re1 Bb5 19. Bxb5 Qxb5 20. Ng3 Ng6 21. Ne5 Nde7 22. Bxh6 Nxe5 23. Nh5 Nf3+ 24. gxf3 Nf5 25. Nxf6 Nxh6 26. d5 Qxb2 27. Qh8+ Ke7 28. Rxe6+ fxe6 29. Qxg7+ Nf7 30. d6+ Rxd6 31. Nd5+ Rxd5 32. Qxb2 b6 33. Qb4+ Kf6 34. Re1 Rh8 35. h4 Rhd8 36. Re4 Nd6 37. Qc3+ e5 38. Rxe5 Rxe5 39. f4 Nf7 40. fxe5+ Ke6 41. Qc4+ 1-0"
+      }
+    ]
+  },
+  {
+    "id": "spassky",
+    "name": "Boris Spassky",
+    "title": "GM",
+    "country": "Soviet Union / France",
+    "years": "1937-2025",
+    "era": "Cold War",
+    "peakElo": 2690,
+    "peakYear": 1971,
+    "modernElo": 2690,
+    "modernEloNote": "The first truly universal champion — equally at home attacking or grinding — a style that ports cleanly to modern chess, though his famously relaxed attitude to preparation would cost him against today's prep machines.",
+    "styleDesc": "The first 'universal player': he could sacrifice like Tal one day and squeeze like Petrosian the next, with a special gift for harmonious middlegame attacks. With White he mixed the Ruy Lopez, Closed Sicilian and even the King's Gambit at top level; with Black he trusted the Breyer Ruy Lopez and Tartakower Queen's Gambit. His intuition for the initiative in the middlegame was second to none.",
+    "timeStyle": "steady",
+    "bio": "Tenth world champion (1969-1972), he beat Petrosian at the second attempt and then lost the 'Match of the Century' to Fischer in Reykjavik 1972 — the most famous chess match ever played. Charismatic and sportsmanlike (he applauded Fischer's game-6 masterpiece from the board), he emigrated to France in 1976 and remained a top player into the 1980s.",
+    "style": {
+      "aggression": 0.65,
+      "risk": 0.55,
+      "prefersAttack": true,
+      "prefersSolid": false
+    },
+    "photoCommonsFile": "File:Boris Spassky - Soviet Life, February 1969.jpg",
+    "repertoireWhite": [
+      "e4 e5 f4 exf4 Nf3 g5 h4 g4 Ne5",
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3",
+      "e4 c5 Nc3 Nc6 g3 g6 Bg2 Bg7 d3 d6",
+      "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3 h6 Bh4"
+    ],
+    "repertoireBlack": [
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3 Nb8",
+      "d4 Nf6 c4 e6 Nf3 d5 Nc3 Be7 Bg5 h6 Bh4 O-O e3 b6",
+      "d4 Nf6 c4 e6 Nc3 Bb4 e3 c5",
+      "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6"
+    ],
+    "famousGames": [
+      {
+        "white": "Boris Spassky",
+        "black": "David Bronstein",
+        "event": "USSR Championship, Leningrad",
+        "year": 1960,
+        "result": "1-0",
+        "significance": "The most famous King's Gambit of the 20th century — 15.Nd6!! ignores a pawn promoting with check; the game inspired the chess scene in the Bond film 'From Russia with Love'.",
+        "movetext": "1. e4 e5 2. f4 exf4 3. Nf3 d5 4. exd5 Bd6 5. Nc3 Ne7 6. d4 O-O 7. Bd3 Nd7 8. O-O h6 9. Ne4 Nxd5 10. c4 Ne3 11. Bxe3 fxe3 12. c5 Be7 13. Bc2 Re8 14. Qd3 e2 15. Nd6 Nf8 16. Nxf7 exf1=Q+ 17. Rxf1 Bf5 18. Qxf5 Qd7 19. Qf4 Bf6 20. N3e5 Qe7 21. Bb3 Bxe5 22. Nxe5+ Kh7 23. Qe4+ 1-0"
+      },
+      {
+        "white": "Bent Larsen",
+        "black": "Boris Spassky",
+        "event": "USSR vs Rest of the World, Belgrade",
+        "year": 1970,
+        "result": "0-1",
+        "significance": "A 17-move demolition of the world No. 3 featuring the immortal rook offer 14...Rh1!! — one of the greatest miniatures ever played.",
+        "movetext": "1. b3 e5 2. Bb2 Nc6 3. c4 Nf6 4. Nf3 e4 5. Nd4 Bc5 6. Nxc6 dxc6 7. e3 Bf5 8. Qc2 Qe7 9. Be2 O-O-O 10. f4 Ng4 11. g3 h5 12. h3 h4 13. hxg4 hxg3 14. Rg1 Rh1 15. Rxh1 g2 16. Rf1 Qh4+ 17. Kd1 gxf1=Q+ 0-1"
+      }
+    ]
+  },
+  {
+    "id": "fischer",
+    "name": "Bobby Fischer",
+    "title": "GM",
+    "country": "United States",
+    "years": "1943-2008",
+    "era": "Cold War",
+    "peakElo": 2785,
+    "peakYear": 1972,
+    "modernElo": 2770,
+    "modernEloNote": "His engine-like accuracy, monomaniacal work ethic and 1970-72 dominance (125 points clear of No. 2) suggest he would absorb modern theory faster than anyone and remain a top-5 player, around 2770.",
+    "styleDesc": "Crystal-clear, ferociously precise chess: he took what the position offered — attack, endgame, or technique — and converted with machine-like accuracy. With White it was 1.e4 ('best by test'): the Ruy Lopez, the Exchange Ruy he revived, and the Fischer-Sozin Bc4 against the Najdorf. With Black he played the Najdorf (including the Poisoned Pawn) and King's Indian almost exclusively, and his repertoire, though narrow, was analyzed deeper than anyone's.",
+    "timeStyle": "blitzer",
+    "bio": "Eleventh world champion, the American who single-handedly broke Soviet hegemony by beating Taimanov and Larsen 6-0 each, then Spassky in Reykjavik 1972 at the height of the Cold War. US champion at 14, grandmaster at 15, author of the 11/11 US Championship and 'My 60 Memorable Games'. He forfeited the title in 1975 and vanished into a troubled seclusion, but his games remain a model of clarity.",
+    "style": {
+      "aggression": 0.7,
+      "risk": 0.45,
+      "prefersAttack": true,
+      "prefersSolid": false
+    },
+    "photoCommonsFile": "File:Bobby Fischer 1960 in Leipzig.jpg",
+    "repertoireWhite": [
+      "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Bc4 e6 Bb3",
+      "e4 e5 Nf3 Nc6 Bb5 a6 Bxc6 dxc6 O-O",
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3",
+      "e4 e5 f4 exf4 Bc4 Qh4+ Kf1",
+      "e4 e6 d4 d5 Nc3 Bb4 e5 Ne7 a3 Bxc3+ bxc3"
+    ],
+    "repertoireBlack": [
+      "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be2 e5",
+      "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Bg5 e6 f4 Qb6",
+      "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5",
+      "d4 Nf6 c4 g6 Nc3 d5 cxd5 Nxd5 e4 Nxc3 bxc3 Bg7 Bc4"
+    ],
+    "famousGames": [
+      {
+        "white": "Donald Byrne",
+        "black": "Bobby Fischer",
+        "event": "Rosenwald Memorial, New York",
+        "year": 1956,
+        "result": "0-1",
+        "significance": "'The Game of the Century' — 13-year-old Fischer's queen sacrifice 17...Be6!! and windmill of discovered checks, the most famous American game ever played.",
+        "movetext": "1. Nf3 Nf6 2. c4 g6 3. Nc3 Bg7 4. d4 O-O 5. Bf4 d5 6. Qb3 dxc4 7. Qxc4 c6 8. e4 Nbd7 9. Rd1 Nb6 10. Qc5 Bg4 11. Bg5 Na4 12. Qa3 Nxc3 13. bxc3 Nxe4 14. Bxe7 Qb6 15. Bc4 Nxc3 16. Bc5 Rfe8+ 17. Kf1 Be6 18. Bxb6 Bxc4+ 19. Kg1 Ne2+ 20. Kf1 Nxd4+ 21. Kg1 Ne2+ 22. Kf1 Nc3+ 23. Kg1 axb6 24. Qb4 Ra4 25. Qxb6 Nxd1 26. h3 Rxa2 27. Kh2 Nxf2 28. Re1 Rxe1 29. Qd8+ Bf8 30. Nxe1 Bd5 31. Nf3 Ne4 32. Qb8 b5 33. h4 h5 34. Ne5 Kg7 35. Kg1 Bc5+ 36. Kf1 Ng3+ 37. Ke1 Bb4+ 38. Kd1 Bb3+ 39. Kc1 Ne2+ 40. Kb1 Nc3+ 41. Kc1 Rc2# 0-1"
+      },
+      {
+        "white": "Robert Byrne",
+        "black": "Bobby Fischer",
+        "event": "US Championship, New York",
+        "year": 1963,
+        "result": "0-1",
+        "significance": "A 21-move brilliancy so deep that grandmasters in the commentary room thought Byrne was winning when he resigned; part of Fischer's perfect 11/11.",
+        "movetext": "1. d4 Nf6 2. c4 g6 3. g3 c6 4. Bg2 d5 5. cxd5 cxd5 6. Nc3 Bg7 7. e3 O-O 8. Nge2 Nc6 9. O-O b6 10. b3 Ba6 11. Ba3 Re8 12. Qd2 e5 13. dxe5 Nxe5 14. Rfd1 Nd3 15. Qc2 Nxf2 16. Kxf2 Ng4+ 17. Kg1 Nxe3 18. Qd2 Nxg2 19. Kxg2 d4 20. Nxd4 Bb7+ 21. Kf1 Qd7 0-1"
+      },
+      {
+        "white": "Bobby Fischer",
+        "black": "Boris Spassky",
+        "event": "World Championship (game 6), Reykjavik",
+        "year": 1972,
+        "result": "1-0",
+        "significance": "Fischer's first-ever 1.c4 produces a Queen's Gambit masterpiece so elegant that Spassky himself joined the applause.",
+        "movetext": "1. c4 e6 2. Nf3 d5 3. d4 Nf6 4. Nc3 Be7 5. Bg5 O-O 6. e3 h6 7. Bh4 b6 8. cxd5 Nxd5 9. Bxe7 Qxe7 10. Nxd5 exd5 11. Rc1 Be6 12. Qa4 c5 13. Qa3 Rc8 14. Bb5 a6 15. dxc5 bxc5 16. O-O Ra7 17. Be2 Nd7 18. Nd4 Qf8 19. Nxe6 fxe6 20. e4 d4 21. f4 Qe7 22. e5 Rb8 23. Bc4 Kh8 24. Qh3 Nf8 25. b3 a5 26. f5 exf5 27. Rxf5 Nh7 28. Rcf1 Qd8 29. Qg3 Re7 30. h4 Rbb7 31. e6 Rbc7 32. Qe5 Qe8 33. a4 Qd8 34. R1f2 Qe8 35. R2f3 Qd8 36. Bd3 Qe8 37. Qe4 Nf6 38. Rxf6 gxf6 39. Rxf6 Kg8 40. Bc4 Kh8 41. Qf4 1-0"
+      }
+    ]
+  },
+  {
+    "id": "karpov",
+    "name": "Anatoly Karpov",
+    "title": "GM",
+    "country": "Soviet Union / Russia",
+    "years": "b. 1951",
+    "era": "Cold War",
+    "peakElo": 2780,
+    "peakYear": 1994,
+    "modernElo": 2740,
+    "modernEloNote": "His positional squeeze and conversion technique are timeless and he already proved himself into the mid-1990s (Linares 1994 at 2985 performance); slower calculation late in games versus modern pace costs him a little, around 2740.",
+    "styleDesc": "The boa constrictor: tiny improvements, total piece coordination, and merciless exploitation of one weakness — his opponents often resigned without knowing where they went wrong. With White he squeezed via the Ruy Lopez and later the Queen's Gambit and Nimzo with e3; with Black his Caro-Kann (4...Nd7 Karpov Variation), Zaitsev Ruy Lopez and Queen's Indian were nearly airtight. Rarely sacrificed, never bluffed, converted endgame edges like a machine.",
+    "timeStyle": "steady",
+    "bio": "Twelfth world champion (1975-1985), he earned the crown when Fischer forfeited, then silenced doubters by dominating tournament chess for a decade and winning over 160 first prizes — the most of any player. His five title matches with Kasparov (1984-1990) are the fiercest rivalry in chess history, and his Linares 1994 victory (11/13) is often called the greatest tournament performance ever.",
+    "style": {
+      "aggression": 0.3,
+      "risk": 0.2,
+      "prefersAttack": false,
+      "prefersSolid": true
+    },
+    "photoCommonsFile": "File:Anatoly Karpov in 1993 (cropped).jpg",
+    "repertoireWhite": [
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3",
+      "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be2 e5 Nb3 Be7",
+      "d4 Nf6 c4 e6 Nc3 Bb4 e3 O-O Bd3 d5 Nf3",
+      "d4 Nf6 c4 e6 Nf3 d5 Nc3 Be7 Bg5 h6 Bh4 O-O e3"
+    ],
+    "repertoireBlack": [
+      "e4 c6 d4 d5 Nd2 dxe4 Nxe4 Nd7",
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3 Bb7",
+      "d4 Nf6 c4 e6 Nf3 b6 g3 Ba6",
+      "d4 d5 c4 e6 Nc3 Be7 Nf3 Nf6 Bg5 h6 Bh4 O-O"
+    ],
+    "famousGames": [
+      {
+        "white": "Anatoly Karpov",
+        "black": "Veselin Topalov",
+        "event": "Linares",
+        "year": 1994,
+        "result": "1-0",
+        "significance": "The combinational jewel (18.Nc5! and 21.Rxg6+!!) of Karpov's Linares 1994, widely rated the greatest tournament performance in history.",
+        "movetext": "1. d4 Nf6 2. c4 c5 3. Nf3 cxd4 4. Nxd4 e6 5. g3 Nc6 6. Bg2 Bc5 7. Nb3 Be7 8. Nc3 O-O 9. O-O d6 10. Bf4 Nh5 11. e3 Nxf4 12. exf4 Bd7 13. Qd2 Qb8 14. Rfe1 g6 15. h4 a6 16. h5 b5 17. hxg6 hxg6 18. Nc5 dxc5 19. Qxd7 Rc8 20. Rxe6 Ra7 21. Rxg6+ fxg6 22. Qe6+ Kg7 23. Bxc6 Rd8 24. cxb5 Bf6 25. Ne4 Bd4 26. bxa6 Qb6 27. Rd1 Qxa6 28. Rxd4 Rxd4 29. Qf6+ Kg8 30. Qxg6+ Kf8 31. Qe8+ Kg7 32. Qe5+ Kg8 33. Nf6+ Kf7 34. Be8+ Kf8 35. Qxc5+ Qd6 36. Qxa7 Qxf6 37. Bh5 Rd2 38. b3 Rb2 39. Kg2 1-0"
+      },
+      {
+        "white": "Anatoly Karpov",
+        "black": "Wolfgang Unzicker",
+        "event": "Olympiad, Nice",
+        "year": 1974,
+        "result": "1-0",
+        "significance": "The definitive Spanish squeeze — 24.Ba7! seals the a-file and Black is slowly zugzwanged off the board; a textbook of prophylactic buildup.",
+        "movetext": "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Na5 10. Bc2 c5 11. d4 Qc7 12. Nbd2 Nc6 13. d5 Nd8 14. a4 Rb8 15. axb5 axb5 16. b4 Nb7 17. Nf1 Bd7 18. Be3 Ra8 19. Qd2 Rfc8 20. Bd3 g6 21. Ng3 Bf8 22. Ra2 c4 23. Bb1 Qd8 24. Ba7 Ne8 25. Bc2 Nc7 26. Rea1 Qe7 27. Bb1 Be8 28. Ne2 Nd8 29. Nh2 Bg7 30. f4 f6 31. f5 g5 32. Bc2 Bf7 33. Ng3 Nb7 34. Bd1 h6 35. Bh5 Qe8 36. Qd1 Nd8 37. Ra3 Kf8 38. R1a2 Kg8 39. Ng4 Kf8 40. Ne3 Kg8 41. Bxf7+ Nxf7 42. Qh5 Nd8 43. Qg6 Kh8 44. Nh5 1-0"
+      }
+    ]
+  },
+  {
+    "id": "kasparov",
+    "name": "Garry Kasparov",
+    "title": "GM",
+    "country": "Russia (Soviet Union)",
+    "years": "b. 1963",
+    "era": "Modern",
+    "peakElo": 2851,
+    "peakYear": 1999,
+    "modernElo": 2820,
+    "modernEloNote": "He pioneered computer-assisted preparation and held the No. 1 spot for 20 years ending in 2005 — already effectively a modern player; only Carlsen-era endgame grinding and today's depth of prep shave a few points off his 2851 peak.",
+    "styleDesc": "Dynamic energy incarnate: deep opening preparation converted into raging initiative, pawn sacrifices for activity, and attacks calculated to the end. With White he wielded razor-sharp theory in the Najdorf English Attack, the Grünfeld Exchange and his revived Scotch; with Black the Najdorf/Scheveningen Sicilian, King's Indian and Grünfeld. He treated the opening as a weapon of intimidation and outworked every rival.",
+    "timeStyle": "steady",
+    "bio": "Thirteenth world champion (1985-2000) and the youngest ever at 22, he won five brutal matches against Karpov and stayed world No. 1 for two decades until retiring in 2005. His 1997 loss to Deep Blue marked a turning point for chess and AI, and his 2851 rating stood as the all-time record until Carlsen. Now a writer, coach and political activist.",
+    "style": {
+      "aggression": 0.85,
+      "risk": 0.65,
+      "prefersAttack": true,
+      "prefersSolid": false
+    },
+    "photoCommonsFile": "File:Kasparov-29.jpg",
+    "repertoireWhite": [
+      "d4 Nf6 c4 g6 Nc3 d5 cxd5 Nxd5 e4 Nxc3 bxc3 Bg7 Nf3 c5 Rb1",
+      "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be3 e5 Nb3 Be6 f3",
+      "e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nf6 Nxc6 bxc6 e5 Qe7 Qe2 Nd5 c4",
+      "d4 Nf6 c4 e6 Nf3 b6 a3 Bb7 Nc3 d5 cxd5 Nxd5"
+    ],
+    "repertoireBlack": [
+      "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be2 e5 Nb3 Be7",
+      "e4 c5 Nf3 e6 d4 cxd4 Nxd4 Nc6 Nb5 d6 c4 Nf6",
+      "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5 O-O Nc6 d5 Ne7",
+      "d4 Nf6 c4 g6 Nc3 d5 cxd5 Nxd5 e4 Nxc3 bxc3 Bg7"
+    ],
+    "famousGames": [
+      {
+        "white": "Garry Kasparov",
+        "black": "Veselin Topalov",
+        "event": "Hoogovens, Wijk aan Zee",
+        "year": 1999,
+        "result": "1-0",
+        "significance": "'Kasparov's Immortal' — the rook sacrifice 24.Rxd4! launches a 15-move king hunt from d6 to b2, often voted the greatest game ever played.",
+        "movetext": "1. e4 d6 2. d4 Nf6 3. Nc3 g6 4. Be3 Bg7 5. Qd2 c6 6. f3 b5 7. Nge2 Nbd7 8. Bh6 Bxh6 9. Qxh6 Bb7 10. a3 e5 11. O-O-O Qe7 12. Kb1 a6 13. Nc1 O-O-O 14. Nb3 exd4 15. Rxd4 c5 16. Rd1 Nb6 17. g3 Kb8 18. Na5 Ba8 19. Bh3 d5 20. Qf4+ Ka7 21. Rhe1 d4 22. Nd5 Nbxd5 23. exd5 Qd6 24. Rxd4 cxd4 25. Re7+ Kb6 26. Qxd4+ Kxa5 27. b4+ Ka4 28. Qc3 Qxd5 29. Ra7 Bb7 30. Rxb7 Qc4 31. Qxf6 Kxa3 32. Qxa6+ Kxb4 33. c3+ Kxc3 34. Qa1+ Kd2 35. Qb2+ Kd1 36. Bf1 Rd2 37. Rd7 Rxd7 38. Bxc4 bxc4 39. Qxh8 Rd3 40. Qa8 c3 41. Qa4+ Ke1 42. f4 f5 43. Kc1 Rd2 44. Qa7 1-0"
+      },
+      {
+        "white": "Anatoly Karpov",
+        "black": "Garry Kasparov",
+        "event": "World Championship (game 16), Moscow",
+        "year": 1985,
+        "result": "0-1",
+        "significance": "The 'octopus knight' on d3 — Kasparov's gambit and immortal blockading knight paralyze Karpov, the signature win of the match that made him champion.",
+        "movetext": "1. e4 c5 2. Nf3 e6 3. d4 cxd4 4. Nxd4 Nc6 5. Nb5 d6 6. c4 Nf6 7. N1c3 a6 8. Na3 d5 9. cxd5 exd5 10. exd5 Nb4 11. Be2 Bc5 12. O-O O-O 13. Bf3 Bf5 14. Bg5 Re8 15. Qd2 b5 16. Rad1 Nd3 17. Nab1 h6 18. Bh4 b4 19. Na4 Bd6 20. Bg3 Rc8 21. b3 g5 22. Bxd6 Qxd6 23. g3 Nd7 24. Bg2 Qf6 25. a3 a5 26. axb4 axb4 27. Qa2 Bg6 28. d6 g4 29. Qd2 Kg7 30. f3 Qxd6 31. fxg4 Qd4+ 32. Kh1 Nf6 33. Rf4 Ne4 34. Qxd3 Nf2+ 35. Rxf2 Bxd3 36. Rfd2 Qe3 37. Rxd3 Rc1 38. Nb2 Qf2 39. Nd2 Rxd1+ 40. Nxd1 Re1+ 0-1"
+      }
+    ]
+  },
+  {
+    "id": "polgar",
+    "name": "Judit Polgar",
+    "title": "GM",
+    "country": "Hungary",
+    "years": "b. 1976",
+    "era": "Modern",
+    "peakElo": 2735,
+    "peakYear": 2005,
+    "modernElo": 2710,
+    "modernEloNote": "She peaked at world No. 8 in the engine era itself and beat Kasparov, Carlsen, Anand and Topalov in her prime, so her strength barely discounts — around 2710 against today's field.",
+    "styleDesc": "Uncompromising attacking chess built on ferocious tactics: she played 1.e4 virtually every game, dove into the sharpest open Sicilians, and hunted kings with sacrifices that stood up to engine scrutiny. With Black she trusted the Najdorf and King's Indian. Her motto was to always play for a win — draws by agreement barely existed in her games.",
+    "timeStyle": "blitzer",
+    "bio": "The strongest female player in history by a huge margin, she refused women-only events, became a grandmaster at 15 (breaking Fischer's record) and reached world No. 8 with wins over eleven world champions, including Kasparov, Anand, Carlsen and Topalov. Raised in the famous Polgar sisters experiment in Budapest, she played in the male World Championship cycle and retired in 2014 to focus on chess education.",
+    "style": {
+      "aggression": 0.9,
+      "risk": 0.75,
+      "prefersAttack": true,
+      "prefersSolid": false
+    },
+    "photoCommonsFile": "File:Judit Polgar (cropped).jpg",
+    "repertoireWhite": [
+      "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Bg5 e6 f4",
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3",
+      "e4 e6 d4 d5 Nc3 Nf6 Bg5 Be7 e5 Nfd7",
+      "e4 c6 d4 d5 e5 Bf5 Nc3 e6 g4 Bg6 Nge2"
+    ],
+    "repertoireBlack": [
+      "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be3 e5",
+      "e4 c5 Nf3 e6 d4 cxd4 Nxd4 Nc6 Nc3 Qc7",
+      "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5",
+      "d4 Nf6 c4 e6 Nc3 Bb4 Qc2 O-O"
+    ],
+    "famousGames": [
+      {
+        "white": "Alexei Shirov",
+        "black": "Judit Polgar",
+        "event": "Sicilian Theme Tournament, Buenos Aires",
+        "year": 1994,
+        "result": "0-1",
+        "significance": "17-year-old Polgar out-calculates the great attacker Shirov in his own razor-sharp territory, with the brilliant counter 16...Ne3! and a piece-winning grind.",
+        "movetext": "1. e4 c5 2. Nf3 e6 3. d4 cxd4 4. Nxd4 Nc6 5. Nc3 d6 6. g4 a6 7. Be3 Nge7 8. Nb3 b5 9. f4 Bb7 10. Qf3 g5 11. fxg5 Ne5 12. Qg2 b4 13. Ne2 h5 14. gxh5 Nf5 15. Bf2 Qxg5 16. Na5 Ne3 17. Qg3 Qxg3 18. Nxg3 Nxc2+ 19. Kd1 Nxa1 20. Nxb7 b3 21. axb3 Nxb3 22. Kc2 Nc5 23. Nxc5 dxc5 24. Be1 Nf3 25. Bc3 Nd4+ 26. Kd3 Bd6 27. Bg2 Be5 28. Kc4 Ke7 29. Ra1 Nc6 0-1"
+      },
+      {
+        "white": "Judit Polgar",
+        "black": "Garry Kasparov",
+        "event": "Russia vs Rest of the World (rapid), Moscow",
+        "year": 2002,
+        "result": "1-0",
+        "significance": "The first time a woman ever defeated the world's No. 1 player — a flawless Berlin endgame grind against Kasparov himself.",
+        "movetext": "1. e4 e5 2. Nf3 Nc6 3. Bb5 Nf6 4. O-O Nxe4 5. d4 Nd6 6. Bxc6 dxc6 7. dxe5 Nf5 8. Qxd8+ Kxd8 9. Nc3 h6 10. Rd1+ Ke8 11. h3 Be7 12. Ne2 Nh4 13. Nxh4 Bxh4 14. Be3 Bf5 15. Nd4 Bh7 16. g4 Be7 17. Kg2 h5 18. Nf5 Bf8 19. Kf3 Bg6 20. Rd2 hxg4+ 21. hxg4 Rh3+ 22. Kg2 Rh7 23. Kg3 f6 24. Bf4 Bxf5 25. gxf5 fxe5 26. Re1 Bd6 27. Bxe5 Kd7 28. c4 c5 29. Bxd6 cxd6 30. Re6 Rah8 31. Rexd6+ Kc8 32. R2d5 Rh3+ 33. Kg2 Rh2+ 34. Kf3 R2h3+ 35. Ke4 b6 36. Rc6+ Kb8 37. Rd7 Rh2 38. Ke3 Rf8 39. Rcc7 Rxf5 40. Rb7+ Kc8 41. Rdc7+ Kd8 42. Rxg7 Kc8 1-0"
+      }
+    ]
+  },
+  {
+    "id": "anand",
+    "name": "Viswanathan Anand",
+    "title": "GM",
+    "country": "India",
+    "years": "b. 1969",
+    "era": "Modern",
+    "peakElo": 2817,
+    "peakYear": 2011,
+    "modernElo": 2750,
+    "modernEloNote": "Still rated ~2740-2750 and dangerous in his mid-50s, but slightly below the absolute elite he once led; rapid speed of calculation remains world class.",
+    "styleDesc": "Lightning-fast calculator who wins with classical piece activity: Ruy Lopez and open Sicilians with White, Najdorf and Meran counterattacks with Black. Famous for deep opening preparation that erupts into direct kingside attacks, and for converting initiative into a win faster than almost anyone alive. Comfortable in every phase, but at his best when the position turns sharp and concrete.",
+    "timeStyle": "blitzer",
+    "bio": "The 15th World Champion (2007-2013) and India's first grandmaster, 'Vishy' won world titles in three different formats and made Chennai a chess capital. A five-time World Champion match winner known as the 'Lightning Kid' for his speed, he remained a top-10 player across four decades.",
+    "style": {
+      "aggression": 0.65,
+      "risk": 0.5,
+      "prefersAttack": true,
+      "prefersSolid": false
+    },
+    "photoCommonsFile": "File:Viswanathan Anand (2016) (cropped).jpeg",
+    "repertoireWhite": [
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1",
+      "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Bg5",
+      "e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3",
+      "d4 Nf6 c4 e6 Nf3 d5 g3 dxc4 Bg2",
+      "e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Bc5 Be3 Qf6 c3"
+    ],
+    "repertoireBlack": [
+      "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6",
+      "d4 d5 c4 c6 Nf3 Nf6 Nc3 e6 e3 Nbd7 Bd3 dxc4",
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7",
+      "d4 Nf6 c4 e6 Nf3 d5 Nc3 Be7"
+    ],
+    "famousGames": [
+      {
+        "white": "Levon Aronian",
+        "black": "Viswanathan Anand",
+        "event": "Tata Steel Group A, Wijk aan Zee",
+        "year": 2013,
+        "result": "0-1",
+        "significance": "'Anand's Immortal' — a prepared Meran piece sacrifice that demolishes Aronian in 23 moves.",
+        "movetext": "1. d4 d5 2. c4 c6 3. Nf3 Nf6 4. Nc3 e6 5. e3 Nbd7 6. Bd3 dxc4 7. Bxc4 b5 8. Bd3 Bd6 9. O-O O-O 10. Qc2 Bb7 11. a3 Rc8 12. Ng5 c5 13. Nxh7 Ng4 14. f4 cxd4 15. exd4 Bc5 16. Be2 Nde5 17. Bxg4 Bxd4+ 18. Kh1 Nxg4 19. Nxf8 f5 20. Ng6 Qf6 21. h3 Qxg6 22. Qe2 Qh5 23. Qd3 Be3"
+      },
+      {
+        "white": "Viswanathan Anand",
+        "black": "Veselin Topalov",
+        "event": "World Championship Match, Sofia, Game 4",
+        "year": 2010,
+        "result": "1-0",
+        "significance": "Catalan masterpiece with the Nxh6+ king-hunt sacrifice in his title defense against Topalov.",
+        "movetext": "1. d4 Nf6 2. c4 e6 3. Nf3 d5 4. g3 dxc4 5. Bg2 Bb4+ 6. Bd2 a5 7. Qc2 Bxd2+ 8. Qxd2 c6 9. a4 b5 10. Na3 Bd7 11. Ne5 Nd5 12. e4 Nb4 13. O-O O-O 14. Rfd1 Be8 15. d5 Qd6 16. Ng4 Qc5 17. Ne3 N8a6 18. dxc6 bxa4 19. Naxc4 Bxc6 20. Rac1 h6 21. Nd6 Qa7 22. Ng4 Rad8 23. Nxh6+ gxh6 24. Qxh6 f6 25. e5 Bxg2 26. exf6 Rxd6 27. Rxd6 Be4 28. Rxe6 Nd3 29. Rc2 Qh7 30. f7+ Qxf7 31. Rxe4 Qf5 32. Re7"
+      }
+    ]
+  },
+  {
+    "id": "kramnik",
+    "name": "Vladimir Kramnik",
+    "title": "GM",
+    "country": "Russia",
+    "years": "b. 1975",
+    "era": "Modern",
+    "peakElo": 2817,
+    "peakYear": 2016,
+    "modernElo": 2690,
+    "modernEloNote": "Retired from classical chess in 2019; still plays elite-level rapid and online chess but classical rust and age put him a tier below today's top ten.",
+    "styleDesc": "The great neutralizer: deep positional strategy, iron-clad structures and legendary endgame technique. Built the Berlin Wall that dethroned Kasparov, and with White squeezes wins from the Catalan, the Bb2/Nf3 systems and dry Nimzo lines where nothing seems to be happening until it is lost for the opponent. In his later career he paradoxically became one of the most creative attacking experimenters in the elite.",
+    "timeStyle": "steady",
+    "bio": "The 14th World Champion, who beat Garry Kasparov in London 2000 — the only man to defeat Kasparov in a match — and held the classical title until 2007. Renowned as one of the deepest strategists in chess history and, since retiring, an influential (and provocative) commentator and coach.",
+    "style": {
+      "aggression": 0.35,
+      "risk": 0.3,
+      "prefersAttack": false,
+      "prefersSolid": true
+    },
+    "photoCommonsFile": "File:Vladimir Kramnik 2, Candidates Tournament 2018.jpg",
+    "repertoireWhite": [
+      "d4 Nf6 c4 e6 Nf3 d5 g3 Be7 Bg2 O-O O-O",
+      "Nf3 Nf6 c4 e6 g3 d5 Bg2 Be7 O-O O-O",
+      "d4 Nf6 c4 e6 Nc3 Bb4 e3 O-O Bd3 d5 Nf3",
+      "d4 Nf6 c4 g6 Nc3 d5 cxd5 Nxd5 e4 Nxc3 bxc3 Bg7"
+    ],
+    "repertoireBlack": [
+      "e4 e5 Nf3 Nc6 Bb5 Nf6 O-O Nxe4 d4 Nd6",
+      "e4 e5 Nf3 Nf6 Nxe5 d6 Nf3 Nxe4 d4 d5",
+      "d4 Nf6 c4 e6 Nf3 d5 Nc3 Be7 Bg5 h6 Bh4 O-O",
+      "d4 d5 c4 c6 Nf3 Nf6 Nc3 e6 e3 Nbd7"
+    ],
+    "famousGames": [
+      {
+        "white": "Vladimir Kramnik",
+        "black": "Garry Kasparov",
+        "event": "World Championship Match, London, Game 2",
+        "year": 2000,
+        "result": "1-0",
+        "significance": "Kramnik's prepared Grunfeld antidote gives him the first win of the match that dethroned Kasparov.",
+        "movetext": "1. d4 Nf6 2. c4 g6 3. Nc3 d5 4. cxd5 Nxd5 5. e4 Nxc3 6. bxc3 Bg7 7. Nf3 c5 8. Be3 Qa5 9. Qd2 Bg4 10. Rb1 a6 11. Rxb7 Bxf3 12. gxf3 Nc6 13. Bc4 O-O 14. O-O cxd4 15. cxd4 Bxd4 16. Bd5 Bc3 17. Qc1 Nd4 18. Bxd4 Bxd4 19. Rxe7 Ra7 20. Rxa7 Bxa7 21. f4 Qd8 22. Qc3 Bb8 23. Qf3 Qh4 24. e5 g5 25. Re1 Qxf4 26. Qxf4 gxf4 27. e6 fxe6 28. Rxe6 Kg7 29. Rxa6 Rf5 30. Be4 Re5 31. f3 Re7 32. a4 Ra7 33. Rb6 Be5 34. Rb4 Rd7 35. Kg2 Rd2+ 36. Kh3 h5 37. Rb5 Kf6 38. a5 Ra2 39. Rb6+ Ke7 40. Bd5"
+      },
+      {
+        "white": "Vladimir Kramnik",
+        "black": "Garry Kasparov",
+        "event": "World Championship Match, London, Game 10",
+        "year": 2000,
+        "result": "1-0",
+        "significance": "A 25-move Nimzo-Indian demolition ('Gazza's Tears') that sealed Kasparov's fate in the match.",
+        "movetext": "1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. e3 O-O 5. Bd3 d5 6. Nf3 c5 7. O-O cxd4 8. exd4 dxc4 9. Bxc4 b6 10. Bg5 Bb7 11. Re1 Nbd7 12. Rc1 Rc8 13. Qb3 Be7 14. Bxf6 Nxf6 15. Bxe6 fxe6 16. Qxe6+ Kh8 17. Qxe7 Bxf3 18. gxf3 Qxd4 19. Nb5 Qxb2 20. Rxc8 Rxc8 21. Nd6 Rb8 22. Nf7+ Kg8 23. Qe6 Rf8 24. Nd8+ Kh8 25. Qe7"
+      }
+    ]
+  },
+  {
+    "id": "carlsen",
+    "name": "Magnus Carlsen",
+    "title": "GM",
+    "country": "Norway",
+    "years": "b. 1990",
+    "era": "Modern",
+    "peakElo": 2882,
+    "peakYear": 2014,
+    "modernElo": 2840,
+    "modernEloNote": "World No. 1 at 2841 on the June 2026 FIDE list — still clearly the strongest player alive despite abandoning the world championship cycle.",
+    "styleDesc": "The universal grinder: takes dry, 'equal' positions and squeezes water from stone with peerless endgame technique and zero-mistake pressure chess. Opening choices are deliberately varied and modest — quiet Italians, anti-Berlins, sidelines in every system — because he wants a playable middlegame, not a theory duel. When opponents overreach he punishes with sudden, exact tactics.",
+    "timeStyle": "blitzer",
+    "bio": "The 16th World Champion (2013-2023), five-time title match winner and holder of the highest rating in history (2882). Widely considered the greatest player of all time, he gave up the classical title in 2023 out of boredom and continues to dominate every format, especially rapid and blitz.",
+    "style": {
+      "aggression": 0.5,
+      "risk": 0.35,
+      "prefersAttack": false,
+      "prefersSolid": true
+    },
+    "photoCommonsFile": "File:Magnus Carlsen in 2025.jpg",
+    "repertoireWhite": [
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1",
+      "e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3 d6 O-O",
+      "d4 Nf6 c4 e6 Nf3 d5 g3 Be7 Bg2 O-O",
+      "c4 e5 Nc3 Nf6 Nf3 Nc6 g3 d5 cxd5 Nxd5 Bg2",
+      "d4 d5 Nf3 Nf6 c4 e6 Nc3 Be7 Bf4 O-O e3"
+    ],
+    "repertoireBlack": [
+      "e4 c5 Nf3 Nc6 d4 cxd4 Nxd4 Nf6 Nc3 e5 Ndb5 d6",
+      "e4 e5 Nf3 Nc6 Bb5 Nf6 O-O Nxe4",
+      "d4 Nf6 c4 e6 Nc3 Bb4 Qc2 O-O",
+      "d4 Nf6 c4 e6 Nf3 d5 Nc3 Be7"
+    ],
+    "famousGames": [
+      {
+        "white": "Magnus Carlsen",
+        "black": "Sipke Ernst",
+        "event": "Corus Group C, Wijk aan Zee",
+        "year": 2004,
+        "result": "1-0",
+        "significance": "13-year-old Magnus sacrifices everything and mates in 29 — the game that announced the 'Mozart of Chess'.",
+        "movetext": "1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 5. Ng3 Bg6 6. h4 h6 7. Nf3 Nd7 8. h5 Bh7 9. Bd3 Bxd3 10. Qxd3 e6 11. Bf4 Ngf6 12. O-O-O Be7 13. Ne4 Qa5 14. Kb1 O-O 15. Nxf6+ Nxf6 16. Ne5 Rad8 17. Qe2 c5 18. Ng6 fxg6 19. Qxe6+ Kh8 20. hxg6 Ng8 21. Bxh6 gxh6 22. Rxh6+ Nxh6 23. Qxe7 Nf7 24. gxf7 Kg7 25. Rd3 Rd6 26. Rg3+ Rg6 27. Qe5+ Kxf7 28. Qf5+ Rf6 29. Qd7#"
+      },
+      {
+        "white": "Magnus Carlsen",
+        "black": "Sergey Karjakin",
+        "event": "World Championship Match tiebreak, New York, Game 4",
+        "year": 2016,
+        "result": "1-0",
+        "significance": "Carlsen retains his world title with the immortal queen sacrifice 50.Qh6+!!, forcing mate.",
+        "movetext": "1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. f3 e5 6. Nb3 Be7 7. c4 a5 8. Be3 a4 9. Nc1 O-O 10. Nc3 Qa5 11. Qd2 Na6 12. Be2 Nc5 13. O-O Bd7 14. Rb1 Rfc8 15. b4 axb3 16. axb3 Qd8 17. Nd3 Ne6 18. Nb4 Bc6 19. Rfd1 h5 20. Bf1 h4 21. Qf2 Nd7 22. g3 Ra3 23. Bh3 Rca8 24. Nc2 R3a6 25. Nb4 Ra5 26. Nc2 b6 27. Rd2 Qc7 28. Rbd1 Bf8 29. gxh4 Nf4 30. Bxf4 exf4 31. Bxd7 Qxd7 32. Nb4 Ra3 33. Nxc6 Qxc6 34. Nb5 Rxb3 35. Nd4 Qxc4 36. Nxb3 Qxb3 37. Qe2 Be7 38. Kg2 Qe6 39. h5 Ra3 40. Rd3 Ra2 41. R3d2 Ra3 42. Rd3 Ra7 43. Rd5 Rc7 44. Qd2 Qf6 45. Rf5 Qh4 46. Rc1 Ra7 47. Qxf4 Ra2+ 48. Kh1 Qf2 49. Rc8+ Kh7 50. Qh6+"
+      }
+    ]
+  },
+  {
+    "id": "nakamura",
+    "name": "Hikaru Nakamura",
+    "title": "GM",
+    "country": "United States",
+    "years": "b. 1987",
+    "era": "Streamer era",
+    "peakElo": 2816,
+    "peakYear": 2015,
+    "modernElo": 2790,
+    "modernEloNote": "World No. 3 at 2792 on the June 2026 FIDE list despite streaming full-time — arguably the best speed-chess player in history.",
+    "styleDesc": "Fearless tactical fighter raised on blitz: razor-sharp calculation, swindling defense, and total comfort in chaos. His King's Indian Defense wins are legendary — he willingly cedes space to launch all-out kingside pawn storms — while with White he keeps flexible Ruy/English setups and outplays people in mutual time pressure. The greatest practical player of his generation.",
+    "timeStyle": "blitzer",
+    "bio": "Five-time US Champion, longtime world No. 2-3, and the dominant online blitz player of two decades. Reinvented himself as a streaming superstar with millions of followers while somehow keeping his classical rating at the very top, qualifying for multiple Candidates tournaments in his late 30s.",
+    "style": {
+      "aggression": 0.7,
+      "risk": 0.6,
+      "prefersAttack": true,
+      "prefersSolid": false
+    },
+    "photoCommonsFile": "File:Nakamura Hikaru (29290269410) (cropped) (cropped).jpg",
+    "repertoireWhite": [
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7",
+      "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2",
+      "Nf3 Nf6 g3 g6 Bg2 Bg7 O-O O-O",
+      "e4 e5 Nf3 Nc6 Bc4 Nf6 d3 Bc5 c3 d6"
+    ],
+    "repertoireBlack": [
+      "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5",
+      "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6",
+      "e4 e5 Nf3 Nc6 Bb5 Nf6 O-O Nxe4",
+      "d4 Nf6 c4 e6 Nc3 Bb4"
+    ],
+    "famousGames": [
+      {
+        "white": "Michal Krasenkow",
+        "black": "Hikaru Nakamura",
+        "event": "Casino de Barcelona",
+        "year": 2007,
+        "result": "0-1",
+        "significance": "The famous 21...Qxf2+!! queen sacrifice launching a mating king hunt against a 2650 GM.",
+        "movetext": "1. Nf3 Nf6 2. c4 e6 3. g3 d5 4. Bg2 Be7 5. O-O O-O 6. b3 a5 7. Nc3 c6 8. d4 Nbd7 9. Qc2 b6 10. e4 Ba6 11. Nd2 c5 12. exd5 cxd4 13. Nb5 exd5 14. Nxd4 Rc8 15. Re1 b5 16. Bb2 Re8 17. Qd1 bxc4 18. bxc4 Qb6 19. Rb1 dxc4 20. Nc6 Rxc6 21. Bxf6 Qxf2+ 22. Kxf2 Bc5+ 23. Kf3 Rxf6+ 24. Kg4 Ne5+ 25. Kg5 Rg6+ 26. Kh5 f6 27. Rxe5 Rxe5+ 28. Kh4 Bc8"
+      },
+      {
+        "white": "Boris Gelfand",
+        "black": "Hikaru Nakamura",
+        "event": "World Team Championship, Bursa",
+        "year": 2010,
+        "result": "0-1",
+        "significance": "Nakamura's greatest King's Indian: a full-board pawn storm crowned by repeated queen-sacrifice mating threats on g2.",
+        "movetext": "1. d4 Nf6 2. c4 g6 3. Nc3 Bg7 4. e4 d6 5. Nf3 O-O 6. Be2 e5 7. O-O Nc6 8. d5 Ne7 9. Nd2 Ne8 10. b4 f5 11. c5 Nf6 12. f3 f4 13. Nc4 g5 14. a4 Ng6 15. Ba3 Rf7 16. b5 dxc5 17. Bxc5 h5 18. a5 g4 19. b6 g3 20. Kh1 Bf8 21. d6 axb6 22. Bg1 Nh4 23. Re1 Nxg2 24. dxc7 Nxe1 25. Qxe1 g2+ 26. Kxg2 Rg7+ 27. Kh1 Bh3 28. Bf1 Qd3 29. Nxe5 Bxf1 30. Qxf1 Qxc3 31. Rc1 Qxe5 32. c8=Q Rxc8 33. Rxc8 Qe6"
+      }
+    ]
+  },
+  {
+    "id": "caruana",
+    "name": "Fabiano Caruana",
+    "title": "GM",
+    "country": "United States",
+    "years": "b. 1992",
+    "era": "Modern",
+    "peakElo": 2844,
+    "peakYear": 2014,
+    "modernElo": 2790,
+    "modernEloNote": "World No. 2 at 2792 on the June 2026 FIDE list; the second-highest peak rating in history and Carlsen's closest classical rival for a decade.",
+    "styleDesc": "The ultimate preparation machine: enormous, engine-deep opening files backed by cold, precise calculation. Plays principled main lines — Ruy Lopez and slow Italians with White, the ultra-solid Petroff with Black — and beats elite opponents by simply out-analyzing them 25 moves deep. When the position demands it he attacks with surgical, fully-calculated violence rather than intuition.",
+    "timeStyle": "steady",
+    "bio": "American superstar who ran up a legendary 7/7 start at the 2014 Sinquefield Cup (a 3080 performance, the best tournament run ever) and challenged Carlsen for the world title in 2018, drawing all 12 classical games. Multiple-time US Champion and perennial Candidates contender.",
+    "style": {
+      "aggression": 0.55,
+      "risk": 0.4,
+      "prefersAttack": false,
+      "prefersSolid": true
+    },
+    "photoCommonsFile": "File:Fabiano Caruana in 2025.jpg",
+    "repertoireWhite": [
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1",
+      "e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3 d6 O-O a6",
+      "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be3 e5",
+      "d4 Nf6 c4 e6 Nf3 d5 Nc3 Be7 Bf4"
+    ],
+    "repertoireBlack": [
+      "e4 e5 Nf3 Nf6 Nxe5 d6 Nf3 Nxe4 d4 d5 Bd3",
+      "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6",
+      "d4 Nf6 c4 e6 Nf3 d5 Nc3 Bb4",
+      "d4 Nf6 c4 e6 Nf3 d5 Nc3 Be7"
+    ],
+    "famousGames": [
+      {
+        "white": "Magnus Carlsen",
+        "black": "Fabiano Caruana",
+        "event": "Sinquefield Cup, Saint Louis, Round 3",
+        "year": 2014,
+        "result": "0-1",
+        "significance": "Beating the World Champion with Black to go 3/3 during his historic 7/7 Sinquefield streak.",
+        "movetext": "1. e4 e5 2. Bc4 Nf6 3. d3 c6 4. Nf3 d5 5. Bb3 Bb4+ 6. c3 Bd6 7. Bg5 dxe4 8. dxe4 h6 9. Bh4 Qe7 10. Nbd2 Nbd7 11. Bg3 Bc7 12. O-O Nh5 13. h3 Nxg3 14. fxg3 Nc5 15. Bxf7+ Kxf7 16. Nxe5+ Kg8 17. Ng6 Qg5 18. Rf8+ Kh7 19. Nxh8 Bg4 20. Qf1 Nd3 21. Qxd3 Rxf8 22. hxg4 Qxg4 23. Nf3 Qxg3 24. e5+ Kxh8 25. e6 Bb6+ 26. Kh1 Qg4 27. Qd6 Rd8 28. Qe5 Rd5 29. Qb8+ Kh7 30. e7 Qh5+ 31. Nh2 Rd1+ 32. Rxd1 Qxd1+ 33. Nf1 Qxf1+ 34. Kh2 Qg1+"
+      },
+      {
+        "white": "Fabiano Caruana",
+        "black": "Veselin Topalov",
+        "event": "Sinquefield Cup, Saint Louis, Round 6",
+        "year": 2014,
+        "result": "1-0",
+        "significance": "A 31-move attacking demolition that made it 6/6 in the greatest tournament performance ever recorded.",
+        "movetext": "1. e4 c5 2. Nf3 e6 3. d4 cxd4 4. Nxd4 Nc6 5. Nc3 a6 6. Nxc6 bxc6 7. Bd3 d5 8. O-O Nf6 9. Re1 Be7 10. e5 Nd7 11. Qg4 Kf8 12. Na4 Qa5 13. Re2 h5 14. Qf4 g5 15. Bd2 Qc7 16. Qg3 h4 17. Qg4 Rg8 18. Rae1 c5 19. c4 dxc4 20. Bxc4 Bb7 21. h3 Rd8 22. Bc3 Nb8 23. Re3 Nc6 24. Bxe6 fxe6 25. Rf3+ Ke8 26. Qxe6 Rg7 27. Qh6 Nd4 28. e6 Nxf3+ 29. gxf3 Bf8 30. Qh5+ Ke7 31. Bxg7"
+      }
+    ]
+  },
+  {
+    "id": "ding",
+    "name": "Ding Liren",
+    "title": "GM",
+    "country": "China",
+    "years": "b. 1992",
+    "era": "Modern",
+    "peakElo": 2816,
+    "peakYear": 2018,
+    "modernElo": 2720,
+    "modernEloNote": "The 2023-2024 world champion has slid to the low 2700s amid health struggles and a long slump, well below his 2816 peak and 100-move unbeaten-streak form.",
+    "styleDesc": "Deeply solid, harmonious positional player with world-class defensive resilience — he once went 100 classical games unbeaten. Prefers Catalan and English structures with White and airtight Nimzo/QGD setups with Black, but hides a spectacular creative streak: when the moment comes he produces immortal-level attacking sequences with quiet, impossible-looking moves. Endgame precision and nerve under pressure are his trademarks.",
+    "timeStyle": "tanker",
+    "bio": "The 17th World Champion (2023), first Chinese man to hold the title, winning an epic tiebreak against Nepomniachtchi with the courageous Rg6 rook lift. Three-time Chinese champion and former world No. 2 whose 100-game unbeaten streak stood as a modern record; lost the crown to Gukesh in 2024.",
+    "style": {
+      "aggression": 0.4,
+      "risk": 0.3,
+      "prefersAttack": false,
+      "prefersSolid": true
+    },
+    "photoCommonsFile": "File:DingLiren24a.jpg",
+    "repertoireWhite": [
+      "d4 Nf6 c4 e6 Nf3 d5 g3 Be7 Bg2 O-O O-O",
+      "c4 e5 Nc3 Nf6 Nf3 Nc6 g3 d5 cxd5 Nxd5",
+      "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O",
+      "d4 Nf6 Nf3 d5 e3 c5 Nbd2"
+    ],
+    "repertoireBlack": [
+      "d4 Nf6 c4 e6 Nc3 Bb4 Qc2 O-O a3 Bxc3+ Qxc3",
+      "d4 Nf6 c4 e6 Nf3 d5 Nc3 Be7 Bg5 h6",
+      "e4 e6 d4 d5 Nc3 Nf6 e5 Nfd7",
+      "e4 e5 Nf3 Nc6 Bb5 Nf6 O-O Nxe4"
+    ],
+    "famousGames": [
+      {
+        "white": "Bai Jinshi",
+        "black": "Ding Liren",
+        "event": "Chinese Chess League",
+        "year": 2017,
+        "result": "0-1",
+        "significance": "'Ding's Immortal' — a cascading queen-and-rook sacrifice king hunt voted among the greatest games of the decade.",
+        "movetext": "1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. Nf3 O-O 5. Bg5 c5 6. e3 cxd4 7. Qxd4 Nc6 8. Qd3 h6 9. Bh4 d5 10. Rd1 g5 11. Bg3 Ne4 12. Nd2 Nc5 13. Qc2 d4 14. Nf3 e5 15. Nxe5 dxc3 16. Rxd8 cxb2+ 17. Ke2 Rxd8 18. Qxb2 Na4 19. Qc2 Nc3+ 20. Kf3 Rd4 21. h3 h5 22. Bh2 g4+ 23. Kg3 Rd2 24. Qb3 Ne4+ 25. Kh4 Be7+ 26. Kxh5 Kg7 27. Bf4 Bf5 28. Bh6+ Kh7 29. Qxb7 Rxf2 30. Bg5 Rh8 31. Nxf7 Bg6+ 32. Kxg4 Ne5+"
+      },
+      {
+        "white": "Ding Liren",
+        "black": "Ian Nepomniachtchi",
+        "event": "World Championship Match, Astana, Game 12",
+        "year": 2023,
+        "result": "1-0",
+        "significance": "Down with two games left, Ding wins the chaotic must-win Game 12 on his way to the world title.",
+        "movetext": "1. d4 Nf6 2. Nf3 d5 3. e3 c5 4. Nbd2 cxd4 5. exd4 Qc7 6. c3 Bd7 7. Bd3 Nc6 8. O-O Bg4 9. Re1 e6 10. Nf1 Bd6 11. Bg5 O-O 12. Bxf6 gxf6 13. Ng3 f5 14. h3 Bxf3 15. Qxf3 Ne7 16. Nh5 Kh8 17. g4 Rg8 18. Kh1 Ng6 19. Bc2 Nh4 20. Qe3 Rg6 21. Rg1 f4 22. Qd3 Qe7 23. Rae1 Qg5 24. c4 dxc4 25. Qc3 b5 26. a4 b4 27. Qxc4 Rag8 28. Qc6 Bb8 29. Qb7 Rh6 30. Be4 Rf8 31. Qxb4 Qd8 32. Qc3 Ng6 33. Bg2 Qh4 34. Re2 f5 35. Rxe6 Rxh5 36. gxh5 Qxh5 37. d5+ Kg8 38. d6"
+      }
+    ]
+  },
+  {
+    "id": "gukesh",
+    "name": "Gukesh Dommaraju",
+    "title": "GM",
+    "country": "India",
+    "years": "b. 2006",
+    "era": "Modern",
+    "peakElo": 2794,
+    "peakYear": 2024,
+    "modernElo": 2760,
+    "modernEloNote": "The reigning world champion sits in the world top ten around 2750-2770 — phenomenal for a teenager, though a notch below Carlsen's outright strength.",
+    "styleDesc": "Ferocious classical fighter with old-school ambition in every game: plays both 1.e4 and 1.d4, steers for rich, imbalanced middlegames, and simply refuses to take draws. His calculation depth and stamina in long grinding positions are extraordinary for his age, and his nerveless conversion of tiny endgame edges decided the world championship. As Black he counterattacks with the Najdorf and active piece play.",
+    "timeStyle": "tanker",
+    "bio": "The 18th and youngest-ever undisputed World Champion, defeating Ding Liren in Singapore 2024 at age 18 after winning the 2024 Candidates as its youngest victor. Chennai prodigy mentored in Viswanathan Anand's academy; anchored India's gold-medal Olympiad team in 2024 with a monster individual performance.",
+    "style": {
+      "aggression": 0.72,
+      "risk": 0.55,
+      "prefersAttack": true,
+      "prefersSolid": false
+    },
+    "photoCommonsFile": "File:Gukesh in 2025 (cropped).jpg",
+    "repertoireWhite": [
+      "d4 Nf6 Nf3 d5 c4 e6 cxd5 exd5 Nc3 c6",
+      "e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3 d6",
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7",
+      "e4 e6 d4 d5 Nc3 Nf6 e5 Nfd7 Nce2"
+    ],
+    "repertoireBlack": [
+      "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6",
+      "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7",
+      "d4 Nf6 c4 e6 Nc3 Bb4 e3 O-O",
+      "Nf3 d5 g3 c5 Bg2 Nc6 d4 e6 O-O"
+    ],
+    "famousGames": [
+      {
+        "white": "Gukesh D",
+        "black": "Ding Liren",
+        "event": "World Championship Match, Singapore, Game 3",
+        "year": 2024,
+        "result": "1-0",
+        "significance": "Gukesh's first-ever world championship win, grinding down the champion in a queenless middlegame.",
+        "movetext": "1. d4 Nf6 2. Nf3 d5 3. c4 e6 4. cxd5 exd5 5. Nc3 c6 6. Qc2 g6 7. h3 Bf5 8. Qb3 Qb6 9. g4 Qxb3 10. axb3 Bc2 11. Bf4 h5 12. Rg1 hxg4 13. hxg4 Nbd7 14. Nd2 Rg8 15. g5 Nh5 16. Bh2 Rh8 17. f3 Ng7 18. Bg3 Rh5 19. e4 dxe4 20. fxe4 Ne6 21. Rc1 Nxd4 22. Bf2 Bg7 23. Ne2 Nxb3 24. Rxc2 Nxd2 25. Kxd2 Ne5 26. Nd4 Rd8 27. Ke2 Rh2 28. Bg2 a6 29. b3 Rd7 30. Rcc1 Ke7 31. Rcd1 Ke8 32. Bg3 Rh5 33. Nf3 Nxf3 34. Kxf3 Bd4 35. Rh1 Rxg5 36. Bh3 f5 37. Bf4 Rh5"
+      },
+      {
+        "white": "Ding Liren",
+        "black": "Gukesh D",
+        "event": "World Championship Match, Singapore, Game 14",
+        "year": 2024,
+        "result": "0-1",
+        "significance": "The title-clincher: Gukesh's relentless endgame pressure induces 55.Rf2??, making him the youngest world champion ever.",
+        "movetext": "1. Nf3 d5 2. g3 c5 3. Bg2 Nc6 4. d4 e6 5. O-O cxd4 6. Nxd4 Nge7 7. c4 Nxd4 8. Qxd4 Nc6 9. Qd1 d4 10. e3 Bc5 11. exd4 Bxd4 12. Nc3 O-O 13. Nb5 Bb6 14. b3 a6 15. Nc3 Bd4 16. Bb2 e5 17. Qd2 Be6 18. Nd5 b5 19. cxb5 axb5 20. Nf4 exf4 21. Bxc6 Bxb2 22. Qxb2 Rb8 23. Rfd1 Qb6 24. Bf3 fxg3 25. hxg3 b4 26. a4 bxa3 27. Rxa3 g6 28. Qd4 Qb5 29. b4 Qxb4 30. Qxb4 Rxb4 31. Ra8 Rxa8 32. Bxa8 g5 33. Bd5 Bf5 34. Rc1 Kg7 35. Rc7 Bg6 36. Rc4 Rb1+ 37. Kg2 Re1 38. Rb4 h5 39. Ra4 Re5 40. Bf3 Kh6 41. Kg1 Re6 42. Rc4 g4 43. Bd5 Rd6 44. Bb7 Kg5 45. f3 f5 46. fxg4 hxg4 47. Rb4 Bf7 48. Kf2 Rd2+ 49. Kg1 Kf6 50. Rb6+ Kg5 51. Rb4 Be6 52. Ra4 Rb2 53. Ba8 Kf6 54. Rf4 Ke5 55. Rf2 Rxf2 56. Kxf2 Bd5 57. Bxd5 Kxd5 58. Ke3 Ke5"
+      }
+    ]
+  },
+  {
+    "id": "gotham",
+    "name": "Levy Rozman (GothamChess)",
+    "title": "IM",
+    "country": "United States",
+    "years": "b. 1995",
+    "era": "Streamer era",
+    "peakElo": 2421,
+    "peakYear": 2018,
+    "modernElo": 2350,
+    "modernEloNote": "Peak FIDE 2421 as an active IM around 2018; now mostly retired from serious OTB (rated ~2320) so honest current strength is roughly 2350 against today's field.",
+    "styleDesc": "Aggressive club-crusher chess: 1.e4 with the Vienna Gambit as a calling card, plus Italian piece storms and Evans Gambit-style romantic play aimed straight at the enemy king. With Black he champions the Caro-Kann — solid structure, then a sudden counterpunch — and the King's Indian. Loves forcing lines, traps and initiative; will burn material for an open king every time.",
+    "timeStyle": "tanker",
+    "bio": "The world's most-watched chess educator: New York IM turned YouTube superstar 'GothamChess' with over six million subscribers, whose recaps and 'Guess the Elo' series brought millions into the game during the chess boom. A genuinely strong player, he beat future-GM Hans Niemann over the board and authored the bestseller 'How to Win at Chess'.",
+    "style": {
+      "aggression": 0.8,
+      "risk": 0.7,
+      "prefersAttack": true,
+      "prefersSolid": false
+    },
+    "photoCommonsFile": "File:Levy Rozman at Collision 2024 (cropped).jpg",
+    "repertoireWhite": [
+      "e4 e5 Nc3 Nf6 f4 d5 fxe5 Nxe4 Qf3",
+      "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5",
+      "e4 e5 Nf3 Nc6 Bc4 Bc5 b4",
+      "d4 Nf6 c4 c5 d5 e6 Nf3 exd5 cxd5 d6",
+      "d4 d5 Bf4 Nf6 e3 c5 c3 Nc6 Nd2"
+    ],
+    "repertoireBlack": [
+      "e4 c6 d4 d5 e5 Bf5 Nf3 e6 Be2 c5",
+      "e4 c6 d4 d5 Nc3 dxe4 Nxe4 Bf5",
+      "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6",
+      "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7"
+    ],
+    "famousGames": [
+      {
+        "white": "Levy Rozman",
+        "black": "Hans Moke Niemann",
+        "event": "UT Dallas Fall Open, Dallas",
+        "year": 2016,
+        "result": "1-0",
+        "significance": "Levy's real over-the-board win against future GM (and future scandal magnet) Hans Niemann in a Benoni.",
+        "movetext": "1. d4 Nf6 2. c4 c5 3. d5 e6 4. Nf3 exd5 5. cxd5 d6 6. Nc3 g6 7. Bf4 a6 8. Nd2 Nh5 9. Be3 b5 10. a4 b4 11. Nce4 f5 12. g4 Ng7 13. Ng3 fxg4 14. h3 Nd7 15. hxg4 Nf6 16. Qc2 Bxg4 17. Bg5 Nf5 18. Bxf6 Qxf6 19. Qe4+ Be7 20. Qxg4 Nxg3 21. Qxg3 Qxb2 22. Rb1 Qc2 23. e4 Kd7 24. Bd3 Qc3 25. Ke2 Bf6 26. Nc4"
+      },
+      {
+        "white": "Levy Rozman",
+        "black": "Juergen Gegenfurtner",
+        "event": "Live Chess, Chess.com",
+        "year": 2023,
+        "result": "1-0",
+        "significance": "A signature Vienna Gambit demolition — the opening he made famous to millions of students.",
+        "movetext": "1. e4 e5 2. Nc3 Nf6 3. f4 d5 4. fxe5 Nxe4 5. Qf3 Nxc3 6. bxc3 Be7 7. d4 Be6 8. Bd3 c5 9. Ne2 c4 10. Bf5 O-O 11. O-O Qd7 12. Ng3 Nc6 13. Qg4 g6 14. Bh6 Rfe8 15. Rf2 Bf8 16. Qh4 Qd8 17. Bg5 Be7 18. Bxe6 fxe6 19. Rf7 h5 20. Nxh5 Kxf7 21. Rf1+ Kg8 22. Nf6+ Bxf6 23. Bxf6 Qxf6 24. exf6 Rf8 25. Qh6 Rf7 26. Qxg6+ Kf8 27. Rf3 Nd8 28. Rh3 Ke8 29. Rh8+ Kd7 30. Rxd8+ Rxd8 31. Qxf7+"
+      }
+    ]
+  }
+]

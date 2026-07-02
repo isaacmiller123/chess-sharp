@@ -1,0 +1,90 @@
+name: build
+
+# Builds the desktop app for macOS and Windows.
+#
+# Triggers:
+#   - workflow_dispatch — manual run from the Actions tab (any branch).
+#   - push of a v* tag  — e.g. `git tag v0.1.0 && git push origin v0.1.0`.
+#
+# Each matrix leg runs on its own OS (electron-builder cannot cross-compile the
+# native installers), installs deps, typechecks, builds the renderer/main bundles,
+# then packages with electron-builder for THAT platform only. Nothing is published
+# to a GitHub release automatically (`--publish never`); the packaged installers are
+# uploaded as workflow artifacts you can download and attach to a release yourself.
+#
+# No code signing: the mac build is unsigned (electron-builder.yml sets identity:
+# null) and the win build is unsigned too. Users clear Gatekeeper / SmartScreen
+# manually on first run — see the README "unsigned build" caveats.
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+# Let a newer run for the same ref cancel an in-flight one.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One failing OS should not abort the other — you still get the build that
+      # did succeed as an artifact.
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build (renderer + main)
+        run: npm run build
+
+      # Package for the current OS only. electron-builder auto-selects the win/mac
+      # target block from electron-builder.yml based on the runner. --publish never
+      # keeps it from touching any GitHub release. The datasets (engine + puzzle DB)
+      # are NOT bundled — they import at runtime — so no large downloads happen here.
+      - name: Package (electron-builder)
+        run: npx electron-builder --publish never
+        env:
+          # Belt-and-suspenders: prevent electron-builder from attempting any
+          # code-signing/notarization on either OS in CI (builds stay unsigned).
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      # Upload only the distributable artifacts, not the unpacked app trees. The
+      # globs cover: Windows Chess-Setup-*.exe / Chess-Portable-*.exe / Chess-*.zip
+      # and macOS Chess-*.dmg / Chess-*.zip, plus the build metadata files.
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: chess-sharp-${{ matrix.os }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            release/*.exe
+            release/*.dmg
+            release/*.zip
+            release/*.blockmap
+            release/latest*.yml

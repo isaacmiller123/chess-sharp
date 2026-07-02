@@ -108,6 +108,219 @@ function migrate(db: DatabaseSync): void {
       throw err
     }
   }
+
+  if (row.user_version < 2) {
+    // Chess School: per-concept mastery + per-chapter progress (Viktor coaching).
+    db.exec('BEGIN')
+    try {
+      db.exec(`
+      CREATE TABLE concept_mastery(
+        concept_id TEXT PRIMARY KEY,
+        mastery REAL NOT NULL DEFAULT 0,   -- 0..1 rolling estimate
+        seen INTEGER NOT NULL DEFAULT 0,
+        correct INTEGER NOT NULL DEFAULT 0,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE chapter_progress(
+        chapter_id TEXT PRIMARY KEY,
+        segments_done INTEGER NOT NULL DEFAULT 0,
+        completed INTEGER NOT NULL DEFAULT 0,
+        boss_won INTEGER NOT NULL DEFAULT 0,
+        updated_at INTEGER NOT NULL
+      );
+      PRAGMA user_version = 2;
+    `)
+      db.exec('COMMIT')
+    } catch (err) {
+      db.exec('ROLLBACK')
+      throw err
+    }
+  }
+
+  if (row.user_version < 3) {
+    // Full-chapter school: per-lesson completion + per-chapter test state.
+    db.exec('BEGIN')
+    try {
+      db.exec(`
+      CREATE TABLE lesson_progress(
+        chapter_id TEXT,
+        lesson_id TEXT,
+        done INTEGER,
+        updated_at INTEGER,
+        PRIMARY KEY(chapter_id, lesson_id)
+      );
+      CREATE TABLE chapter_test(
+        chapter_id TEXT PRIMARY KEY,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        passed INTEGER NOT NULL DEFAULT 0,
+        best_pct REAL NOT NULL DEFAULT 0,
+        updated_at INTEGER
+      );
+      PRAGMA user_version = 3;
+    `)
+      db.exec('COMMIT')
+    } catch (err) {
+      db.exec('ROLLBACK')
+      throw err
+    }
+  }
+
+  if (row.user_version < 4) {
+    // Placement & unlock: a single-row store of the user's INTERNAL estimated Elo
+    // (gates lesson unlocking; never shown) + the placement games behind it.
+    // estimated_elo may move DOWN as well as up (mis-placement correction), so it
+    // is overwritten, not Math.max'd. Kept SEPARATE from the Glicko `rating` table.
+    db.exec('BEGIN')
+    try {
+      db.exec(`
+      CREATE TABLE school_placement(
+        id INTEGER PRIMARY KEY CHECK(id = 1),
+        placed INTEGER NOT NULL DEFAULT 0,
+        estimated_elo REAL,
+        est_low REAL,
+        est_high REAL,
+        updated_at INTEGER
+      );
+      INSERT OR IGNORE INTO school_placement(id, placed) VALUES (1, 0);
+      CREATE TABLE placement_game(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        engine_elo INTEGER,
+        accuracy REAL,
+        move_count INTEGER,
+        est REAL,
+        low REAL,
+        high REAL,
+        created_at INTEGER NOT NULL
+      );
+      PRAGMA user_version = 4;
+    `)
+      db.exec('COMMIT')
+    } catch (err) {
+      db.exec('ROLLBACK')
+      throw err
+    }
+  }
+
+  if (row.user_version < 5) {
+    // Puzzles trainer overhaul — three slices in ONE migration block:
+    //   (A) Themed/Custom training, (B) Puzzle Rush/Storm, (C) Daily + stats/history.
+    //
+    // puzzle_attempt gains `theme` + `mode` so per-theme stats (slice C) and
+    //   mode-scoped history are queryable without re-deriving from the puzzle DB.
+    //   `mode` distinguishes how the attempt was made ('train' | 'rush' | 'daily' |
+    //   'custom'); rating-affecting attempts stay 'train'/'daily' (Rush does NOT
+    //   move the Glicko rating — it has its own high-score record).
+    // puzzle_rush_run is one finished Rush/Storm run (slice B): mode, score, the
+    //   accuracy/streak stats, and the duration. Indexed by score for leaderboard
+    //   reads and by created_at for history.
+    // daily_result is one row per UTC day (slice C): the deterministic daily
+    //   puzzle's id, whether it was solved first-try, and when — the source of the
+    //   daily-streak computation. `ymd` is the YYYY-MM-DD key (UTC).
+    db.exec('BEGIN')
+    try {
+      db.exec(`
+      ALTER TABLE puzzle_attempt ADD COLUMN theme TEXT;
+      ALTER TABLE puzzle_attempt ADD COLUMN mode TEXT NOT NULL DEFAULT 'train';
+      CREATE INDEX idx_attempt_theme ON puzzle_attempt(theme);
+      CREATE INDEX idx_attempt_mode ON puzzle_attempt(mode);
+
+      CREATE TABLE puzzle_rush_run(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        mode TEXT NOT NULL,            -- 'rush3' | 'rush5' | 'storm' | 'survival'
+        score INTEGER NOT NULL,        -- puzzles solved
+        solved INTEGER NOT NULL,
+        missed INTEGER NOT NULL,
+        best_streak INTEGER NOT NULL DEFAULT 0,
+        top_rating INTEGER,            -- hardest puzzle solved (rating), if tracked
+        duration_ms INTEGER NOT NULL DEFAULT 0,
+        ended_reason TEXT,             -- 'time' | 'lives' | 'quit' | 'cleared'
+        created_at INTEGER NOT NULL
+      );
+      CREATE INDEX idx_rush_score ON puzzle_rush_run(mode, score DESC);
+      CREATE INDEX idx_rush_created ON puzzle_rush_run(created_at DESC);
+
+      CREATE TABLE daily_result(
+        ymd TEXT PRIMARY KEY,          -- 'YYYY-MM-DD' (UTC)
+        puzzle_id TEXT NOT NULL,
+        solved INTEGER NOT NULL,
+        first_try INTEGER NOT NULL DEFAULT 0,
+        ms INTEGER,
+        created_at INTEGER NOT NULL
+      );
+      PRAGMA user_version = 5;
+    `)
+      db.exec('COMMIT')
+    } catch (err) {
+      db.exec('ROLLBACK')
+      throw err
+    }
+  }
+
+  if (row.user_version < 6) {
+    // Chess School — spaced repetition of concepts + daily-lesson/streak surface.
+    //
+    // concept_srs is one SM-2-lite card per taught concept (NOT full FSRS — see
+    //   school plan): `due` epoch-ms when the concept is next owed a review,
+    //   `stability`/`difficulty` the SM-2 ease/interval state, reps/lapses the
+    //   counters, `state` (0 new / 1 learning / 2 review), last_review epoch-ms.
+    //   Indexed by `due` so "what's owed now" is an indexed range scan.
+    // school_day is one row per LOCAL calendar day the user did School work —
+    //   `lesson_done` set once a daily lesson is completed, `review_done` once an
+    //   SRS review is done that day; either counts the day toward the streak. `ymd`
+    //   is the user's LOCAL 'YYYY-MM-DD' (see src/main/util/day.ts) — deliberately
+    //   LOCAL, not UTC, because the study streak is a private habit metric.
+    db.exec('BEGIN')
+    try {
+      db.exec(`
+      CREATE TABLE concept_srs(
+        concept_id TEXT PRIMARY KEY,
+        due INTEGER NOT NULL,
+        stability REAL,
+        difficulty REAL,
+        reps INTEGER NOT NULL DEFAULT 0,
+        lapses INTEGER NOT NULL DEFAULT 0,
+        state INTEGER NOT NULL DEFAULT 0,
+        last_review INTEGER
+      );
+      CREATE INDEX idx_concept_srs_due ON concept_srs(due);
+
+      CREATE TABLE school_day(
+        ymd TEXT PRIMARY KEY,          -- 'YYYY-MM-DD' (LOCAL day)
+        lesson_done INTEGER DEFAULT 0,
+        review_done INTEGER,
+        created_at INTEGER NOT NULL
+      );
+      PRAGMA user_version = 6;
+    `)
+      db.exec('COMMIT')
+    } catch (err) {
+      db.exec('ROLLBACK')
+      throw err
+    }
+  }
+
+  if (row.user_version < 7) {
+    // Placement provenance: mark which chapter_progress / lesson_progress rows
+    // were bulk-written by the placement auto-completion (bulkCompleteChapters)
+    // rather than earned by actually studying. auto_completed=1 rows are
+    // placement artifacts: a lower re-placement prunes the ones above the new
+    // estimate, and school:resetPlacement deletes them all — manual rows
+    // (recordLesson / completeChapter / recordSegment write 0) always survive.
+    // Pre-migration rows default to 0 (treated as earned) so an existing DB never
+    // loses progress it can't attribute.
+    db.exec('BEGIN')
+    try {
+      db.exec(`
+      ALTER TABLE chapter_progress ADD COLUMN auto_completed INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE lesson_progress ADD COLUMN auto_completed INTEGER NOT NULL DEFAULT 0;
+      PRAGMA user_version = 7;
+    `)
+      db.exec('COMMIT')
+    } catch (err) {
+      db.exec('ROLLBACK')
+      throw err
+    }
+  }
 }
 
 export function closeDbs(): void {

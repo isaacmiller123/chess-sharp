@@ -1,0 +1,1409 @@
+{
+ "id": "ch40-long-calculation",
+ "band": "40",
+ "order": 40,
+ "title": "Long Calculation & Mate in 4-5",
+ "subtitle": "Hold the whole tree in your head: name your candidates, calculate the forcing line to the end, and find the cleanest path to mate.",
+ "estMinutes": 55,
+ "concepts": [
+  {
+   "id": "candidates-deep",
+   "name": "Candidates under depth",
+   "short": "A long line still begins with a shortlist. Name the 2-3 forcing tries at the root; the winning combination can only be found if its first move made your list."
+  },
+  {
+   "id": "forcing-tree",
+   "name": "Forcing moves carry depth",
+   "short": "Checks and captures cut the opponent's replies to one or two, so a forcing line can be calculated five moves deep where a quiet line cannot. Calculate the forcing branches first and furthest."
+  },
+  {
+   "id": "cleanest-path",
+   "name": "The cleanest forcing path",
+   "short": "When several lines win, prefer the one with the fewest branches: the line where every opponent reply is forced. A forced mate is worth more than a messy 'winning' position."
+  },
+  {
+   "id": "quiet-in-mate",
+   "name": "The quiet move inside the combination",
+   "short": "Long mates are not all checks. Often one link is a quiet move that removes a flight or a defender, after which the checks finish. The hardest move to see is the non-checking one."
+  },
+  {
+   "id": "visualise-end",
+   "name": "Calculate to a still position",
+   "short": "Do not stop calculating while pieces are still hanging or checks remain. Carry each line to a quiet end position, picture it clearly, then judge it. Half-calculated is mis-calculated."
+  }
+ ],
+ "lessons": [
+  {
+   "id": "l1-candidates-under-depth",
+   "title": "Candidates Under Depth",
+   "kind": "warmup",
+   "summary": "Even a five-move mate begins with a shortlist of forcing first moves. Breadth at the root, then depth down the branch you choose.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up - the forcing finish",
+     "intro": {
+      "text": "You already calculate well. This chapter trains the longest lines you will ever need: forced mates four and five moves deep. We begin where every long line begins - with the forcing move. Each of these ends in mate after a short forced sequence. Find the first move and play it out."
+     },
+     "puzzle": {
+      "themes": [
+       "mateIn3"
+      ],
+      "ratingLo": 1850,
+      "ratingHi": 2000,
+      "count": 3
+     }
+    },
+    {
+     "kind": "teach",
+     "title": "The first move is still a choice from a list",
+     "intro": {
+      "text": "A long mate is not found by staring. It is found the same way every combination is: name the forcing candidates, then calculate the most forcing one to the end. Depth does not replace breadth - it follows it."
+     },
+     "steps": [
+      {
+       "fen": "6k1/8/8/8/8/8/R7/1R5K w - - 0 1",
+       "conceptId": "candidates-deep",
+       "coach": {
+        "conceptId": "candidates-deep",
+        "text": "Two rooks against a bare king on g8 - a forced mate in TWO is here, but only if you start with the right move. Name the forcing candidates first. The obvious one is the check, Ra8+ - but it throws away the quick kill: the king runs DOWN to g7, off the back rank and out into the open, and now it is a long laddering grind, not mate in two. The move that mates in two is the quieter-looking Ra7 - no check at all. It seals the seventh rank, so the king is trapped on the eighth, and Rb8# follows. The first move of a forced mate is still chosen from a short list - and the loud check is not always the one on it. List, then calculate.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "g8",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "a2",
+          "to": "a7",
+          "color": "good",
+          "label": "Ra7"
+         },
+         {
+          "kind": "arrow",
+          "from": "a2",
+          "to": "a8",
+          "color": "bad",
+          "label": "Ra8+ escapes"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "7k/R7/8/8/8/8/8/1R5K w - - 0 1",
+       "conceptId": "forcing-tree",
+       "coach": {
+        "conceptId": "forcing-tree",
+        "text": "Here is the finish, and the point of confining the king. After Ra7 the eighth rank was a cage: the king had only Kf8 and Kh8, because Ra7 took every seventh-rank flight away. Both squares walk into the same blow - Rb8#, the second rook laddering in along the back rank. The quiet Ra7 did the real work; it left the king two moves, both losing, so the whole tree fit in your head. Had you checked with Ra8+ instead, the king escapes downward to g7 and you are back to a slow ladder - mate in four, not two. Cut first, check second.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "h8",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "b1",
+          "to": "b8",
+          "color": "good",
+          "label": "Rb8#"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Pick the forcing first move",
+     "steps": [
+      {
+       "fen": "6k1/8/8/8/8/8/R7/1R5K w - - 0 1",
+       "conceptId": "candidates-deep",
+       "coach": {
+        "conceptId": "candidates-deep",
+        "text": "Your turn with the two rooks; the bare king sits on g8. The tempting move is the check, but resist it: Ra8+ or Rb8+ only drives the king down to g7, out into the open, and the mate-in-two slips into a slow ladder. Play the quiet confining move instead - put a rook on the seventh rank to seal every flight, so the king is caged on the eighth. Then the other rook ladders in for mate. Begin the forced mate in two.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "g8",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "a7",
+          "color": "good"
+         },
+         {
+          "kind": "highlight",
+          "square": "b7",
+          "color": "good"
+         }
+        ]
+       },
+       "solutionUci": [
+        "a2a7",
+        "b1b7"
+       ],
+       "successLine": {
+        "conceptId": "forcing-tree",
+        "text": "Exactly - the quiet seventh-rank cut, not the check. Say you played Ra7: the king is now caged on the eighth rank with only Kf8 and Kh8, and both run into Rb8#. (Rb7 first works the same way, with Ra8# to finish.) The confining move did all the narrowing - two legal replies, both mate. That is the ladder, and that is why the right first move is not always the loudest one.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "a2",
+          "to": "a7",
+          "color": "good",
+          "label": "Ra7"
+         },
+         {
+          "kind": "arrow",
+          "from": "b1",
+          "to": "b8",
+          "color": "good",
+          "label": "then Rb8#"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "forcing-tree",
+        "text": "Not the check. Ra8+ and Rb8+ chase from behind and the king simply runs down to g7, into open space - now it is a long ladder, mate in four, not the mate in two you want. You need the quiet rook move to the seventh rank that takes away every escape square, caging the king on the eighth. Cut the seventh rank first."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down - calculate the short forced line",
+     "intro": {
+      "text": "Each of these is a forced mate a few moves deep. Name the forcing first move, then play the line to the end. Trust the checks."
+     },
+     "puzzle": {
+      "themes": [
+       "mateIn3"
+      ],
+      "ratingLo": 1900,
+      "ratingHi": 2050,
+      "count": 3
+     }
+    }
+   ]
+  },
+  {
+   "id": "l2-forcing-carries-depth",
+   "title": "Forcing Moves Carry Depth",
+   "kind": "tactics",
+   "summary": "Checks and captures cut the opponent to one or two replies, so a forcing line stays calculable five moves deep. Calculate the forcing branches first and furthest.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up - trust the checks",
+     "intro": {
+      "text": "Each of these is a forced mate three moves deep, driven entirely by checks. Play the line out and feel how each check leaves the king only one square. That narrowing is what lets you see to the end."
+     },
+     "puzzle": {
+      "themes": [
+       "mateIn3"
+      ],
+      "ratingLo": 1900,
+      "ratingHi": 2050,
+      "count": 3
+     }
+    },
+    {
+     "kind": "model",
+     "title": "A forced mate in four, check by check",
+     "intro": {
+      "text": "Watch a real attacking finish run to mate. White sacrifices on h7 and every black reply is forced. Count, at each step, how few choices the defender has - that is why a four-move line is fully calculable here."
+     },
+     "fen": "rnb2rk1/ppp3bp/3p1q2/7Q/3P1p2/3BP3/PPP2P2/RN2K1N1 w Q - 0 12",
+     "line": [
+      {
+       "uci": "d3h7",
+       "coach": {
+        "conceptId": "forcing-tree",
+        "text": "Bxh7+. The bishop crashes in with check. A check is the most forcing move there is - the king must respond now, and to exactly one square. We have not won material; we have bought a forced sequence."
+       }
+      },
+      {
+       "uci": "g8h8",
+       "coach": {
+        "text": "...Kh8 - forced. The king cannot take the bishop (Kxh7 walks into Qh5+ and a quick mate), so it hides in the corner. One reply only. Keep counting."
+       }
+      },
+      {
+       "uci": "h7g6",
+       "coach": {
+        "conceptId": "forcing-tree",
+        "text": "Bg6+. The bishop retreats with discovered ideas, opening the queen's path and threatening Qh7#. Again a check - again the defender's choices collapse. The only way to cover h7 is to interpose on h6."
+       }
+      },
+      {
+       "uci": "g7h6",
+       "coach": {
+        "text": "...Bh6 - the toughest defence, blocking the h-file to stop Qh7#. (Running with ...Kg8 only invites Qxh7+ and a faster mate.) The defender's choices have narrowed to one real try, three moves deep."
+       }
+      },
+      {
+       "uci": "h5h6",
+       "coach": {
+        "conceptId": "forcing-tree",
+        "text": "Qxh6+. The queen removes the last defender with check. The bishop on g6 covers h7, so the king has no flight - Kg8 is the only legal move."
+       }
+      },
+      {
+       "uci": "h8g8",
+       "coach": {
+        "text": "...Kg8 - forced. Now picture the final position before it appears: queen on h6, bishop on g6 covering h7 and f7, king on g8 with no air."
+       }
+      },
+      {
+       "uci": "h6h7",
+       "coach": {
+        "conceptId": "cleanest-path",
+        "text": "Qh7#. Mate. Every black move from move one was the only legal reply - a perfectly forced line, four moves long, that you could calculate to the end precisely because each link was a check. Forcing moves carry depth."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Begin the forced sequence",
+     "steps": [
+      {
+       "fen": "R4b1k/p6p/2p3pN/3q4/3P4/2p1Q3/P1P2PPP/1K6 b - - 0 26",
+       "conceptId": "forcing-tree",
+       "coach": {
+        "conceptId": "forcing-tree",
+        "text": "Black to move and there is a forced mate in three - but only the forcing first move finds it. Your queen on d5 rakes the long diagonal toward the white king on b1, which has no shelter. Start with the check that drives the king out, then the queen hunts it down to the corner.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "b1",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "d5",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "d5b5"
+       ],
+       "successLine": {
+        "conceptId": "forcing-tree",
+        "text": "...Qb5+, exactly. The king has no good square: ...Qb5+ Kc1 Qf1+ Qe1 Qxe1# is one finish, and ...Ka1 runs into the same net. The check came first and every white reply was forced - that is what let you see three moves to mate. Quiet moves never get this deep.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "b5",
+          "color": "good",
+          "label": "Qb5+"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "forcing-tree",
+        "text": "Not the quiet push. List your checks first: which queen check forces the white king toward the corner, where your queen and pawn can hunt it down? Begin with the check."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down - calculate the forced line to the end",
+     "intro": {
+      "text": "Mate in four, all forcing. For each, name the checking first move, then follow the only-reply chain to the final blow. Do not stop until the king is mated."
+     },
+     "puzzle": {
+      "themes": [
+       "mateIn4"
+      ],
+      "ratingLo": 1900,
+      "ratingHi": 2050,
+      "count": 3
+     }
+    }
+   ]
+  },
+  {
+   "id": "l3-mate-in-four-net",
+   "title": "Mate in Four - The Forced Net",
+   "kind": "tactics",
+   "summary": "A sacrifice that opens the king, then a chain of checks the defender cannot escape. Calculate the sac only when the forced follow-up reaches mate.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up - find the four-move mate",
+     "intro": {
+      "text": "Mate in four. Often it begins with a sacrifice - you give material to strip the king, then the checks finish. Before you sacrifice, calculate the whole line to mate. Find the first move and play each puzzle out."
+     },
+     "puzzle": {
+      "themes": [
+       "mateIn4"
+      ],
+      "ratingLo": 1900,
+      "ratingHi": 2050,
+      "count": 3
+     }
+    },
+    {
+     "kind": "model",
+     "title": "Sacrifice, then the forced chain",
+     "intro": {
+      "text": "White is down material but the black king is loose. Watch a queen sacrifice open the door, then a forced sequence of checks walk the rook in to mate. The sacrifice is only correct because the forced line is calculated all the way to mate first."
+     },
+     "fen": "5rk1/p3Rbpp/4p3/4P3/2Bq4/8/P5PP/5Q1K w - - 0 28",
+     "line": [
+      {
+       "uci": "f1f7",
+       "coach": {
+        "conceptId": "forcing-tree",
+        "text": "Qxf7+. The queen sacrifices herself to rip open f7. Why give the queen? Because what follows is forced and ends in mate - that is the only justification for a sacrifice this large. Black must recapture: ...Rxf7 (taking with the king, Kh8, simply drops the queen for nothing)."
+       }
+      },
+      {
+       "uci": "f8f7",
+       "coach": {
+        "text": "...Rxf7 - forced; the rook recaptures. The f8-square is now empty and the eighth rank is open for our rook on e7. The point of the sacrifice begins to show."
+       }
+      },
+      {
+       "uci": "e7e8",
+       "coach": {
+        "conceptId": "forcing-tree",
+        "text": "Re8+. Check on the back rank. The king has no flight, so Black must block - and only ...Rf8 covers the check. Each forcing move strips a defender or a square."
+       }
+      },
+      {
+       "uci": "f7f8",
+       "coach": {
+        "text": "...Rf8 - the only legal reply, blocking on f8. The rook is pinned to the king now. Picture the next blow before you play it."
+       }
+      },
+      {
+       "uci": "c4e6",
+       "coach": {
+        "conceptId": "quiet-in-mate",
+        "text": "Bxe6+. The bishop joins with check along the a2-g8 diagonal, hitting the king through the now-fixed structure. The king's only move is Kh8 - and that is exactly where we want it."
+       }
+      },
+      {
+       "uci": "g8h8",
+       "coach": {
+        "text": "...Kh8 - forced, the only legal square. Now the pinned rook on f8 cannot move, the king is in the corner, and the rook on e8 owns the eighth rank."
+       }
+      },
+      {
+       "uci": "e8f8",
+       "coach": {
+        "conceptId": "cleanest-path",
+        "text": "Rxf8#. Mate. The queen sacrifice was sound because every move after it was forced and the line ended here. Calculate the sacrifice to mate, then play it without fear."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Play the key sacrifice",
+     "steps": [
+      {
+       "fen": "5rk1/p4p2/1p2p1p1/4P1Q1/5R1P/1r2q1P1/8/5R1K w - - 5 30",
+       "conceptId": "forcing-tree",
+       "coach": {
+        "conceptId": "forcing-tree",
+        "text": "White to move. The black king is shut in behind f7, g6, h7 and you have a queen and two rooks bearing down. The mate begins with a sacrifice on g6 that shatters the pawn shell. Take the g6-pawn with check, then the rooks invade on the open lines. Find the first move of the four-move mate.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "g8",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "g5",
+          "to": "g6",
+          "color": "good",
+          "label": "Qxg6+"
+         }
+        ]
+       },
+       "solutionUci": [
+        "g5g6"
+       ],
+       "successLine": {
+        "conceptId": "cleanest-path",
+        "text": "Qxg6+, the key. After the forced ...fxg6 the f-file rips open: Rxf8+ Kh7 R1f7+ Kh6 Rh8# - the rooks chase the bare king to mate. You sacrificed the queen only because you had calculated the forced follow-up to the final move.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "f4",
+          "to": "f8",
+          "color": "good",
+          "label": "then Rxf8+"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "forcing-tree",
+        "text": "Not a quiet rook lift. The king's wall is f7-g6-h7; the way in is the sacrifice that removes g6 with check. Take on g6 and calculate the rook invasion that follows."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down - the sacrificial mate in four",
+     "intro": {
+      "text": "More four-move mates from real games. Each rewards a forcing sacrifice followed by a chain of checks. Calculate to the end before you commit the material."
+     },
+     "puzzle": {
+      "themes": [
+       "mateIn4"
+      ],
+      "ratingLo": 1950,
+      "ratingHi": 2100,
+      "count": 3
+     }
+    }
+   ]
+  },
+  {
+   "id": "l4-king-hunt",
+   "title": "Mate in Four - The King Hunt",
+   "kind": "tactics",
+   "summary": "When the king is dragged into the open, a chain of checks marches it to mate. Each check must take a square away, never just shuffle.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up - drive the king",
+     "intro": {
+      "text": "A king pulled out of its shelter is a hunted thing. Each of these is a mate in four where checks chase the king to its grave. Find the first check and play the hunt to the end."
+     },
+     "puzzle": {
+      "themes": [
+       "mateIn4"
+      ],
+      "ratingLo": 1900,
+      "ratingHi": 2050,
+      "count": 3
+     }
+    },
+    {
+     "kind": "model",
+     "title": "Two rooks walk the king across the board",
+     "intro": {
+      "text": "White is down a queen, but the black king has wandered to g2 and White's two rooks pounce. Watch them drive that king from g2 to e1 and mate it. Every move is a check that removes a square - the essence of a king hunt, where material counts for nothing."
+     },
+     "fen": "8/1p6/2b5/7R/1R6/4K3/6k1/q7 w - - 6 62",
+     "line": [
+      {
+       "uci": "b4g4",
+       "coach": {
+        "conceptId": "forcing-tree",
+        "text": "Rg4+. The b4-rook swings to g4 with check on the black king at g2. White's own king on e3 covers f2, so the king's only legal square is f1. One reply - the hunt has begun."
+       }
+      },
+      {
+       "uci": "g2f1",
+       "coach": {
+        "text": "...Kf1 - forced. The black king is driven onto the back rank, away from any shelter. Now the second rook joins the chase."
+       }
+      },
+      {
+       "uci": "h5f5",
+       "coach": {
+        "conceptId": "forcing-tree",
+        "text": "Rf5+. The h5-rook lifts to f5, check down the f-file. The black king cannot run to a safe square; the toughest defence is to block with the bishop on f3 - which we will simply remove."
+       }
+      },
+      {
+       "uci": "c6f3",
+       "coach": {
+        "text": "...Bf3 - Black interposes the bishop to meet the check. But the blocker sits loose on f3, right in front of its own king - a target, not a wall."
+       }
+      },
+      {
+       "uci": "f5f3",
+       "coach": {
+        "conceptId": "cleanest-path",
+        "text": "Rxf3+. The rook captures the blocker with check. The black king's only square is e1 - it is herded one file further, into the path of the waiting g4-rook."
+       }
+      },
+      {
+       "uci": "f1e1",
+       "coach": {
+        "text": "...Ke1 - forced, the only legal square. Picture the final blow before it lands: rook on f3 cutting the f-file, black king on e1, the g4-rook ready to drop to g1."
+       }
+      },
+      {
+       "uci": "g4g1",
+       "coach": {
+        "conceptId": "cleanest-path",
+        "text": "Rg1#. Mate. The two rooks walked the king from g2 to e1 with an unbroken chain of checks, each one stealing a square, while White's extra-piece deficit never mattered. That is a king hunt: never a wasted check, never a wasted tempo."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Start the rook hunt",
+     "steps": [
+      {
+       "fen": "r2r4/5p1p/p2NpNpk/1p2P3/5P2/5R2/2p3PK/4q3 w - - 0 37",
+       "conceptId": "forcing-tree",
+       "coach": {
+        "conceptId": "forcing-tree",
+        "text": "White to move. The black king has wandered to h6, far from safety, and your rook on f3 plus the knights on d6 and f6 form a net. There is a mate in four. Start with the rook check on the h-file that pins the king to the edge - then the hunt rolls on with checks.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "h6",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "f3",
+          "to": "h3",
+          "color": "good",
+          "label": "Rh3+"
+         }
+        ]
+       },
+       "solutionUci": [
+        "f3h3"
+       ],
+       "successLine": {
+        "conceptId": "cleanest-path",
+        "text": "Rh3+, the key. Black's only defence is ...Qh4 to block, but then Rxh4+ Kg7 Rxh7+ Kf8 Rxf7# - the rook eats its way to mate with check at every step. The king on the edge had nowhere to hide.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "h3",
+          "to": "h6",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "forcing-tree",
+        "text": "Not a quiet move. The black king is stranded on h6 - hit it with a check on the h-file that forces a block, then chase it with more checks. Find the rook check."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down - run the king down",
+     "intro": {
+      "text": "Mate in four, king hunts all. Find the first check, then make every following move a check that steals a square. Carry the line to mate before you start."
+     },
+     "puzzle": {
+      "themes": [
+       "mateIn4"
+      ],
+      "ratingLo": 1950,
+      "ratingHi": 2100,
+      "count": 3
+     }
+    }
+   ]
+  },
+  {
+   "id": "l5-quiet-move-inside",
+   "title": "The Quiet Move Inside the Combination",
+   "kind": "tactics",
+   "summary": "Not every link in a forced mate is a check. The hardest move to find is the quiet one - the threat that the defender cannot meet, after which the checks deliver.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up - the move that is not a check",
+     "intro": {
+      "text": "Until now we have trusted the checks. Now meet the exception: mates that hinge on a quiet move - one that threatens mate without giving check, leaving the defender helpless. Each of these hides such a move. Find it and finish."
+     },
+     "puzzle": {
+      "themes": [
+       "mateIn3",
+       "quietMove"
+      ],
+      "ratingLo": 1850,
+      "ratingHi": 2050,
+      "count": 3
+     }
+    },
+    {
+     "kind": "model",
+     "title": "A quiet queen move that cannot be met",
+     "intro": {
+      "text": "White to move. Every check here lets the king wriggle free. The win is a quiet move - Qh4 - that threatens mate on h7 and gives Black no defence. Watch how the silent threat does the work the checks could not."
+     },
+     "fen": "r1b2rk1/p1pq1p2/2pp1B2/8/3Q4/2P3P1/P6P/R6K w - - 1 20",
+     "line": [
+      {
+       "uci": "d4h4",
+       "coach": {
+        "conceptId": "quiet-in-mate",
+        "text": "Qh4. No check - and that is exactly the point. The queen swings to h4 threatening Qxh7#, where the bishop on f6 covers the g7 flight. A check would only chase the king to safety; this quiet threat freezes him. The defender must find a way to stop Qxh7, and there is none that survives."
+       }
+      },
+      {
+       "uci": "d7h3",
+       "coach": {
+        "text": "...Qh3 - Black's most stubborn try, guarding h7 from afar and hoping to trade. But the quiet move has already done its work: the king is glued to g8 and the bishop on f6 dominates the dark squares. Now the checks finish."
+       }
+      },
+      {
+       "uci": "h4g5",
+       "coach": {
+        "conceptId": "forcing-tree",
+        "text": "Qg5+. Now the check, and it works because the quiet move set it up. The king must run - Kh7 is the only square, the bishop on f6 having taken g7 and the pawn covering nothing else."
+       }
+      },
+      {
+       "uci": "g8h7",
+       "coach": {
+        "text": "...Kh7 - forced. The king steps to the only square it has, straight into the queen-and-bishop battery's last blow."
+       }
+      },
+      {
+       "uci": "g5g7",
+       "coach": {
+        "conceptId": "cleanest-path",
+        "text": "Qg7#. Mate, the queen guarded by the bishop on f6. The whole combination turned on a move that was not a check at all - Qh4. When the checks run dry, ask: is there a quiet move that threatens mate the opponent cannot meet?"
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Find the silent threat",
+     "steps": [
+      {
+       "fen": "3r3k/1p4p1/p1n3p1/5p2/2BP4/8/PP4PP/3R2K1 w - - 5 26",
+       "conceptId": "quiet-in-mate",
+       "coach": {
+        "conceptId": "quiet-in-mate",
+        "text": "White to move. The black king on h8 has only g8, and a rook reaching h3 would mate on the h-file. But Rd3 now hangs to nothing and Rh-anything is not yet possible. The winning move is quiet: lift the rook to the third rank, threatening Rh3#, and leave Black no defence that does not lose. Find the silent move.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "h8",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "d1",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "d1d3"
+       ],
+       "successLine": {
+        "conceptId": "quiet-in-mate",
+        "text": "Rd3, the quiet move. It threatens Rh3# and Black has no parry: after ...Rxd4 (removing the guard) comes Rh3+ Rh4 Rxh4#, and nothing else holds either. No check anywhere in the first move - just an unanswerable threat. That is the move beginners never find.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "d1",
+          "to": "d3",
+          "color": "good",
+          "label": "Rd3"
+         },
+         {
+          "kind": "arrow",
+          "from": "d3",
+          "to": "h3",
+          "color": "info",
+          "label": "threat Rh3#"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "quiet-in-mate",
+        "text": "Not a check. The mate is Rh3# along the h-file, but you cannot play it yet. Find the quiet rook lift that threatens Rh3# and gives Black no good answer. Threaten mate without checking."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down - hunt the quiet move",
+     "intro": {
+      "text": "More mates that need the silent move. When your checks all fizzle, do not give up - search for the quiet threat the opponent cannot meet, then finish with force."
+     },
+     "puzzle": {
+      "themes": [
+       "mateIn3",
+       "quietMove"
+      ],
+      "ratingLo": 1900,
+      "ratingHi": 2100,
+      "count": 3
+     }
+    }
+   ]
+  },
+  {
+   "id": "l6-mate-in-five",
+   "title": "Mate in Five - The Long Forced Line",
+   "kind": "tactics",
+   "summary": "Five moves deep is reachable only when every move forces. Sacrifice to strip the king, drag it into the open, and deliver - calculating to the last move before you start.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up - the five-move mate",
+     "intro": {
+      "text": "Now the longest forced lines you will calculate by hand: mate in five. They are reachable only because every move is a check or an unanswerable threat. Find the first move and play each line to the end - do not stop until the king is mated."
+     },
+     "puzzle": {
+      "themes": [
+       "mateIn5"
+      ],
+      "ratingLo": 1950,
+      "ratingHi": 2120,
+      "count": 2
+     }
+    },
+    {
+     "kind": "model",
+     "title": "Two rook sacrifices, then the finish",
+     "intro": {
+      "text": "White to move. The black king hides behind g7 and h7, but White's rooks and queen are loaded. Watch two rook sacrifices peel the king bare and drag it out, after which the queen delivers from h5. Five moves, every one forcing - and it must all be calculated before the first rook is given."
+     },
+     "fen": "5r1k/pp2p1bp/2p3p1/8/3PQ1R1/2P1P1P1/qP3rP1/2K4R w - - 0 25",
+     "line": [
+      {
+       "uci": "h1h7",
+       "coach": {
+        "conceptId": "forcing-tree",
+        "text": "Rxh7+. The first sacrifice. The rook smashes the h7-pawn with check; the bishop on g7 is overloaded and cannot help. The king has just one safe square - g8 (Kxh7 walks into Qxg6+ and a quick mate). One reply."
+       }
+      },
+      {
+       "uci": "h8g8",
+       "coach": {
+        "text": "...Kg8 - forced. The king sidesteps, but the h-file is torn open and the second rook is ready. We are one move into a five-move line and the board has barely branched."
+       }
+      },
+      {
+       "uci": "h7g7",
+       "coach": {
+        "conceptId": "forcing-tree",
+        "text": "Rxg7+. The second sacrifice - this rook takes the bishop with check, stripping the last defender from the king's shell. The king must go back to h8; ...Kxg7 runs straight into Qxg6+ and mate."
+       }
+      },
+      {
+       "uci": "g8h8",
+       "coach": {
+        "text": "...Kh8 - forced. The king is back in the corner, now utterly bare. Both rooks have done their work; the net is almost closed."
+       }
+      },
+      {
+       "uci": "g7h7",
+       "coach": {
+        "conceptId": "forcing-tree",
+        "text": "Rh7+. The surviving rook checks again, offering itself a third time. This time the king must take - Kxh7 - because g8 is covered by the rook on g4. The sacrifice drags the king out of its hole."
+       }
+      },
+      {
+       "uci": "h8h7",
+       "coach": {
+        "text": "...Kxh7 - forced. The king is dragged to h7, exposed on the open h-file with no shelter at all. Now the queen enters for the kill."
+       }
+      },
+      {
+       "uci": "e4g6",
+       "coach": {
+        "conceptId": "forcing-tree",
+        "text": "Qxg6+. The queen takes the g6-pawn with check, and the king has but one square: Kh8. Picture the final position before it lands - queen on g6, rook on g4 sealing the g-file, king cornered on h8."
+       }
+      },
+      {
+       "uci": "h7h8",
+       "coach": {
+        "text": "...Kh8 - the only legal move. Everything has been forced from move one. The mate is one step away."
+       }
+      },
+      {
+       "uci": "g6h5",
+       "coach": {
+        "conceptId": "cleanest-path",
+        "text": "Qh5#. Mate down the open h-file, the g4-rook covering g7 and g8. Three rook sacrifices and a queen, five moves, not one of them optional. This is the reward for calculating the whole forced line before you give the first piece."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Begin the five-move mate",
+     "steps": [
+      {
+       "fen": "5r1k/pp2p1bp/2p3p1/8/3PQ1R1/2P1P1P1/qP3rP1/2K4R w - - 0 25",
+       "conceptId": "forcing-tree",
+       "coach": {
+        "conceptId": "forcing-tree",
+        "text": "Your turn from the same position. There is a forced mate in five, and it begins with a sacrifice that tears open the king's shelter. The black king on h8 hides behind g7 and h7; your rooks own the h-file and the g-file. Strike the h7-pawn with check and start the forced sequence.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "h8",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "h1",
+          "to": "h7",
+          "color": "good",
+          "label": "Rxh7+"
+         }
+        ]
+       },
+       "solutionUci": [
+        "h1h7"
+       ],
+       "successLine": {
+        "conceptId": "cleanest-path",
+        "text": "Rxh7+, the first sacrifice. The whole line is forced: ...Kg8 Rxg7+ Kh8 Rh7+ Kxh7 Qxg6+ Kh8 Qh5#. Three rooks offered, the king dragged out, the queen finishing on the open h-file. You found the first move because you had calculated the last.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "h1",
+          "to": "h7",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "forcing-tree",
+        "text": "Not a quiet move - five moves deep needs an unbroken chain of checks. The king's shelter is g7 and h7. Begin with the rook sacrifice on h7 that opens the h-file with check, then drag the king out."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down - calculate five moves to mate",
+     "intro": {
+      "text": "Two more mates in five. Each is a chain of forcing moves - find the first, and trust the chain to the end. Carry every line to the final, still, mating position before you commit."
+     },
+     "puzzle": {
+      "themes": [
+       "mateIn5"
+      ],
+      "ratingLo": 1950,
+      "ratingHi": 2120,
+      "count": 2
+     }
+    }
+   ]
+  },
+  {
+   "id": "l7-cleanest-path",
+   "title": "The Cleanest Forcing Path",
+   "kind": "tactics",
+   "summary": "When more than one move wins, choose the one where every reply is forced. A forced mate is worth more than a messy 'winning' position, even if it gives back material.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up - the forced finish, not the messy win",
+     "intro": {
+      "text": "In each of these, more than one move keeps the advantage - but exactly one forces mate. Train yourself to reach for the clean kill, not the move that merely keeps you ahead. Find the mate and play it out."
+     },
+     "puzzle": {
+      "themes": [
+       "mateIn3"
+      ],
+      "ratingLo": 1850,
+      "ratingHi": 2000,
+      "count": 3
+     }
+    },
+    {
+     "kind": "teach",
+     "title": "Winning is not the same as forcing mate",
+     "intro": {
+      "text": "At this level you will often have several good moves. The discipline now is to prefer the one that forces - the line with the fewest branches, ideally a forced mate - over the one that merely looks winning and leaves work to do."
+     },
+     "steps": [
+      {
+       "fen": "r2b1rk1/p1p3pp/5p2/1p1Np3/2BnP3/5R2/PPP2PPP/2K4R w - - 0 16",
+       "conceptId": "cleanest-path",
+       "coach": {
+        "conceptId": "cleanest-path",
+        "text": "White to move with a knight on d5 and two tempting ideas. Nxf6+ wins the exchange and keeps a clear edge - but the game goes on, and Black can fight. Ne7+ looks like it wins less, yet it forces mate in three: Ne7+ Kh8 Ng6+ hxg6 Rh3#. Same knight, two paths. The greedy one wins a pawn; the forcing one wins the game. Always check whether a forced mate exists before you settle for 'winning'.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "g8",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "e7",
+          "color": "good",
+          "label": "Ne7+ mates"
+         },
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "f6",
+          "color": "bad",
+          "label": "Nxf6+ only wins"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "r2b1r1k/p1p3p1/5pp1/1p2p3/2BnP3/5R2/PPP2PPP/2K4R w - - 0 18",
+       "conceptId": "cleanest-path",
+       "coach": {
+        "conceptId": "cleanest-path",
+        "text": "Here is why Ne7+ won. After Ne7+ Kh8 Ng6+ Black must take - hxg6 - and the h-file is torn wide open. Now Rh3+ is mate: the rook checks down the h-file into the cornered king, with no block and no flight. The forcing path used the knight to rip open the very file the rook needed. Forcing moves do not just win material - they build the mate.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "h8",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "f3",
+          "to": "h3",
+          "color": "good",
+          "label": "Rh3#"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Choose mate over material",
+     "steps": [
+      {
+       "fen": "r2b1rk1/p1p3pp/5p2/1p1Np3/2BnP3/5R2/PPP2PPP/2K4R w - - 0 16",
+       "conceptId": "cleanest-path",
+       "coach": {
+        "conceptId": "cleanest-path",
+        "text": "Your turn with the same choice. Nxf6+ is there, winning the exchange - resist it. There is a forced mate in three that starts with the OTHER knight check, the one that drops the knight onto the seventh rank beside the king. Play the move that forces mate, not the one that only wins.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "g8",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "d5",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "d5e7"
+       ],
+       "successLine": {
+        "conceptId": "cleanest-path",
+        "text": "Ne7+, the forcing path. After Kh8 (forced), Ng6+ forces ...hxg6 - and that capture tears open the h-file for Rh3#. You gave back the chance to grab the exchange and took the whole game instead. The clean mate beats the messy win every time.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "e7",
+          "color": "good",
+          "label": "Ne7+"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "cleanest-path",
+        "text": "If you played Nxf6+ you only win the exchange - the game continues. There is better: the knight check to e7 that forces Kh8, then Ng6+ tears open the h-file for Rh3#. Choose the forced mate."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down - take the clean kill",
+     "intro": {
+      "text": "Each position offers a forced mate. Do not be distracted by a tempting capture that merely keeps you ahead - find the line that ends the game, and play it to mate."
+     },
+     "puzzle": {
+      "themes": [
+       "mateIn3"
+      ],
+      "ratingLo": 1900,
+      "ratingHi": 2050,
+      "count": 3
+     }
+    }
+   ]
+  },
+  {
+   "id": "l8-calculate-to-still",
+   "title": "Calculate to a Still Position",
+   "kind": "practice",
+   "summary": "Never stop calculating while a check or a hanging piece remains. Carry every line to a quiet, settled position - mate or clear win - and only then judge it.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up - see it to the end",
+     "intro": {
+      "text": "The commonest calculation error is stopping too soon - one move before the refutation. In each of these, calculate the whole forced line to mate before you play. Do not stop while a check is still in the air."
+     },
+     "puzzle": {
+      "themes": [
+       "mateIn4"
+      ],
+      "ratingLo": 1900,
+      "ratingHi": 2050,
+      "count": 3
+     }
+    },
+    {
+     "kind": "teach",
+     "title": "Stop only when the position is quiet",
+     "intro": {
+      "text": "A line is not finished while pieces hang or checks remain. Picture the line all the way to a still position - the king mated, or the dust settled with a clear material verdict - and judge only that. Half-calculated is mis-calculated."
+     },
+     "steps": [
+      {
+       "fen": "2k3r1/Rpp5/4p2p/1P2P3/3B4/4n3/2Q3PK/4q3 w - - 0 32",
+       "conceptId": "visualise-end",
+       "coach": {
+        "conceptId": "visualise-end",
+        "text": "White to move, and the start of a mate. Ra8+ is obvious enough, but the careless player stops there. Calculate on: Ra8+ Kd7 (forced) Qh7+ - and now the only block is ...Rg7, after which Qxg7# is mate. You must see the rook block AND the recapture-mate before you commit to Ra8+, or you are guessing. Carry it to the still, mating picture.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "c8",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "a7",
+          "to": "a8",
+          "color": "good",
+          "label": "Ra8+ ... Qxg7#"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Run each line to mate",
+     "steps": [
+      {
+       "fen": "2k3r1/Rpp5/4p2p/1P2P3/3B4/4n3/2Q3PK/4q3 w - - 0 32",
+       "conceptId": "visualise-end",
+       "coach": {
+        "conceptId": "visualise-end",
+        "text": "Your turn. There is a forced mate in three. The black king is on c8, your rook on a7 and queen on c2 trained on it. Calculate the whole line - check, forced king move, check, forced block, capture-mate - and play the first move.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "c8",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "a7",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "a7a8"
+       ],
+       "successLine": {
+        "conceptId": "visualise-end",
+        "text": "Ra8+, and you saw it to the end: Kd7 (forced) Qh7+ Rg7 (the only block) Qxg7#. You did not stop at the first check - you calculated to the still mating position. That is the whole habit.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "a7",
+          "to": "a8",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "visualise-end",
+        "text": "The mate begins with a check that drives the king off the back rank. Find the rook check, then calculate Qh7+ and the forced block ...Rg7 followed by Qxg7#. Start with the rook."
+       }
+      },
+      {
+       "fen": "3R4/4n1k1/2pNP3/1p3pKP/8/2r5/5P2/q7 w - - 0 43",
+       "conceptId": "forcing-tree",
+       "coach": {
+        "conceptId": "forcing-tree",
+        "text": "A knight finish. The black king on g7 is hemmed by its own knight on e7 and the white pawns. There is a forced mate in three beginning with a knight check that smothers the king toward the corner. Calculate to mate, then play the first move.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "g7",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "d6",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "d6e8"
+       ],
+       "successLine": {
+        "conceptId": "forcing-tree",
+        "text": "Ne8+, exactly. Then the quiet blow finishes it: ...Kh8 Nf6 - no check, but threatening - ...Kg7 (forced) h6#, the pawn mating while the rook on d8 seals g8. (If ...Kf8, Nf6 Kg7 h6# transposes.) The knight bounced the king into the net and a quiet pawn finished it - you carried the line to the mating picture before committing.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "d6",
+          "to": "e8",
+          "color": "good",
+          "label": "Ne8+"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "forcing-tree",
+        "text": "Not a quiet move. The king on g7 must be checked toward the corner - find the knight check that forces it to h8, then the quiet Nf6 and h6#. Begin with the knight."
+       }
+      },
+      {
+       "fen": "r2q1k1r/3np1b1/1p4Q1/1Pp4p/P7/2n1PN2/5PPP/1RB1K2R w K - 1 18",
+       "conceptId": "quiet-in-mate",
+       "coach": {
+        "conceptId": "quiet-in-mate",
+        "text": "And one more without a check at the root. The black king is shut in on f8 and your queen on g6 already eyes g7. Every check lets the king breathe; the win is a quiet knight move that threatens Ne6+ and Qxg7# at once, with no good defence. Find the silent move, then calculate the forced finish to be sure.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "f8",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "f3",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "f3g5"
+       ],
+       "successLine": {
+        "conceptId": "quiet-in-mate",
+        "text": "Ng5, the quiet move - no check, but two unanswerable threats. Black has no defence: ...Qe8 Ne6+ Kg8 Qxg7#, and nothing else survives either. The silent knight leap set up both the fork and the mate. Calculate even the quiet move to its still end - here, mate.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "f3",
+          "to": "g5",
+          "color": "good",
+          "label": "Ng5"
+         }
+        ]
+       },
+       "retryLine": {
+        "conceptId": "quiet-in-mate",
+        "text": "No check works yet. Find the quiet knight move to g5 that threatens Ne6+ and Qxg7# together, then calculate the finish. Threaten mate without checking."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down - mixed long mates",
+     "intro": {
+      "text": "Mate in four and five, mixed. For each, name the candidates, calculate the most forcing one all the way to the still mating position, and play it out. Everything the chapter has taught, in one drill."
+     },
+     "puzzle": {
+      "themes": [
+       "mateIn4",
+       "mateIn5"
+      ],
+      "ratingLo": 1950,
+      "ratingHi": 2120,
+      "count": 4
+     }
+    }
+   ]
+  },
+  {
+   "id": "l9-cooldown-boss",
+   "title": "Cool-down and the Boss - Convert to Mate",
+   "kind": "cooldown",
+   "summary": "Everything together: name candidates, calculate the forcing line to a still position, choose the cleanest path, and finish the game by force.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Cool-down - one last set of long mates",
+     "intro": {
+      "text": "A final warm-up before the boss: mates in three and four. Candidates first, then the most forcing line, all the way to mate. You know the method now - trust it."
+     },
+     "puzzle": {
+      "themes": [
+       "mateIn3",
+       "mateIn4"
+      ],
+      "ratingLo": 1900,
+      "ratingHi": 2050,
+      "count": 3
+     }
+    },
+    {
+     "kind": "boss",
+     "title": "Finish the game by force",
+     "bossFen": "5rk1/pp3ppp/8/8/8/2Q3P1/PP3P1P/4R1K1 w - - 0 1",
+     "bossEngineElo": 1900,
+     "bossUserColor": "white",
+     "bossIntro": {
+      "conceptId": "cleanest-path",
+      "text": "Now prove it over the board. You are White, a whole queen to the good - the position is won. But a won position is not a point until you finish it. Do not drift: name your candidates, calculate the forcing lines, and steer toward a clean forced mate. Trade into a winning endgame only if no mate is in sight, and beware the back rank - keep luft or keep control. Convert the advantage into checkmate. Begin."
+     }
+    }
+   ]
+  }
+ ],
+ "test": {
+  "passThreshold": 0.7,
+  "questions": [
+   {
+    "kind": "mc",
+    "prompt": "You are looking for a long forced mate. Which moves do you calculate first, and why?",
+    "options": [
+     "The quiet moves, because they keep the most options open",
+     "The forcing moves - checks and captures - because they cut the opponent's replies and stay calculable deepest",
+     "Whatever move improves your worst-placed piece",
+     "The capture that wins the most material, then stop"
+    ],
+    "answerIndex": 1,
+    "explain": "A check or capture leaves the defender one or two replies, so a forcing line can be seen five moves deep where a quiet line branches uncontrollably. List the checks and captures first - and furthest."
+   },
+   {
+    "kind": "mc",
+    "prompt": "Your checks all let the king escape, yet the position feels winning. What should you look for?",
+    "options": [
+     "A quiet move that threatens mate with no defence - the silent killer",
+     "A draw by repetition, since no mate exists",
+     "Any check at all, just to keep the initiative",
+     "A trade of queens to simplify"
+    ],
+    "answerIndex": 0,
+    "explain": "Not every combination is all checks. Often one link is a quiet move that threatens mate the defender cannot meet, after which the checks finish. The non-checking move is the hardest to see - and the one that wins."
+   },
+   {
+    "kind": "mc",
+    "prompt": "Two moves both win: one grabs a piece and keeps a clear edge, the other forces mate in four. Which do you choose, and why?",
+    "options": [
+     "The material grab - extra material is always safest",
+     "Whichever is played faster, to save clock time",
+     "The forced mate - a forced win ends the game, while a 'winning' position still has to be converted",
+     "Neither; look for a third, quieter move first"
+    ],
+    "answerIndex": 2,
+    "explain": "Prefer the cleanest forcing path: the line where every reply is forced. A forced mate ends the game now; a merely winning position leaves work, chances, and risk. Always check for a forced mate before settling for 'winning'."
+   },
+   {
+    "kind": "play",
+    "prompt": "White to move. There is a forced mate in two. Name your forcing candidates and play the first move of the mate.",
+    "fen": "6k1/5pp1/4pQ1p/3p4/6R1/1P5P/5PPK/q1r5 w - - 0 1",
+    "solutionUci": [
+     "g4g7"
+    ],
+    "explain": "Rg7+ is the forcing key: ...Kf8 Qf7#, and ...Kh8 Qxh6#. Both legal replies are mate. The first move of a long forced line is still chosen from your short list of checks - here the rook check that strips the king's pawns and herds it."
+   },
+   {
+    "kind": "play",
+    "prompt": "Black to move. There is a forced mate in three. Find the first move and play it.",
+    "fen": "3q4/4k1pp/Q3P3/1p3p2/8/1P3K2/5PPP/8 b - - 4 34",
+    "solutionUci": [
+     "d8d3"
+    ],
+    "explain": "...Qd3+ drives the king out: Kf4 Qe4+ Kg3 (or Kg5) Qg4#. A chain of pure checks with no shelter for the white king - the forcing move comes first and carries the line all the way to mate."
+   },
+   {
+    "kind": "play",
+    "prompt": "White to move. There is a forced mate in three. Calculate the forcing line to the end, then play the first move.",
+    "fen": "r5k1/1p2Q1b1/p3b1r1/2pq2Np/5R2/8/PPP3PP/5R1K w - - 3 22",
+    "solutionUci": [
+     "f4f8"
+    ],
+    "explain": "Rxf8+ rips the king open: ...Rxf8 Rxf8+ Bxf8 Qxh7#. Two rooks are given to shatter the shell, but every reply is forced and the line ends in mate - which is the only justification for the sacrifices."
+   },
+   {
+    "kind": "play",
+    "prompt": "White to move. There is a forced mate in four. Find the first move of the king hunt and play it.",
+    "fen": "6k1/pp2q1p1/2pbr1P1/3p1rB1/3Pn3/2P4R/PP4PP/3Q2K1 w - - 0 29",
+    "solutionUci": [
+     "h3h8"
+    ],
+    "explain": "Rxh8+ drags the king into the open: ...Kxh8 Qh5+ Kg8 Qh7+ Kf8 Qh8#. Each move is a check that steals a square; the rook sacrifice is sound because the forced chain reaches mate."
+   },
+   {
+    "kind": "play",
+    "prompt": "White to move. Every check lets the king escape, yet the position is winning. There is a forced mate in three - find the first move and play it.",
+    "fen": "8/6R1/5B1p/1r3p1k/3p1P2/4p3/1Pn2PPK/8 w - - 0 39",
+    "solutionUci": [
+     "f2f3"
+    ],
+    "explain": "f3 is the quiet move - no check, but it threatens g4#, and Black cannot meet it: ...Ne1 g4+ fxg4 fxg4#. When the checks all fizzle, look for the silent threat the opponent cannot answer."
+   },
+   {
+    "kind": "play",
+    "prompt": "White to move. A loose bishop on b7 is free for the taking - but there is a forced mate in two. Find the move that ends the game.",
+    "fen": "5r1k/1b4pp/7N/3Q4/8/8/5PPP/6K1 w - - 0 1",
+    "solutionUci": [
+     "d5g8"
+    ],
+    "explain": "Qg8+ is the smothered mate: ...Rxg8 is forced (the only legal reply), and Nf7# finishes - the knight mates the king boxed in by its own rook and pawns. Qxb7 merely wins a bishop and lets the game go on. Always check for a forced mate before grabbing material."
+   },
+   {
+    "kind": "judge",
+    "prompt": "White played the quiet rook move shown (Ra1-b1), with no check. Black king is on c6. Judge the move.",
+    "fen": "r6r/1R4pp/p1k1pp2/8/2PP4/8/5PPP/1R4K1 b - - 3 26",
+    "lastMoveUci": "a1b1",
+    "verdict": "correct",
+    "explain": "Correct - Rab1 is a quiet move that threatens Rb6#, and Black has no defence (the rooks double on the b-file). A non-checking move that forces mate is exactly the silent killer to look for when checks fail."
+   },
+   {
+    "kind": "judge",
+    "prompt": "White just played Rxf8, claiming checkmate. Is it really mate?",
+    "fen": "5R1k/p5pp/4B3/4P3/3q4/8/P5PP/7K b - - 0 31",
+    "lastMoveUci": "e8f8",
+    "verdict": "correct",
+    "explain": "Yes - Rxf8# is mate. The rook checks on the back rank, the bishop on e6 covers g8, and the king on h8 has no flight and nothing to capture. The clean end of a forced sacrificial sequence."
+   },
+   {
+    "kind": "judge",
+    "prompt": "With king on c6 and queen on d7 against a lone king on a8, White played Qc7 'to box the king in.' Judge it.",
+    "fen": "k7/2Q5/2K5/8/8/8/8/8 b - - 1 1",
+    "lastMoveUci": "d7c7",
+    "verdict": "blunder",
+    "explain": "A blunder - Qc7 is stalemate. The black king is not in check and has no legal move: the win is thrown away to a draw. Qb7# was mate. Calculate to the still position: a move that leaves the enemy with no move and no check is stalemate, not mate."
+   },
+   {
+    "kind": "judge",
+    "prompt": "With a sound back rank, White moved the rook from d2 to a2 to grab the open a-file. Black is to move. Judge White's move.",
+    "fen": "2r3k1/5ppp/8/8/8/8/R4PPP/6K1 b - - 1 1",
+    "lastMoveUci": "d2a2",
+    "verdict": "blunder",
+    "explain": "A blunder - Ra2 abandons the first rank and allows ...Rc1#, mate on the back rank behind the f2-g2-h2 pawns. Before committing, blunder-check: does my move walk into a forcing reply? Here it walks into mate."
+   }
+  ]
+ },
+ "eloFloor": 1950
+}

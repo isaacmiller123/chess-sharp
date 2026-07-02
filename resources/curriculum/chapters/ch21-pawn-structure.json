@@ -1,0 +1,887 @@
+{
+ "id": "ch21-pawn-structure",
+ "band": "21",
+ "order": 21,
+ "title": "Pawn Structure & Weak Squares",
+ "subtitle": "Outposts, files, the good and bad bishop, weak pawns, and the minority attack",
+ "estMinutes": 40,
+ "concepts": [
+  {
+   "id": "outpost",
+   "name": "Outpost",
+   "short": "A square in or near enemy territory that no enemy pawn can ever attack — a permanent home for a knight."
+  },
+  {
+   "id": "open-file",
+   "name": "Open & half-open files",
+   "short": "A file with no pawns (open) or no pawns of one colour (half-open) is a highway for your rooks."
+  },
+  {
+   "id": "good-bad-bishop",
+   "name": "Good vs. bad bishop",
+   "short": "A bishop is 'bad' when your own pawns sit on its colour, blocking it in; 'good' when they don't."
+  },
+  {
+   "id": "isolated-pawn",
+   "name": "Isolated pawn",
+   "short": "A pawn with no friendly pawn on either neighbouring file: no pawn can ever defend it, and the square in front is a hole."
+  },
+  {
+   "id": "backward-pawn",
+   "name": "Backward pawn",
+   "short": "A pawn left behind its neighbours on a half-open file — it can't advance safely and is a fixed target."
+  },
+  {
+   "id": "doubled-pawns",
+   "name": "Doubled pawns",
+   "short": "Two pawns of the same colour on one file: they can't defend each other and one is often a chronic weakness."
+  },
+  {
+   "id": "minority-attack",
+   "name": "Minority attack",
+   "short": "Pushing your two queenside pawns against the enemy's three to create a fixed, backward target on a half-open file."
+  }
+ ],
+ "lessons": [
+  {
+   "id": "ch21-l1-warmup",
+   "title": "Reading the structure",
+   "kind": "warmup",
+   "summary": "Spot weak squares and weak pawns before we name them.",
+   "segments": [
+    {
+     "kind": "teach",
+     "title": "What is a weak square?",
+     "intro": {
+      "text": "Pieces come and go; pawns stay. The skeleton of pawns decides which squares are strong, which are weak, and which pieces are happy. Before tactics, you read the bones. I am Viktor — let us learn to see them."
+     },
+     "steps": [
+      {
+       "fen": "4k3/8/8/8/3P4/8/8/4K3 w - - 0 1",
+       "coach": {
+        "text": "One white pawn on d4. Which squares can it NEVER be defended-on or attacked by a pawn? It controls c5 and e5. But d5 — the square in front of it — no white pawn will ever guard d5, because the c- and e-pawns are gone. d5 is a HOLE in White's camp only if Black can occupy it. Holes matter when a piece can sit on them.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "c5",
+          "color": "good"
+         },
+         {
+          "kind": "highlight",
+          "square": "e5",
+          "color": "good"
+         },
+         {
+          "kind": "circle",
+          "square": "d5",
+          "color": "focus",
+          "label": "hole"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "4k3/8/3n4/8/2P1P3/8/8/4K3 w - - 0 1",
+       "coach": {
+        "text": "Now Black's knight sits on d6 and White has pawns on c4 and e4. Look at d5: a white pawn can NEVER attack it (no b- or d-pawn to push there in a way that hits d5 — only c4-c5 or e4-e5, neither covers d5). A black knight reaching d5 could never be chased by a pawn. THAT is the difference between a hole and a true outpost — an outpost is a hole a piece can live on.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "d5",
+          "color": "focus",
+          "label": "outpost"
+         },
+         {
+          "kind": "highlight",
+          "square": "c4",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "e4",
+          "color": "info"
+         }
+        ]
+       },
+       "conceptId": "outpost"
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Warm-up: convert the edge",
+     "intro": {
+      "text": "First, sharpen the eye with positions where one side already has the better structure and must convert. Win material or crash through."
+     },
+     "puzzle": {
+      "themes": [
+       "advantage",
+       "middlegame"
+      ],
+      "ratingLo": 1300,
+      "ratingHi": 1500,
+      "count": 4
+     }
+    }
+   ]
+  },
+  {
+   "id": "ch21-l2-outposts",
+   "title": "The outpost",
+   "kind": "positional",
+   "summary": "A protected knight on a hole no pawn can challenge is worth a small piece more than it looks.",
+   "segments": [
+    {
+     "kind": "teach",
+     "title": "A knight that cannot be evicted",
+     "intro": {
+      "text": "A knight on an outpost, defended by a pawn, in the heart of the enemy position, is the most annoying piece in chess. It cannot be traded off cheaply and it cannot be chased. Build for it."
+     },
+     "steps": [
+      {
+       "fen": "r2q1rk1/pp2bppp/2n1pn2/3p4/3P4/2N1PN2/PP3PPP/R1BQ1RK1 w - - 0 1",
+       "coach": {
+        "text": "A typical structure. White wants a knight on e5; Black wants one on e4 or c4. Notice e5: Black's f- and d-pawns can't both cover it forever, and after Ne5 White's knight glares at f7, d7, c6, g6. The square is half the battle — getting a PROTECTED piece there is the goal.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "e5",
+          "color": "focus"
+         },
+         {
+          "kind": "circle",
+          "square": "c4",
+          "color": "info"
+         }
+        ]
+       },
+       "conceptId": "outpost"
+      },
+      {
+       "fen": "r2q1rk1/pp3ppp/2n1pn2/3pN3/3P4/2N1P3/PP3PPP/R1BQ1RK1 b - - 0 1",
+       "coach": {
+        "text": "Knight planted on e5, defended (in the full position) by a pawn or the d-pawn after f4. Black's natural ...Nxe5 dxe5 just hands White a strong pawn and the open d-file. The knight dominates. This is what you build toward — a permanent, defended outpost.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "e5",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "e5",
+          "to": "f7",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "e5",
+          "to": "c6",
+          "color": "good"
+         }
+        ]
+       },
+       "conceptId": "outpost"
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Take the outpost",
+     "intro": {
+      "text": "Your turn. The square is begging for a knight. Put it there."
+     },
+     "steps": [
+      {
+       "fen": "r1bq1rk1/pp3ppp/2n1pn2/3p4/3P4/2NBPN2/PP3PPP/R1BQ1RK1 w - - 0 1",
+       "coach": {
+        "text": "e5 is a hole — no black pawn can ever attack a piece there (the f-pawn is on f7 and pushing ...f6 would only weaken e6 and the king). Which knight belongs on e5? Bring the f3-knight in.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "e5",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "f3",
+          "to": "e5",
+          "color": "good"
+         }
+        ]
+       },
+       "solutionUci": [
+        "f3e5"
+       ],
+       "successLine": {
+        "text": "Ne5! The knight lands on the outpost, eyeing c6, d7, f7, g6. Black can take it, but ...Nxe5 dxe5 only gives White a big pawn and an open d-file. The horse rules e5.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "e5",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "Not that. I want the knight on e5 — the one square no black pawn can ever challenge. The f3-knight goes there."
+       },
+       "conceptId": "outpost"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ch21-l3-files",
+   "title": "Open & half-open files",
+   "kind": "positional",
+   "summary": "Rooks are worth little until a file opens; then they decide the game.",
+   "segments": [
+    {
+     "kind": "teach",
+     "title": "Rooks need roads",
+     "intro": {
+      "text": "A rook behind its own pawns is a sleeping giant. Open the file in front of it — or aim it down a HALF-open file at the enemy's weakness — and it wakes up."
+     },
+     "steps": [
+      {
+       "fen": "r4rk1/pp1q1ppp/2n1pn2/8/3P4/2N1PN2/PP1Q1PPP/2R2RK1 w - - 0 1",
+       "coach": {
+        "text": "The c-file is OPEN — no pawns on it at all. White's rook already sits on c1. An open file is a highway: White will double rooks on c1/c2 and invade on c7 or c8. Whoever controls the only open file usually controls the game.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "c1",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "c1",
+          "to": "c8",
+          "color": "good"
+         }
+        ]
+       },
+       "conceptId": "open-file"
+      },
+      {
+       "fen": "2r2rk1/pp1q1ppp/2n1pn2/8/3P4/2N1PN2/PP1Q1PPP/2R2RK1 w - - 0 1",
+       "coach": {
+        "text": "A half-open file is a file with no pawns of YOUR colour but an enemy pawn still on it — you aim your rook at that pawn. Here both have c-file rooks, so the test is who gets the 7th rank first. The rook that reaches c7 attacks b7, a7, f7 from behind. Files are about INVASION — landing on the 7th.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "c1",
+          "to": "c7",
+          "color": "good"
+         },
+         {
+          "kind": "highlight",
+          "square": "c7",
+          "color": "focus"
+         }
+        ]
+       },
+       "conceptId": "open-file"
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Seize the open file",
+     "intro": {
+      "text": "Only one open file exists. Claim it before your opponent does."
+     },
+     "steps": [
+      {
+       "fen": "r4rk1/pp1bqppp/2n1pn2/8/3P4/2NBPN2/PP1Q1PPP/R4RK1 w - - 0 1",
+       "coach": {
+        "text": "Look at the files. The c-file has no pawns — it is open. Neither side occupies it yet. Put a rook on c1 and the file is yours; the enemy rooks are still stuck behind pawns.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "c1",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "a1",
+          "to": "c1",
+          "color": "good"
+         }
+        ]
+       },
+       "solutionUci": [
+        "a1c1"
+       ],
+       "successLine": {
+        "text": "Rac1! You own the only open file. Next you double rooks and invade on c7. Black has no comfortable way to contest it — his a8-rook is one tempo behind.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "c1",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "No. Find the OPEN file — the one with no pawns at all — and put a rook on it. That is the c-file."
+       },
+       "conceptId": "open-file"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ch21-l4-bishops",
+   "title": "Good bishop, bad bishop",
+   "kind": "positional",
+   "summary": "Your pawns decide whether your bishop is a hero or a tall pawn.",
+   "segments": [
+    {
+     "kind": "teach",
+     "title": "Don't block your own bishop",
+     "intro": {
+      "text": "A bishop only moves on one colour. If your own pawns sit on THAT colour, they wall it in — it becomes a 'bad' bishop, a tall pawn. Keep your pawns off your bishop's colour."
+     },
+     "steps": [
+      {
+       "fen": "4k3/5ppp/3p4/3Pp3/4P3/5PPP/8/3BK3 w - - 0 1",
+       "coach": {
+        "text": "White's bishop is on d1 — a LIGHT square. Now count White's pawns on light squares: d5, e4, f3, h3. They block their own bishop's diagonals. This is a BAD bishop, biting on its own granite. Black, by contrast, would love a knight here — knights don't care about pawn colour.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d5",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "e4",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "f3",
+          "color": "bad"
+         },
+         {
+          "kind": "circle",
+          "square": "d1",
+          "color": "focus",
+          "label": "bad B"
+         }
+        ]
+       },
+       "conceptId": "good-bad-bishop"
+      },
+      {
+       "fen": "4k3/5ppp/3p4/3Pp3/4P3/2B2PPP/8/4K3 w - - 0 1",
+       "coach": {
+        "text": "Same pawns, but here the bishop has rerouted OUTSIDE its own pawn chain onto c3, where the long dark-square diagonal is wide open in front of it. THAT is a good bishop: its diagonals are clear because the friendly pawns sit on the OTHER colour. The rule to carry away: trade off your BAD bishop, and either keep your pawns off your bishop's colour or route the bishop in front of them.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "c3",
+          "to": "h8",
+          "color": "good"
+         },
+         {
+          "kind": "circle",
+          "square": "c3",
+          "color": "focus",
+          "label": "active"
+         }
+        ]
+       },
+       "conceptId": "good-bad-bishop"
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Trade the bad bishop",
+     "intro": {
+      "text": "When your bishop is bad and the enemy's is good, swap them off — relieve your worst piece."
+     },
+     "steps": [
+      {
+       "fen": "4k3/4bppp/3pp3/3Pp3/4P3/2B2PPP/8/4K3 w - - 0 1",
+       "coach": {
+        "text": "White's dark-squared bishop on c3 is GOOD — White's pawns sit on light squares (d5, e4, f3), so its diagonals are clear. Black's bishop on e7 is bad, hemmed by his own d6/e6/e5 pawns. So do NOT trade your good bishop for his bad one; instead improve it. Slide it along its open diagonal to a square the enemy can't oppose.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "c3",
+          "to": "a5",
+          "color": "good"
+         },
+         {
+          "kind": "highlight",
+          "square": "e7",
+          "color": "bad"
+         }
+        ]
+       },
+       "solutionUci": [
+        "c3a5",
+        "c3b4",
+        "c3d2"
+       ],
+       "successLine": {
+        "text": "Good — you kept your GOOD bishop active and steered it to a square the enemy's bad bishop can't oppose. The principle: trade off your BAD bishop, preserve and activate your GOOD one.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "a5",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "Keep the good bishop; just reposition it along its open diagonal. Slide it down the a5–e1 or b4 line — anywhere it stays active and the enemy can't trade it."
+       },
+       "conceptId": "good-bad-bishop"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ch21-l5-weak-pawns",
+   "title": "Isolated, backward, doubled",
+   "kind": "positional",
+   "summary": "Three chronic weaknesses — and the square in front of each.",
+   "segments": [
+    {
+     "kind": "teach",
+     "title": "The isolated pawn and the square in front",
+     "intro": {
+      "text": "A weak pawn is one no friendly pawn can ever defend. The attacker's real prize is often not the pawn but the HOLE in front of it, where a piece settles forever."
+     },
+     "steps": [
+      {
+       "fen": "4k3/8/8/8/3P4/8/8/4K3 w - - 0 1",
+       "coach": {
+        "text": "ISOLATED pawn: d4 has no white pawn on the c- or e-file, so NO pawn can ever defend it — pieces must babysit it. Worse, d5 in front of it is a permanent blockading square for an enemy knight. In the middlegame the isolani gives space and activity; in the endgame it is usually just weak.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d4",
+          "color": "bad",
+          "label": "isolani"
+         },
+         {
+          "kind": "circle",
+          "square": "d5",
+          "color": "focus",
+          "label": "blockade"
+         }
+        ]
+       },
+       "conceptId": "isolated-pawn"
+      },
+      {
+       "fen": "4k3/8/8/2p5/2P5/8/3P4/4K3 w - - 0 1",
+       "coach": {
+        "text": "BACKWARD pawn: White's d2-pawn has no friendly pawn on the c-file ahead of it (the c-pawn is already advanced to c4), so it can't be defended by a pawn and can't safely advance — ...if d2-d3, nothing; if d2-d4 it isn't supported and c5 fixes it. The square d3/d4 in front is weak. Black piles rooks on the half-open d-file and presses.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d2",
+          "color": "bad",
+          "label": "backward"
+         },
+         {
+          "kind": "circle",
+          "square": "d4",
+          "color": "focus"
+         }
+        ]
+       },
+       "conceptId": "backward-pawn"
+      },
+      {
+       "fen": "4k3/8/8/8/3P4/3P4/8/4K3 w - - 0 1",
+       "coach": {
+        "text": "DOUBLED pawns: two white pawns on the d-file. They cannot defend each other, the front one can't be guarded by a pawn, and they control fewer squares than a healthy pawn pair. Doubled AND isolated is worst of all. Sometimes doubling opens a file for your rook as compensation — but the pawns themselves are a long-term liability.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d4",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "d3",
+          "color": "bad"
+         }
+        ]
+       },
+       "conceptId": "doubled-pawns"
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Blockade the isolani",
+     "intro": {
+      "text": "Against an isolated pawn, the first law is: BLOCKADE the square in front with a knight, then attack the pawn at leisure."
+     },
+     "steps": [
+      {
+       "fen": "3rr1k1/pp3ppp/2n1bn2/8/3P4/2N1BN2/PP3PPP/3RR1K1 b - - 0 1",
+       "coach": {
+        "text": "White has the isolated d4-pawn. The blockade square is d5 — no white pawn can ever attack a piece there. Which black piece wants d5? A knight: immovable, and it eyes White's whole camp. Route a knight to d5.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "d5",
+          "color": "focus"
+         },
+         {
+          "kind": "arrow",
+          "from": "f6",
+          "to": "d5",
+          "color": "good"
+         },
+         {
+          "kind": "highlight",
+          "square": "d4",
+          "color": "bad"
+         }
+        ]
+       },
+       "solutionUci": [
+        "f6d5",
+        "c6b4"
+       ],
+       "successLine": {
+        "text": "...Nd5! The knight blockades the isolani on its hole. It can't be chased by a pawn, it's defended, and now the d4-pawn is a fixed target you attack with rooks and bishop. (Routing the c6-knight via b4 to d5 is the other clean path.)",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d5",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "Against an isolated pawn you BLOCKADE in front of it with a knight. The square is d5. Get a knight there — f6 or via b4."
+       },
+       "conceptId": "isolated-pawn"
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Exploit the weakness",
+     "intro": {
+      "text": "Positions where a structural edge converts to material or a winning attack. Find the blow."
+     },
+     "puzzle": {
+      "themes": [
+       "advantage",
+       "middlegame"
+      ],
+      "ratingLo": 1400,
+      "ratingHi": 1600,
+      "count": 4
+     }
+    }
+   ]
+  },
+  {
+   "id": "ch21-l6-minority",
+   "title": "The minority attack",
+   "kind": "positional",
+   "summary": "Two pawns marching against three to manufacture a fixed target.",
+   "segments": [
+    {
+     "kind": "teach",
+     "title": "Fewer pawns, on purpose",
+     "intro": {
+      "text": "The minority attack sounds backwards: you advance your TWO queenside pawns into the enemy's THREE. Why? Because when they collide and trade, the enemy is left with one chronically backward pawn on a half-open file — a fixed target for the rest of the game."
+     },
+     "steps": [
+      {
+       "fen": "r2q1rk1/pp3ppp/2p1bn2/3p4/3P4/2NBPN2/PP3PPP/R2Q1RK1 w - - 0 1",
+       "coach": {
+        "text": "The classic Carlsbad structure (from the Queen's Gambit Exchange). Black's queenside is a7, b7, c6 — three pawns — facing White's a2, b2 — two. That two-against-three imbalance is the whole point. White will play b2-b4-b5 to strike c6. When b5xc6 (or ...cxb5), the c-file opens and Black is left with a backward c-pawn on a half-open file: a fixed target.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "b2",
+          "to": "b5",
+          "color": "good"
+         },
+         {
+          "kind": "circle",
+          "square": "c6",
+          "color": "focus",
+          "label": "target"
+         }
+        ]
+       },
+       "conceptId": "minority-attack"
+      },
+      {
+       "fen": "r2q1rk1/pp3ppp/2p1pn2/3p4/1P1P4/2N1PN2/P4PPP/R2Q1RK1 w - - 0 1",
+       "coach": {
+        "text": "Here is the real Carlsbad: Black's a7,b7,c6 vs White's a2,b4. White has already played b4 and will follow with a4 and b5. After b5, ...cxb5 or b5xc6 — either way the c-file opens and Black's c-pawn (or the c6 square) becomes the permanent weakness White's rooks pile on. The MINORITY (two pawns) created a target in the MAJORITY (three).",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "b4",
+          "to": "b5",
+          "color": "good"
+         },
+         {
+          "kind": "highlight",
+          "square": "c6",
+          "color": "bad"
+         },
+         {
+          "kind": "arrow",
+          "from": "a1",
+          "to": "c1",
+          "color": "info"
+         }
+        ]
+       },
+       "conceptId": "minority-attack"
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Launch it",
+     "intro": {
+      "text": "The structure is set. Start the minority attack."
+     },
+     "steps": [
+      {
+       "fen": "r2q1rk1/pp3ppp/2p1pn2/3p4/3P4/2N1PN2/PP3PPP/R2Q1RK1 w - - 0 1",
+       "coach": {
+        "text": "Carlsbad structure: your a2,b2 vs Black's a7,b7,c6. The plan is to advance the b-pawn to b5 to strike c6. Take the first step — the pawn break begins with b4 (then a4 and b5).",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "b2",
+          "to": "b4",
+          "color": "good"
+         },
+         {
+          "kind": "circle",
+          "square": "c6",
+          "color": "focus",
+          "label": "target"
+         }
+        ]
+       },
+       "solutionUci": [
+        "b2b4"
+       ],
+       "successLine": {
+        "text": "b4! The minority attack is rolling. Next comes a4 and b5; when b5 meets c6 the file opens and Black is saddled with a backward c-pawn — a weakness for the whole game. Two pawns made a target out of three.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "b4",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "The minority attack advances the b-pawn at the enemy's queenside majority. Push b2-b4 to begin; b5 will follow and hit c6."
+       },
+       "conceptId": "minority-attack"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ch21-l7-practice-boss",
+   "title": "Put it together",
+   "kind": "practice",
+   "summary": "Cool-down reps, then play a structurally rich middlegame out.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Cool-down: structural strikes",
+     "intro": {
+      "text": "A last set. Each rewards seeing the weak square or weak pawn and hitting it. Take your time."
+     },
+     "puzzle": {
+      "themes": [
+       "advantage",
+       "middlegame"
+      ],
+      "ratingLo": 1450,
+      "ratingHi": 1620,
+      "count": 5
+     }
+    },
+    {
+     "kind": "boss",
+     "title": "Boss: convert the structure",
+     "bossIntro": {
+      "text": "You are White with the better structure — a clean knight outpost coming on e5 and the half-open c-file. No fireworks: plant the knight, seize the file, target the weak pawn, and squeeze. Show me you can WIN with the bones, not just tactics."
+     },
+     "bossFen": "r1bq1rk1/pp3ppp/2n1pn2/3p4/3P4/2NBPN2/PP3PPP/R1BQ1RK1 w - - 0 1",
+     "bossUserColor": "white",
+     "bossEngineElo": 1500
+    }
+   ]
+  }
+ ],
+ "test": {
+  "passThreshold": 0.7,
+  "questions": [
+   {
+    "kind": "mc",
+    "prompt": "What makes a square a true OUTPOST (not just a hole)?",
+    "options": [
+     "It is in the centre of the board",
+     "It is a square no enemy pawn can ever attack, where you can place and defend a piece",
+     "It is any square your knight can reach in one move",
+     "It is a square your rook controls"
+    ],
+    "answerIndex": 1,
+    "explain": "An outpost is a hole — a square no enemy pawn can ever attack — that your piece (usually a defended knight) can occupy permanently."
+   },
+   {
+    "kind": "mc",
+    "prompt": "Your bishop is on a light square and you have pawns on d5, e4, and f3. What kind of bishop is it, and what's the cure?",
+    "options": [
+     "A good bishop; push more pawns to light squares",
+     "A bad bishop; get your pawns off light squares or trade the bishop off",
+     "A good bishop; trade it immediately",
+     "A bad bishop; add another pawn on e4"
+    ],
+    "answerIndex": 1,
+    "explain": "Pawns on your bishop's own colour wall it in — that's a bad bishop. Cure it by getting pawns off that colour or by trading the bad bishop away."
+   },
+   {
+    "kind": "mc",
+    "prompt": "In the minority attack (Carlsbad structure), WHY do you push two pawns at the enemy's three?",
+    "options": [
+     "To win one of the enemy pawns by force",
+     "To open lines for a kingside checkmate",
+     "When the pawns trade, the enemy is left with a backward pawn on a half-open file — a fixed target",
+     "To promote one of your own pawns quickly"
+    ],
+    "answerIndex": 2,
+    "explain": "The point isn't to win a pawn immediately — it's the structural scar: after the trade the defender has a backward pawn on a half-open file to defend forever."
+   },
+   {
+    "kind": "mc",
+    "prompt": "Why is an ISOLATED pawn a long-term weakness?",
+    "options": [
+     "It can never be captured",
+     "No friendly pawn can ever defend it, and the square in front is a permanent hole for an enemy piece",
+     "It always loses by force",
+     "It blocks your own rooks"
+    ],
+    "answerIndex": 1,
+    "explain": "With no neighbour pawns, only pieces can defend an isolani, and the square ahead of it becomes a blockading hole for an enemy knight."
+   },
+   {
+    "kind": "play",
+    "prompt": "e5 is a hole no black pawn can challenge. Plant a knight on the outpost.",
+    "fen": "r1bq1rk1/pp3ppp/2n1pn2/3p4/3P4/2NBPN2/PP3PPP/R1BQ1RK1 w - - 0 1",
+    "solutionUci": [
+     "f3e5"
+    ],
+    "explain": "Ne5 occupies the outpost. ...Nxe5 dxe5 only gives White a strong pawn and the open d-file; the knight dominates."
+   },
+   {
+    "kind": "play",
+    "prompt": "The c-file is open and uncontested. Claim it with a rook.",
+    "fen": "r4rk1/pp1bqppp/2n1pn2/8/3P4/2NBPN2/PP1Q1PPP/R4RK1 w - - 0 1",
+    "solutionUci": [
+     "a1c1"
+    ],
+    "explain": "Rac1 seizes the only open file. Double rooks next and invade on c7; Black is a tempo behind to contest it."
+   },
+   {
+    "kind": "play",
+    "prompt": "White has an isolated d4-pawn. Blockade the square in front with a knight.",
+    "fen": "3rr1k1/pp3ppp/2n1bn2/8/3P4/2N1BN2/PP3PPP/3RR1K1 b - - 0 1",
+    "solutionUci": [
+     "f6d5",
+     "c6b4"
+    ],
+    "explain": "...Nd5 blockades the isolani on its hole — immovable by any pawn, defended, and now the d4-pawn is a fixed target. ...Nb4 (heading to d5) is the other route."
+   },
+   {
+    "kind": "play",
+    "prompt": "Carlsbad structure, White to move. Begin the minority attack.",
+    "fen": "r2q1rk1/pp3ppp/2p1pn2/3p4/3P4/2N1PN2/PP3PPP/R2Q1RK1 w - - 0 1",
+    "solutionUci": [
+     "b2b4"
+    ],
+    "explain": "b4 starts the march; a4 and b5 follow, striking c6 and leaving Black a backward c-pawn on a half-open file."
+   },
+   {
+    "kind": "judge",
+    "prompt": "White's bishop is the only good minor piece and dominates the long diagonal. White just traded it with Bxf6. Good or bad?",
+    "fen": "r2q1rk1/pp2bppp/2n1pB2/3p4/3P4/4PN2/PP3PPP/R2Q1RK1 b - - 0 6",
+    "lastMoveUci": "c3f6",
+    "verdict": "blunder",
+    "explain": "You should trade your BAD bishop, not your good one. Swapping off your best minor piece (and here just helping Black's structure with the recapture) throws away the positional plus."
+   },
+   {
+    "kind": "judge",
+    "prompt": "Against the isolated d4-pawn, Black plants a knight on the blockade square with ...Nd5. Sound?",
+    "fen": "3rr1k1/pp3ppp/2n1b3/3n4/3P4/2N1BN2/PP3PPP/3RR1K1 w - - 0 2",
+    "lastMoveUci": "f6d5",
+    "verdict": "correct",
+    "explain": "Textbook. The knight blockades the isolani on a square no pawn can attack, fixes d4 as a target, and dominates from the centre."
+   },
+   {
+    "kind": "judge",
+    "prompt": "White grabs the open c-file with Rac1 before Black can contest it. Correct?",
+    "fen": "r4rk1/pp1bqppp/2n1pn2/8/3P4/2NBPN2/PP1Q1PPP/2R2RK1 b - - 1 1",
+    "lastMoveUci": "a1c1",
+    "verdict": "correct",
+    "explain": "Seizing the only open file first is the right idea — White will double and invade on c7 while Black's rook is a tempo slow."
+   },
+   {
+    "kind": "judge",
+    "prompt": "Instead of the natural recapture, White plays cxd5, voluntarily giving himself DOUBLED, isolated d-pawns for no open line or activity. Judge it.",
+    "fen": "r2q1rk1/pp3ppp/2n1p3/3P4/3P4/4PN2/PP3PPP/R2Q1RK1 b - - 0 2",
+    "lastMoveUci": "c4d5",
+    "verdict": "blunder",
+    "explain": "Recapturing with the c-pawn leaves doubled, isolated d-pawns (d4 and d5) and no compensation — no open file, no activity — just two permanent targets. Structure ruined for nothing."
+   },
+   {
+    "kind": "play",
+    "prompt": "Your dark-squared bishop is good (pawns on light squares); keep it and activate it on the long diagonal rather than letting it rot.",
+    "fen": "4k3/4bppp/3pp3/3Pp3/4P3/2B2PPP/8/4K3 w - - 0 1",
+    "solutionUci": [
+     "c3a5",
+     "c3b4",
+     "c3d2"
+    ],
+    "explain": "Keep your GOOD bishop active along its open diagonal; don't trade it for the enemy's bad bishop. Reposition, don't swap."
+   },
+   {
+    "kind": "mc",
+    "prompt": "A pawn on d2 with your c-pawn already on c4 and an enemy pawn on c5 fixing it — it can't be defended by a pawn or advance safely. What is it?",
+    "options": [
+     "An isolated pawn",
+     "A passed pawn",
+     "A backward pawn",
+     "A doubled pawn"
+    ],
+    "answerIndex": 2,
+    "explain": "A backward pawn lags behind its neighbour on a half-open file, can't be pawn-defended, and can't advance safely — a fixed target for enemy rooks."
+   }
+  ]
+ },
+ "eloFloor": 1480
+}

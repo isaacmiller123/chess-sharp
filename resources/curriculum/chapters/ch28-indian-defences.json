@@ -1,0 +1,1537 @@
+{
+ "id": "ch28-indian-defences",
+ "band": "28",
+ "order": 28,
+ "title": "The Indian Defences — King's Indian & Nimzo",
+ "subtitle": "Answer 1.d4 with 1...Nf6. The King's Indian builds a kingside pawn-storm; the Nimzo-Indian pins on c3 and trades the bishop pair for shattered white pawns.",
+ "estMinutes": 55,
+ "concepts": [
+  {
+   "id": "indian-setup",
+   "name": "The Indian Move-Order",
+   "short": "1.d4 Nf6 refuses to commit the d-pawn. Black lets White build a big centre, then strikes at it with pieces and a timely pawn break instead of meeting it head-on."
+  },
+  {
+   "id": "kid-fianchetto",
+   "name": "The King's Indian Set-up",
+   "short": "...Nf6, ...g6, ...Bg7, ...0-0, ...d6: a small flexible centre and a fianchettoed bishop raking the long diagonal. Black gives White the centre to attack it later."
+  },
+  {
+   "id": "kid-e5-break",
+   "name": "The ...e5 Break & Pawn-Storm",
+   "short": "Against White's big centre Black plays ...e5. If White closes with d5, the game splits: White attacks on the queenside, Black storms the kingside with ...f5-f4-g5-g4."
+  },
+  {
+   "id": "closed-centre-flanks",
+   "name": "Closed Centre, Opposite Wings",
+   "short": "When the centre locks (pawns on d5/e4 vs d6/e5), each side attacks where their space points: White on the queenside, Black on the kingside. Speed of attack decides."
+  },
+  {
+   "id": "nimzo-pin",
+   "name": "The Nimzo Pin ...Bb4",
+   "short": "After 1.d4 Nf6 2.c4 e6 3.Nc3, Black pins the knight with 3...Bb4. The pinned c3-knight cannot support e4, so Black fights the centre with pieces, not pawns."
+  },
+  {
+   "id": "nimzo-doubled-pawns",
+   "name": "Bishop Pair vs Doubled Pawns",
+   "short": "When Black plays ...Bxc3+, White recaptures bxc3 and gets the bishop pair but doubled, isolated c-pawns. The whole Nimzo is this trade: long-term structure vs the two bishops."
+  },
+  {
+   "id": "nimzo-c4-blockade",
+   "name": "Blockading the Doubled Pawns",
+   "short": "Black's plan against bxc3 is to fix and besiege the c4-pawn: ...d6, ...Nc6-a5, ...b6, ...Ba6 all pile on c4. Freeze the doubled pawns and they become a permanent weakness."
+  },
+  {
+   "id": "minority-vs-bishops",
+   "name": "Two Bishops Need Open Lines",
+   "short": "The bishop pair is only worth it if the position opens. White wants pawn breaks (f3+e4, or d5) to free the bishops; Black wants to keep the centre closed and blockaded."
+  }
+ ],
+ "lessons": [
+  {
+   "id": "l1-indian-idea",
+   "title": "Why 1...Nf6 — The Indian Idea",
+   "kind": "opening",
+   "summary": "Assumes you know the Queen's Gambit and basic opening principles. Meet the hypermodern reply to 1.d4: let White build the centre, then attack it.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up: punish the loose centre",
+     "intro": {
+      "text": "Before the theory, a reminder of WHY we let White build a centre: an over-extended centre is a target. In each position the side to move exploits a loose central pawn or an exposed king behind one. One forcing shot each."
+     },
+     "puzzle": {
+      "themes": [
+       "middlegame",
+       "fork",
+       "pin"
+      ],
+      "ratingLo": 1450,
+      "ratingHi": 1650,
+      "count": 3
+     }
+    },
+    {
+     "kind": "model",
+     "title": "The hypermodern bargain",
+     "intro": {
+      "text": "I will not explain a single line yet — only the IDEA behind 1...Nf6. Watch what Black is willing to give, and what he expects in return."
+     },
+     "line": [
+      {
+       "uci": "d2d4",
+       "coach": {
+        "text": "1.d4. White claims the centre with the solid queen's-pawn. Last chapter you met this with 1...d5, the head-on Queen's Gambit. Today we do the opposite."
+       }
+      },
+      {
+       "uci": "g8f6",
+       "coach": {
+        "conceptId": "indian-setup",
+        "text": "1...Nf6. The Indian move. Notice what Black has NOT done: he has not played ...d5. He develops a piece, stops 2.e4 — that knight covers e4 — and keeps every option open. This is hypermodern chess: do not occupy the centre, surround it.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "f6",
+          "color": "good"
+         },
+         {
+          "kind": "highlight",
+          "square": "e4",
+          "color": "info",
+          "label": "covered"
+         }
+        ]
+       }
+      },
+      {
+       "uci": "c2c4",
+       "coach": {
+        "conceptId": "indian-setup",
+        "text": "2.c4. White grabs more space and prepares Nc3 with a broad pawn front. The old masters would say White is simply better — more centre, more space. The hypermoderns answered: let him have it. A big centre you cannot defend is not a strength, it is a target.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d4",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "c4",
+          "color": "info"
+         }
+        ]
+       }
+      },
+      {
+       "uci": "g7g6",
+       "coach": {
+        "conceptId": "kid-fianchetto",
+        "text": "2...g6 — heading for the King's Indian. Black will fianchetto the bishop to g7, where it stares down the long diagonal h8-a1, straight at White's centre and queenside. He builds a coiled spring, not a wall.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "f8",
+          "to": "g7",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "g7",
+          "to": "a1",
+          "color": "focus",
+          "label": "the diagonal"
+         }
+        ]
+       }
+      },
+      {
+       "uci": "b1c3",
+       "coach": {
+        "text": "3.Nc3. White develops and props up the e4-push to come. He will soon have pawns on c4, d4 and e4 — an imposing wall. Black is unbothered; that wall is exactly what he intends to undermine."
+       }
+      },
+      {
+       "uci": "f8g7",
+       "coach": {
+        "conceptId": "kid-fianchetto",
+        "text": "3...Bg7. The bishop reaches its post. It looks like it is biting on granite — the d4-pawn blocks it. But pawns move. The moment the centre cracks open, this bishop becomes a monster down the long diagonal. Patience is the King's Indian player's first virtue.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "g7",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "g7",
+          "to": "d4",
+          "color": "focus"
+         }
+        ]
+       }
+      },
+      {
+       "uci": "e2e4",
+       "coach": {
+        "conceptId": "indian-setup",
+        "text": "4.e4. There it is — the full broad centre, c4-d4-e4. White has everything the classical books promised. Now comes the whole point of the Indian: Black does not envy that centre. He prepares to blow it up with ...d6 and ...e5, hitting it with pawns and the g7-bishop together.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "c4",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "d4",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "e4",
+          "color": "bad",
+          "label": "target"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "teach",
+     "title": "Two doors from the same room",
+     "steps": [
+      {
+       "fen": "rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2",
+       "conceptId": "indian-setup",
+       "coach": {
+        "conceptId": "indian-setup",
+        "text": "Here is the fork in the road. After 1.d4 Nf6 2.c4, Black chooses his weapon. Play ...g6 and you enter the King's Indian — a fianchetto and a kingside pawn-storm. Play ...e6 and you head for the Nimzo-Indian — a pin on c3 and a structural fight. Same first moves, two completely different games. This chapter teaches both.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "g7",
+          "to": "g6",
+          "color": "good",
+          "label": "King's Indian"
+         },
+         {
+          "kind": "arrow",
+          "from": "e7",
+          "to": "e6",
+          "color": "info",
+          "label": "Nimzo"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "rnbqk2r/ppppppbp/5np1/8/2PPP3/2N5/PP3PPP/R1BQKBNR b KQkq - 0 4",
+       "conceptId": "kid-fianchetto",
+       "coach": {
+        "conceptId": "kid-fianchetto",
+        "text": "This is the King's Indian skeleton you just saw built. Black's recipe is fixed and easy to remember: Nf6, g6, Bg7, 0-0, d6 — then ...e5. He cedes space on purpose. The whole plan lives in one idea: give White the centre, then strike it with ...e5 and the g7-bishop before White can use it.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "g7",
+          "color": "good"
+         },
+         {
+          "kind": "circle",
+          "square": "f6",
+          "color": "good"
+         },
+         {
+          "kind": "highlight",
+          "square": "e5",
+          "color": "focus",
+          "label": "...e5 coming"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down: the long diagonal bites",
+     "intro": {
+      "text": "The g7-bishop is the soul of the King's Indian. Here it (or its themes) pays off: a long-diagonal bishop, a discovered hit, or a fork down an opened centre. Find the blow."
+     },
+     "puzzle": {
+      "themes": [
+       "middlegame",
+       "discoveredAttack",
+       "fork"
+      ],
+      "ratingLo": 1500,
+      "ratingHi": 1700,
+      "count": 3
+     }
+    }
+   ]
+  },
+  {
+   "id": "l2-kid-mainline",
+   "title": "The King's Indian — Classical Main Line",
+   "kind": "opening",
+   "summary": "The Classical King's Indian to the Mar del Plata position: Black locks the centre with ...e5 and prepares the kingside storm.",
+   "segments": [
+    {
+     "kind": "model",
+     "title": "Building the Mar del Plata",
+     "intro": {
+      "text": "The most important King's Indian position in the world. I will reach it move by move. Do not memorise — understand WHY the centre locks and what each side gets when it does."
+     },
+     "line": [
+      {
+       "uci": "d2d4",
+       "coach": {
+        "text": "1.d4 — we are Black today. Your replies are a fixed, friendly recipe; learn the order once and you are never lost in the opening."
+       }
+      },
+      {
+       "uci": "g8f6",
+       "coach": {
+        "text": "1...Nf6. Stop e4, develop, stay flexible."
+       }
+      },
+      {
+       "uci": "c2c4",
+       "coach": {
+        "text": "2.c4."
+       }
+      },
+      {
+       "uci": "g7g6",
+       "coach": {
+        "conceptId": "kid-fianchetto",
+        "text": "2...g6 — committing to the King's Indian. The bishop is coming to g7."
+       }
+      },
+      {
+       "uci": "b1c3",
+       "coach": {
+        "text": "3.Nc3, preparing e4."
+       }
+      },
+      {
+       "uci": "f8g7",
+       "coach": {
+        "conceptId": "kid-fianchetto",
+        "text": "3...Bg7. The long-diagonal bishop is home.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "g7",
+          "to": "a1",
+          "color": "focus"
+         }
+        ]
+       }
+      },
+      {
+       "uci": "e2e4",
+       "coach": {
+        "text": "4.e4. White takes the full centre — c4, d4, e4. Exactly what we want him to do.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "e4",
+          "color": "info"
+         }
+        ]
+       }
+      },
+      {
+       "uci": "d7d6",
+       "coach": {
+        "conceptId": "kid-fianchetto",
+        "text": "4...d6. The quiet key move. It opens the c8-bishop's diagonal and, more importantly, it PREPARES ...e5. Without ...d6 first, ...e5 would just hang to dxe5. Now e5 will be defended by the d6-pawn.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d6",
+          "color": "good"
+         },
+         {
+          "kind": "highlight",
+          "square": "e5",
+          "color": "focus",
+          "label": "supported next"
+         }
+        ]
+       }
+      },
+      {
+       "uci": "g1f3",
+       "coach": {
+        "text": "5.Nf3, calm development, guarding the e5- and d4-squares."
+       }
+      },
+      {
+       "uci": "e8g8",
+       "coach": {
+        "text": "5...0-0. King to safety behind the fianchetto — the safest castle in chess, the g7-bishop and g6-pawn form a tidy shield."
+       }
+      },
+      {
+       "uci": "f1e2",
+       "coach": {
+        "text": "6.Be2, a modest but flexible square; White is ready to castle."
+       }
+      },
+      {
+       "uci": "e7e5",
+       "coach": {
+        "conceptId": "kid-e5-break",
+        "text": "6...e5 — the thematic strike. Black finally challenges the centre. White must decide: take on e5, push d5 to close, or hold the tension. The choice shapes the whole middlegame.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "e5",
+          "to": "d4",
+          "color": "focus"
+         },
+         {
+          "kind": "highlight",
+          "square": "e5",
+          "color": "good"
+         }
+        ]
+       }
+      },
+      {
+       "uci": "e1g1",
+       "coach": {
+        "text": "7.0-0. White castles, keeping the central tension for now."
+       }
+      },
+      {
+       "uci": "b8c6",
+       "coach": {
+        "conceptId": "kid-e5-break",
+        "text": "7...Nc6 — provocative. The knight leans on d4 and dares White to push. It looks odd to block the c-pawn, but it has a purpose: it forces White to commit the centre.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "c6",
+          "to": "d4",
+          "color": "focus"
+         }
+        ]
+       }
+      },
+      {
+       "uci": "d4d5",
+       "coach": {
+        "conceptId": "closed-centre-flanks",
+        "text": "8.d5 — the Mar del Plata is born. White closes the centre and gains queenside space, kicking the c6-knight. The instant those pawns lock — White's on d5/e4, Black's on d6/e5 — the battle lines are drawn: each side attacks where their pawns point.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d5",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "e4",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "e5",
+          "color": "good"
+         },
+         {
+          "kind": "highlight",
+          "square": "d6",
+          "color": "good"
+         }
+        ]
+       }
+      },
+      {
+       "uci": "c6e7",
+       "coach": {
+        "conceptId": "kid-e5-break",
+        "text": "8...Ne7. The knight retreats — but with a plan. It heads to g6 or stays to support ...f5. Now Black knows exactly what to do: storm the kingside. The e7-knight, the f-pawn, the g-pawn all march at White's king.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "e7",
+          "to": "g6",
+          "color": "good"
+         },
+         {
+          "kind": "highlight",
+          "square": "f5",
+          "color": "focus",
+          "label": "...f5 next"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "teach",
+     "title": "Opposite wings, a race to mate",
+     "steps": [
+      {
+       "fen": "r1bq1rk1/ppp1npbp/3p2p1/3Pp3/2P1P3/2N2N2/PP2BPPP/R1BQ1RK1 b - - 1 9",
+       "conceptId": "closed-centre-flanks",
+       "coach": {
+        "conceptId": "closed-centre-flanks",
+        "text": "Look at the locked chain: White's pawns on d5 and e4 point up the board to the queenside; Black's on e5 and d6 point at the kingside. Here is the iron law of a closed centre — you attack on the side where your pawns point, because that is where you have space to advance them. White will play c5 and roll the queenside. Black will play ...f5 and roll the kingside.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "c4",
+          "to": "c7",
+          "color": "info",
+          "label": "White's side"
+         },
+         {
+          "kind": "arrow",
+          "from": "f7",
+          "to": "f3",
+          "color": "good",
+          "label": "Black's side"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "r1bq1rk1/ppp1n1bp/3p2p1/3Ppp2/2P1P3/2N2N2/PP2BPPP/R1BQ1RK1 w - - 0 10",
+       "conceptId": "kid-e5-break",
+       "coach": {
+        "conceptId": "kid-e5-break",
+        "text": "Black has played ...f5 — the storm begins. The plan from here is mechanical and brutal: ...f4 (locking and gaining a kingside square), then ...g5, ...g4, prying open lines at White's king. It is a foot-race. Whoever's attack lands first usually wins — there is no defending both wings. The King's Indian is the most uncompromising answer to 1.d4 for exactly this reason.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "f5",
+          "to": "f4",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "g6",
+          "to": "g4",
+          "color": "good",
+          "label": "the storm"
+         },
+         {
+          "kind": "highlight",
+          "square": "g1",
+          "color": "bad",
+          "label": "target"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Play the King's Indian moves",
+     "steps": [
+      {
+       "fen": "rnbqk2r/ppppppbp/5np1/8/2PPP3/2N5/PP3PPP/R1BQKBNR b KQkq - 0 4",
+       "conceptId": "kid-fianchetto",
+       "coach": {
+        "conceptId": "kid-fianchetto",
+        "text": "You are Black. White has built the big centre with 4.e4. Before you can hit it with ...e5, you must prepare. Play the quiet move that opens your c8-bishop AND supports the coming ...e5 break.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d6",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "d7d6"
+       ],
+       "successLine": {
+        "conceptId": "kid-fianchetto",
+        "text": "4...d6. Patient and correct. Now ...e5 will be defended, not hanging. In the King's Indian the small move ...d6 is the hinge the whole counterattack swings on.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d6",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "Not yet ...e5 — it would simply hang to dxe5. First play ...d6 to support the break and free your bishop."
+       }
+      },
+      {
+       "fen": "rnbq1rk1/ppp1ppbp/3p1np1/8/2PPP3/2N2N2/PP2BPPP/R1BQ1RK1 b - - 3 6",
+       "conceptId": "kid-e5-break",
+       "coach": {
+        "conceptId": "kid-e5-break",
+        "text": "Centre prepared, king castled. Now strike. Play the thematic break that challenges White's d4-pawn and claims your share of the centre.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "e5",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "e7e5"
+       ],
+       "successLine": {
+        "conceptId": "kid-e5-break",
+        "text": "6...e5. The King's Indian punch. You hit d4 and force White to resolve the centre. If he closes with d5, you storm the kingside; if he takes or holds, you have free play. Either way, you are now the one asking the questions.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "e5",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "e5",
+          "to": "d4",
+          "color": "focus"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "This is the moment for the central break. Your d6-pawn supports it. Play ...e5 and strike at d4."
+       }
+      },
+      {
+       "fen": "r1bq1rk1/ppp1npbp/3p2p1/3Pp3/2P1P3/2N2N2/PP2BPPP/R1BQ1RK1 b - - 1 9",
+       "conceptId": "closed-centre-flanks",
+       "coach": {
+        "conceptId": "closed-centre-flanks",
+        "text": "White has closed with d5, kicking your knight from c6 to e7. The centre is locked, the wings are set. Begin your attack on the side your pawns point — the kingside. Play the pawn break that opens the f-file and launches the storm at White's king.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "f5",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "f7f5"
+       ],
+       "successLine": {
+        "conceptId": "closed-centre-flanks",
+        "text": "9...f5. The storm is launched. Next comes ...f4, ...g5, ...g4 — a wave of pawns rolling at White's king. You attack where your pawns point. This is the King's Indian dream: a kingside avalanche while White toils slowly on the other wing.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "f5",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "f5",
+          "to": "f4",
+          "color": "focus"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "The centre is locked, so attack on the wing your pawns point toward — the kingside. Break with ...f5 to open lines at White's king."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down: crash through on the kingside",
+     "intro": {
+      "text": "The reward for the storm: a king caught in the crossfire. Each position is a kingside attack reaching its breaking point. Find the move that cracks the king open."
+     },
+     "puzzle": {
+      "themes": [
+       "kingsideAttack",
+       "sacrifice"
+      ],
+      "ratingLo": 1550,
+      "ratingHi": 1750,
+      "count": 3
+     }
+    }
+   ]
+  },
+  {
+   "id": "l3-nimzo-pin",
+   "title": "The Nimzo-Indian — The Pin on c3",
+   "kind": "variation",
+   "summary": "The other Indian. After 3.Nc3, ...Bb4 pins the knight and fights the centre with pieces. Black trades the bishop for shattered white pawns.",
+   "segments": [
+    {
+     "kind": "puzzle",
+     "title": "Warm-up: the pin pays off",
+     "intro": {
+      "text": "The Nimzo is built on one motif: the pin. Sharpen your eye for it. In each position the side to move wins material by exploiting a pin or the immobility it creates."
+     },
+     "puzzle": {
+      "themes": [
+       "pin",
+       "middlegame"
+      ],
+      "ratingLo": 1450,
+      "ratingHi": 1650,
+      "count": 3
+     }
+    },
+    {
+     "kind": "model",
+     "title": "The pin and the great trade",
+     "intro": {
+      "text": "A completely different game from the King's Indian — no fianchetto, no pawn-storm. Here Black fights with pieces and a structural bargain. Watch the logic of the pin."
+     },
+     "line": [
+      {
+       "uci": "d2d4",
+       "coach": {
+        "text": "1.d4 Nf6 2.c4 — the Indian start again. This time Black goes the other way."
+       }
+      },
+      {
+       "uci": "g8f6",
+       "coach": {
+        "text": "1...Nf6."
+       }
+      },
+      {
+       "uci": "c2c4",
+       "coach": {
+        "text": "2.c4."
+       }
+      },
+      {
+       "uci": "e7e6",
+       "coach": {
+        "conceptId": "indian-setup",
+        "text": "2...e6 — not ...g6. Black opens the f8-bishop along the e7-a3 line and keeps a flexible centre. He can still transpose to a Queen's Gambit, but he has something sharper in mind.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "e6",
+          "color": "info"
+         }
+        ]
+       }
+      },
+      {
+       "uci": "b1c3",
+       "coach": {
+        "conceptId": "nimzo-pin",
+        "text": "3.Nc3. White's most natural move — develop and prepare e4. But this knight is the key defender of the e4-square, and Black is about to make it pay for standing there.",
+        "annotations": [
+         {
+          "kind": "circle",
+          "square": "c3",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "e4",
+          "color": "focus"
+         }
+        ]
+       }
+      },
+      {
+       "uci": "f8b4",
+       "coach": {
+        "conceptId": "nimzo-pin",
+        "text": "3...Bb4 — the Nimzo-Indian. The bishop pins the c3-knight against the king on e1. Why does this matter? That knight was guarding e4. Pinned, it cannot help push e4. Black has stopped White's central expansion not with a pawn, but with a single piece. This is hypermodern control at its purest.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "b4",
+          "to": "e1",
+          "color": "focus",
+          "label": "the pin"
+         },
+         {
+          "kind": "circle",
+          "square": "c3",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "e4",
+          "color": "good",
+          "label": "now restrained"
+         }
+        ]
+       }
+      },
+      {
+       "uci": "e2e3",
+       "coach": {
+        "text": "4.e3 — the Rubinstein, White's most popular and solid choice. He develops quietly and plans Bd3, Nf3, 0-0, breaking the pin in his own time. White accepts that Black will damage his pawns; in return he wants the bishop pair."
+       }
+      },
+      {
+       "uci": "e8g8",
+       "coach": {
+        "text": "4...0-0. Black tucks the king away and waits to see how White unpins."
+       }
+      },
+      {
+       "uci": "f1d3",
+       "coach": {
+        "text": "5.Bd3, developing toward the kingside and preparing to castle."
+       }
+      },
+      {
+       "uci": "d7d5",
+       "coach": {
+        "conceptId": "nimzo-c4-blockade",
+        "text": "5...d5, striking at the centre and the c4-pawn. Black plays in classical style now, but with the bishop already outside the pawn chain on b4 — already developed, already pinning.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "d5",
+          "to": "c4",
+          "color": "focus"
+         }
+        ]
+       }
+      },
+      {
+       "uci": "g1f3",
+       "coach": {
+        "text": "6.Nf3, completing the kingside development."
+       }
+      },
+      {
+       "uci": "b4c3",
+       "coach": {
+        "conceptId": "nimzo-doubled-pawns",
+        "text": "6...Bxc3+ — the defining trade of the Nimzo. Black gives up his beautiful bishop. Why surrender the bishop pair voluntarily? Watch White's recapture and you will understand the whole opening.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "b4",
+          "to": "c3",
+          "color": "good"
+         }
+        ]
+       }
+      },
+      {
+       "uci": "b2c3",
+       "coach": {
+        "conceptId": "nimzo-doubled-pawns",
+        "text": "7.bxc3. There it is. White has TWO bishops — a long-term asset — but look at the c-pawns: doubled on c3 and c4, isolated, unable to defend each other. Black's bargain is set in stone now: I gave you the bishop pair; you gave me a permanent target. The rest of the game is that argument played out.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "c3",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "c4",
+          "color": "bad",
+          "label": "doubled, isolated"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "teach",
+     "title": "Structure versus the two bishops",
+     "steps": [
+      {
+       "fen": "rnbq1rk1/ppp2ppp/4pn2/3p4/2PP4/2PBPN2/P4PPP/R1BQK2R b KQ - 0 7",
+       "conceptId": "nimzo-doubled-pawns",
+       "coach": {
+        "conceptId": "nimzo-doubled-pawns",
+        "text": "Here is the bargain frozen on the board. Count White's pawns on the c-file: two of them, c3 and c4, doubled and isolated — no friendly pawn can ever defend or advance them cleanly. In exchange White owns both bishops, raking the board. Who is better? Neither, yet — it depends entirely on whether the position OPENS (good for the bishops) or stays CLOSED (good for the structure). The whole Nimzo is this tug-of-war.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "c3",
+          "color": "bad"
+         },
+         {
+          "kind": "highlight",
+          "square": "c4",
+          "color": "bad"
+         },
+         {
+          "kind": "circle",
+          "square": "d3",
+          "color": "info"
+         },
+         {
+          "kind": "circle",
+          "square": "c1",
+          "color": "info",
+          "label": "the two bishops"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "r1bq1rk1/pp3ppp/2n1pn2/2pp4/2PP4/2PBPN2/P4PPP/R1BQ1RK1 w - - 0 9",
+       "conceptId": "nimzo-c4-blockade",
+       "coach": {
+        "conceptId": "nimzo-c4-blockade",
+        "text": "This is Black's winning plan against the doubled pawns: blockade and besiege the c4-pawn. The recipe is ...d5 (already played), ...c5, ...Nc6, then ...Na5 and ...b6 with ...Ba6 — every black piece aimed at c4. If Black freezes c4, it can never advance, the position stays closed, and White's two bishops are starved of open lines. Strangle the doubled pawn and the bishop pair becomes worthless.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "c4",
+          "color": "focus",
+          "label": "the target"
+         },
+         {
+          "kind": "arrow",
+          "from": "c6",
+          "to": "a5",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "c8",
+          "to": "a6",
+          "color": "good"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "rnbq1rk1/ppp2ppp/4pn2/3p4/2PP4/2PBPN2/P4PPP/R1BQK2R w KQ - 0 8",
+       "conceptId": "minority-vs-bishops",
+       "coach": {
+        "conceptId": "minority-vs-bishops",
+        "text": "And here is White's counter-plan. The two bishops are only assets if the centre OPENS. White wants to play for a pawn break — f3 then e4, or a timely c4xd5 and a central roll — to blast lines open for the bishops. Black wants the opposite: keep it closed, trade pieces, and grind the doubled pawns. Open = bishops win; closed = structure wins. Knowing which side you are on tells you every plan in the position.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "e3",
+          "to": "e4",
+          "color": "good",
+          "label": "open it"
+         },
+         {
+          "kind": "circle",
+          "square": "d3",
+          "color": "info"
+         },
+         {
+          "kind": "circle",
+          "square": "c1",
+          "color": "info"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Play the Nimzo's key moves",
+     "steps": [
+      {
+       "fen": "rnbqkb1r/pppp1ppp/4pn2/8/2PP4/2N5/PP2PPPP/R1BQKBNR b KQkq - 1 3",
+       "conceptId": "nimzo-pin",
+       "coach": {
+        "conceptId": "nimzo-pin",
+        "text": "You are Black. White has just played 3.Nc3, preparing e4. Restrain that centre WITHOUT a pawn — develop your bishop to the square that pins the knight against the king and takes the e4-push away.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "b4",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "f8b4"
+       ],
+       "successLine": {
+        "conceptId": "nimzo-pin",
+        "text": "3...Bb4 — the Nimzo. The c3-knight is pinned to the king and can no longer help push e4. You have controlled the centre with a piece, hypermodern style. This single move is the whole opening's foundation.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "b4",
+          "to": "e1",
+          "color": "focus"
+         },
+         {
+          "kind": "circle",
+          "square": "c3",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "Fight the centre with a piece, not a pawn. Develop your dark-squared bishop to b4, pinning the c3-knight to the king."
+       }
+      },
+      {
+       "fen": "rnbq1rk1/ppp2ppp/4pn2/3p4/1bPP4/2NBPN2/PP3PPP/R1BQK2R b KQ - 1 6",
+       "conceptId": "nimzo-doubled-pawns",
+       "coach": {
+        "conceptId": "nimzo-doubled-pawns",
+        "text": "White has developed with Bd3 and Nf3 and will soon break the pin with 0-0. This is the moment to cash in. Take the knight on c3 — forcing White to recapture with a pawn and wreck his queenside structure.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "c3",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "b4c3"
+       ],
+       "successLine": {
+        "conceptId": "nimzo-doubled-pawns",
+        "text": "6...Bxc3+. The great Nimzo trade. White must answer bxc3, doubling and isolating his c-pawns. You hand over the bishop pair, but you have bought a permanent structural weakness to attack for the rest of the game.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "b4",
+          "to": "c3",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "It is time to cash the pin for structure. Capture the knight on c3 — Bxc3+ — forcing bxc3 and the doubled, isolated c-pawns."
+       }
+      },
+      {
+       "fen": "r1bq1rk1/pp3ppp/2n1pn2/2pp4/2PP4/2PBPN2/P4PPP/R1BQ1RK1 b - - 0 9",
+       "conceptId": "nimzo-c4-blockade",
+       "coach": {
+        "conceptId": "nimzo-c4-blockade",
+        "text": "The structure is set — White's c-pawns are doubled. Now begin the blockade. Your knight on c6 wants to reroute to the square where it eyes the c4-pawn and supports ...b6 and ...Ba6. Send the knight to its blockading post on the a-file edge.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "a5",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "c6a5"
+       ],
+       "successLine": {
+        "conceptId": "nimzo-c4-blockade",
+        "text": "9...Na5 — heading for the c4-pawn. The knight will be backed up by ...b6 and ...Ba6, piling on the weakness. Freeze c4, keep the centre closed, and White's two bishops never get to breathe. This is how Black wins the Nimzo argument.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "a5",
+          "to": "c4",
+          "color": "good"
+         },
+         {
+          "kind": "highlight",
+          "square": "c4",
+          "color": "focus"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "Target the doubled c4-pawn. Reroute the knight with ...Na5, where it attacks c4 and clears the way for ...b6 and ...Ba6."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down: exploit the weak squares",
+     "intro": {
+      "text": "White's doubled pawns leave holes and his pieces can drift loose. Each position rewards the player who pounces on a weak point or a loose piece. One accurate move."
+     },
+     "puzzle": {
+      "themes": [
+       "middlegame",
+       "fork",
+       "hangingPiece"
+      ],
+      "ratingLo": 1500,
+      "ratingHi": 1700,
+      "count": 3
+     }
+    }
+   ]
+  },
+  {
+   "id": "l4-plans-and-traps",
+   "title": "Both Wings — Plans & Pitfalls",
+   "kind": "variation",
+   "summary": "White's queenside play in the King's Indian, the Nimzo's 4.Qc2 (avoiding doubled pawns), and the common mistakes each side must avoid.",
+   "segments": [
+    {
+     "kind": "teach",
+     "title": "White's side of the King's Indian",
+     "steps": [
+      {
+       "fen": "r1bq1rk1/ppp1n1bp/3p2p1/3Ppp2/2P1P3/2N2N2/PP2BPPP/R1BQ1RK1 w - - 0 10",
+       "conceptId": "closed-centre-flanks",
+       "coach": {
+        "conceptId": "closed-centre-flanks",
+        "text": "Fair is fair — you must understand White's plan to handle the King's Indian from either chair. Black is storming with ...f5; White does NOT panic and defend. He counter-attacks where HIS pawns point: the queenside. The plan is c5, then b4-b5, prying open the c- and b-files at Black's king-less queenside. It is a race, and White's attack is often just as fast.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "c4",
+          "to": "c5",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "b2",
+          "to": "b5",
+          "color": "good",
+          "label": "White's race"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "r1bq1rk1/ppp1n1bp/3p2p1/2PPpp2/4P3/2N2N2/PP2BPPP/R1BQ1RK1 b - - 0 10",
+       "conceptId": "closed-centre-flanks",
+       "coach": {
+        "conceptId": "closed-centre-flanks",
+        "text": "White has played c5, striking at the d6-pawn and opening the queenside. The key lesson for BLACK: do not get distracted defending. In a flank race, every tempo spent defending is a tempo lost from your own attack. Black plays ...f4, ...g5, ...g4 and races. Whoever ignores the other's attack and lands first usually wins. The King's Indian punishes timid play on both sides.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "c5",
+          "color": "info"
+         },
+         {
+          "kind": "arrow",
+          "from": "f5",
+          "to": "f4",
+          "color": "good",
+          "label": "race on, do not defend"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "teach",
+     "title": "The Nimzo's other road: 4.Qc2",
+     "steps": [
+      {
+       "fen": "rnbqk2r/pppp1ppp/4pn2/8/1bPP4/2N5/PPQ1PPPP/R1B1KBNR b KQkq - 3 4",
+       "conceptId": "nimzo-doubled-pawns",
+       "coach": {
+        "conceptId": "nimzo-doubled-pawns",
+        "text": "Not every White player accepts doubled pawns. 4.Qc2 — the Classical Nimzo — defends c3 with the queen in advance. Now if Black plays ...Bxc3+, White recaptures with the QUEEN, Qxc3, and his pawns stay healthy. White says: you may have the bishop pair if you want it, but you will not wreck my structure for free.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "c2",
+          "to": "c3",
+          "color": "good",
+          "label": "defends c3"
+         },
+         {
+          "kind": "circle",
+          "square": "b4",
+          "color": "info"
+         }
+        ]
+       }
+      },
+      {
+       "fen": "rnbqk2r/pppp1ppp/4pn2/8/1bPP4/2N5/PPQ1PPPP/R1B1KBNR b KQkq - 3 4",
+       "conceptId": "minority-vs-bishops",
+       "coach": {
+        "conceptId": "minority-vs-bishops",
+        "text": "So against 4.Qc2 Black changes plan. With no doubled pawns to win, Black instead keeps the bishop pair away from White by holding the pin and developing fast — ...d5 or ...c5 and ...0-0, ...Nc6. The lesson generalises: your plan flows from the STRUCTURE. When the structural target disappears, you switch to piece play. Always ask what the pawns are doing before you choose a plan.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "d5",
+          "color": "info"
+         },
+         {
+          "kind": "highlight",
+          "square": "c5",
+          "color": "info",
+          "label": "central break instead"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "kind": "guided",
+     "title": "Punish the mistake",
+     "steps": [
+      {
+       "fen": "rnbqk2r/pppp1ppp/4pn2/8/1bPP4/P1N5/1P2PPPP/R1BQKBNR b KQkq - 0 4",
+       "conceptId": "nimzo-pin",
+       "coach": {
+        "conceptId": "nimzo-pin",
+        "text": "You are Black in the Nimzo. White has played 4.a3 — the Sämisch — immediately asking your bishop the question. This is no mistake; it is a sharp main line. The principled Nimzo answer is to take at once, before White untangles, and damage his structure.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "c3",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "b4c3"
+       ],
+       "successLine": {
+        "conceptId": "nimzo-doubled-pawns",
+        "text": "4...Bxc3+ is the principled reply, fixing the doubled pawns. But understand the bargain: White spent the tempo on a3 on PURPOSE — he wants the bishop pair and a big centre with f3 and e4. The Sämisch is a real fighting line, not a free win. You must still play accurately — keep the centre closed and blockade c4 — or those two bishops come alive.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "b4",
+          "to": "c3",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "White's 4.a3 asks your bishop the question. Answer it the principled way: Bxc3+, forcing bxc3 and the doubled c-pawns — then keep the centre closed against his coming f3+e4."
+       }
+      },
+      {
+       "fen": "r1bq1rk1/ppp1n1bp/3p2p1/3Ppp2/2P1P3/2N1BN2/PP2BPPP/R2Q1RK1 b - - 1 10",
+       "conceptId": "kid-e5-break",
+       "coach": {
+        "conceptId": "kid-e5-break",
+        "text": "King's Indian, your kingside storm is primed. White has just played Be3, but he has left the natural pawn-break square free. Play the move that gains space, locks the centre further, and closes the door on White's pieces while opening yours — the key advance in the storm.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "f4",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "f5f4"
+       ],
+       "successLine": {
+        "conceptId": "closed-centre-flanks",
+        "text": "10...f4! The thematic clamp. The pawn hits the e3-bishop and seals the kingside in Black's favour — now ...g5, ...g4 will roll in with tempo. Notice f4 gains a permanent space advantage on the wing where your king-attack lives. This single push is the heartbeat of the King's Indian attack.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "f4",
+          "color": "good"
+         },
+         {
+          "kind": "arrow",
+          "from": "g6",
+          "to": "g4",
+          "color": "focus",
+          "label": "storm rolls on"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "Push the storm forward. ...f4 gains space, hits the e3-bishop, and clears the way for ...g5 and ...g4 against White's king."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "puzzle",
+     "title": "Cool-down: convert the structure",
+     "intro": {
+      "text": "The middlegames you have learned reward sharp tactics: an exposed king after a storm, or a fork in a position with weak pawns. Find the decisive move in each."
+     },
+     "puzzle": {
+      "themes": [
+       "middlegame",
+       "exposedKing",
+       "fork"
+      ],
+      "ratingLo": 1550,
+      "ratingHi": 1750,
+      "count": 3
+     }
+    }
+   ]
+  },
+  {
+   "id": "l5-review-boss",
+   "title": "Master the Indian — Review & Boss",
+   "kind": "practice",
+   "summary": "Tie both defences together, then play the King's Indian out against a real opponent.",
+   "segments": [
+    {
+     "kind": "guided",
+     "title": "Recall the key moves",
+     "steps": [
+      {
+       "fen": "rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2",
+       "conceptId": "kid-fianchetto",
+       "coach": {
+        "conceptId": "kid-fianchetto",
+        "text": "One position, your choice of opening. After 1.d4 Nf6 2.c4, head for the King's Indian. Play the move that begins the fianchetto — preparing ...Bg7 and the kingside set-up.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "g6",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "g7g6"
+       ],
+       "successLine": {
+        "conceptId": "kid-fianchetto",
+        "text": "2...g6. The King's Indian. Next comes Bg7, 0-0, d6 and the ...e5 break. You give White the centre to attack it.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "f8",
+          "to": "g7",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "For the King's Indian, start the fianchetto: play ...g6, preparing ...Bg7."
+       }
+      },
+      {
+       "fen": "rnbqkb1r/pppp1ppp/4pn2/8/2PP4/2N5/PP2PPPP/R1BQKBNR b KQkq - 1 3",
+       "conceptId": "nimzo-pin",
+       "coach": {
+        "conceptId": "nimzo-pin",
+        "text": "Now the other defence. After 1.d4 Nf6 2.c4 e6 3.Nc3, enter the Nimzo-Indian. Restrain the centre with a piece — pin the c3-knight.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "b4",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "f8b4"
+       ],
+       "successLine": {
+        "conceptId": "nimzo-pin",
+        "text": "3...Bb4. The Nimzo pin — the c3-knight is frozen to its king and e4 is off the table. Piece pressure instead of a pawn wall.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "b4",
+          "to": "e1",
+          "color": "focus"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "The Nimzo answer is to pin the knight: develop the bishop to b4."
+       }
+      },
+      {
+       "fen": "rnbq1rk1/ppp2ppp/4pn2/3p4/1bPP4/2NBPN2/PP3PPP/R1BQK2R b KQ - 1 6",
+       "conceptId": "nimzo-doubled-pawns",
+       "coach": {
+        "conceptId": "nimzo-doubled-pawns",
+        "text": "The Nimzo bargain. White is ready to castle and break the pin. Strike the trade that hands you a permanent target. Capture the knight.",
+        "annotations": [
+         {
+          "kind": "highlight",
+          "square": "c3",
+          "color": "info"
+         }
+        ]
+       },
+       "solutionUci": [
+        "b4c3"
+       ],
+       "successLine": {
+        "conceptId": "nimzo-doubled-pawns",
+        "text": "6...Bxc3+. bxc3 follows, and White's c-pawns are doubled and isolated. You traded the bishop pair for a weakness you will hound all game. That is the Nimzo in one move.",
+        "annotations": [
+         {
+          "kind": "arrow",
+          "from": "b4",
+          "to": "c3",
+          "color": "good"
+         }
+        ]
+       },
+       "retryLine": {
+        "text": "Cash the pin for structure: Bxc3+, forcing bxc3 and the doubled, isolated c-pawns."
+       }
+      }
+     ]
+    },
+    {
+     "kind": "boss",
+     "title": "Boss — win with the King's Indian",
+     "bossFen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+     "bossEngineElo": 1600,
+     "bossUserColor": "black",
+     "bossIntro": {
+      "conceptId": "closed-centre-flanks",
+      "text": "Now play it for real. You are Black. If White opens 1.d4, answer 1...Nf6 and build the King's Indian: g6, Bg7, 0-0, d6, then strike with ...e5. If the centre locks, do NOT defend — storm the kingside with ...f5, ...f4, ...g5, ...g4 where your pawns point. If White plays a quieter set-up, develop soundly and take the centre when it is loose. Remember the spirit of the whole chapter: give him the big centre, then tear it down. Attack where your pawns point. Begin."
+     }
+    }
+   ]
+  }
+ ],
+ "test": {
+  "passThreshold": 0.7,
+  "questions": [
+   {
+    "kind": "mc",
+    "prompt": "What is the core idea behind answering 1.d4 with the Indian move-orders (1...Nf6 and the systems that follow)?",
+    "options": [
+     "Occupy the centre with pawns immediately, matching White symmetrically",
+     "Let White build a big pawn-centre, then attack and undermine it with pieces and a timely break",
+     "Trade queens early to reach a safe endgame",
+     "Avoid all theory by shuffling pieces on the back two ranks"
+    ],
+    "answerIndex": 1,
+    "explain": "The Indian defences are hypermodern: rather than meeting the centre head-on, Black cedes it on purpose, then strikes it with pieces (the g7-bishop, the c3-pin) and a pawn break (...e5, ...d5). A big centre that cannot be defended is a target, not a strength."
+   },
+   {
+    "kind": "mc",
+    "prompt": "In the King's Indian, after the centre locks (White pawns on d5/e4, Black pawns on d6/e5), where should each side attack?",
+    "fen": "r1bq1rk1/ppp1n1bp/3p2p1/3Pp3/2P1P3/2N2N2/PP2BPPP/R1BQ1RK1 b - - 1 9",
+    "options": [
+     "Both sides attack in the centre",
+     "White attacks the kingside, Black the queenside",
+     "White attacks the queenside, Black the kingside",
+     "Both sides should just trade pieces and draw"
+    ],
+    "answerIndex": 2,
+    "explain": "In a locked centre you attack where your pawns point, because that is where you have the space to advance them. White's d5/e4 chain points at the queenside (c5, b4-b5); Black's d6/e5 chain points at the kingside (...f5-f4, ...g5-g4). It becomes a flank race."
+   },
+   {
+    "kind": "mc",
+    "prompt": "After 1.d4 Nf6 2.c4 e6 3.Nc3 Bb4 4.e3 ... 6...Bxc3+ 7.bxc3, what bargain has each side struck?",
+    "fen": "rnbq1rk1/ppp2ppp/4pn2/3p4/2PP4/2PBPN2/P4PPP/R1BQK2R b KQ - 0 7",
+    "options": [
+     "Black has won a pawn; White has nothing in return",
+     "White has the bishop pair, but doubled and isolated c-pawns as a permanent target for Black",
+     "Black has the bishop pair; White has extra space",
+     "Both sides have identical pawns and bishops; nothing has changed"
+    ],
+    "answerIndex": 1,
+    "explain": "This is the defining Nimzo trade. Black gives up his dark-squared bishop, so White owns the bishop pair (good if the position OPENS). In return White's c-pawns are doubled and isolated on c3/c4 — a permanent weakness Black blockades and besieges (good if the position stays CLOSED)."
+   },
+   {
+    "kind": "play",
+    "prompt": "1.d4 Nf6 2.c4. You are Black and you want the King's Indian. Play the first move of your set-up.",
+    "fen": "rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2",
+    "solutionUci": [
+     "g7g6"
+    ],
+    "explain": "...g6 prepares ...Bg7, fianchettoing the bishop onto the long diagonal toward White's centre. The King's Indian recipe: Nf6, g6, Bg7, 0-0, d6, then the ...e5 break."
+   },
+   {
+    "kind": "play",
+    "prompt": "King's Indian, a slightly different move order: White has played Nf3 early and just opened with e4, and you are already castled. It is not yet time for the central strike. Play the right preparing move first.",
+    "fen": "rnbq1rk1/ppppppbp/5np1/8/2PPP3/2N2N2/PP3PPP/R1BQKB1R b KQ - 0 5",
+    "solutionUci": [
+     "d7d6"
+    ],
+    "explain": "...d6 is the hinge of the whole counterattack — it must come BEFORE ...e5. Played first, ...e5 would simply hang to dxe5. ...d6 supports the break and opens the c8-bishop. The move order shifted, but the idea is identical."
+   },
+   {
+    "kind": "play",
+    "prompt": "King's Indian, a quiet move-order with White's pawn on h3 instead of a bishop on e2. The centre is fully prepared. Find the thematic break.",
+    "fen": "rnbq1rk1/ppp1ppbp/3p1np1/8/2PPP3/2N2N1P/PP3PP1/R1BQKB1R b KQ - 0 6",
+    "solutionUci": [
+     "e7e5"
+    ],
+    "explain": "...e5 is the King's Indian punch, and it works the same whatever quiet move White inserts. It hits d4 and forces White to resolve the centre. With ...d6 already in, the e5-pawn is safely defended. Black now asks the questions."
+   },
+   {
+    "kind": "play",
+    "prompt": "King's Indian, the centre has locked after White's d5. Find Black's thematic plan-starting move here.",
+    "fen": "r1bq1rk1/ppp1npbp/3p2p1/3Pp3/2P1P3/2N2N2/PP2BPPP/R1BQ1RK1 b - - 1 9",
+    "solutionUci": [
+     "f7f5"
+    ],
+    "explain": "...f5 begins the kingside avalanche: next ...f4, ...g5, ...g4 roll at White's king. In a locked centre you attack where your pawns point — and Black's d6/e5 chain points at the kingside."
+   },
+   {
+    "kind": "play",
+    "prompt": "Nimzo-Indian, a Hübner-style set-up: Black has played ...c5 and White just developed Nf3, ready to castle and break the pin. Make the defining structural trade.",
+    "fen": "rnbq1rk1/pp1p1ppp/4pn2/2p5/1bPP4/2NBPN2/PP3PPP/R1BQK2R b KQ - 1 6",
+    "solutionUci": [
+     "b4c3"
+    ],
+    "explain": "...Bxc3+ forces bxc3, doubling and isolating White's c-pawns. The pawn structure differs (...c5 here rather than ...d5), but the bargain is the same: give the bishop pair, buy a permanent target. After ...d6 and a blockade those doubled pawns become Black's lifelong asset."
+   },
+   {
+    "kind": "play",
+    "prompt": "Nimzo middlegame, a Hübner structure (White has played f3 to prepare e4). White's c-pawns are doubled. Reroute your knight to its blockading post on the c4-pawn.",
+    "fen": "r1bq1rk1/pp3ppp/2nppn2/2p5/2PP4/2PBPP2/P3N1PP/R1BQ1RK1 b - - 0 9",
+    "solutionUci": [
+     "c6a5"
+    ],
+    "explain": "...Na5 begins the blockade of c4 — the same plan from a different structure. Backed by ...b6 and ...Ba6, Black freezes the doubled pawn and keeps the centre closed. White's f3+e4 wants to open lines for the bishops; ...Na5 fights to deny them."
+   },
+   {
+    "kind": "judge",
+    "prompt": "King's Indian, locked centre. Black has just thrust ...f4, hitting the e3-bishop. Sound storm move or a blunder?",
+    "fen": "r1bq1rk1/ppp1n1bp/3p2p1/3Pp3/2P1Pp2/2N1BN2/PP2BPPP/R2Q1RK1 w - - 0 11",
+    "lastMoveUci": "f5f4",
+    "verdict": "correct",
+    "explain": "Correct. ...f4 is the heartbeat of the King's Indian attack: it gains kingside space, hits the e3-bishop with tempo, and clamps the wing so ...g5-g4 can roll in. With the centre locked, this is exactly where Black's pawns should march."
+   },
+   {
+    "kind": "judge",
+    "prompt": "King's Indian: Black, eager to hit the centre, has just played ...e5 — but he has NOT played ...d6 first. Sound or a blunder?",
+    "fen": "rnbq1rk1/pppp1pbp/5np1/4p3/2PPP3/2N2N2/PP3PPP/R1BQKB1R w KQ - 0 6",
+    "lastMoveUci": "e7e5",
+    "verdict": "blunder",
+    "explain": "Blunder. Without the ...d6 pawn behind it, the e5-pawn is undefended. White plays dxe5 and after ...Ng4, Bf4 holds the extra pawn — Black cannot regain it cleanly and is simply down material. In the King's Indian ...d6 must come before ...e5. Move order is not optional."
+   },
+   {
+    "kind": "judge",
+    "prompt": "Nimzo-Indian after 4.Qc2 (White defends c3 with the queen in advance). Black has just played ...Bxc3+. Good trade or a blunder?",
+    "fen": "rnbqk2r/pppp1ppp/4pn2/8/2PP4/2b5/PPQ1PPPP/R1B1KBNR w KQkq - 0 5",
+    "lastMoveUci": "b4c3",
+    "verdict": "blunder",
+    "explain": "Blunder of the idea. The whole point of ...Bxc3+ is to force bxc3 and the doubled pawns. But here White recaptures Qxc3 — queen, not pawn — so the structure stays healthy AND White keeps the bishop pair. Black gave up his good bishop for nothing. Against 4.Qc2 you do NOT rush ...Bxc3+; you switch to ...d5/...c5 piece play. Your plan must follow the structure."
+   },
+   {
+    "kind": "judge",
+    "prompt": "King's Indian: White has just locked the centre with d5, attacking the c6-knight. Black answered with ...Nxe4, grabbing the e4-pawn. Good move or blunder?",
+    "fen": "r1bq1rk1/ppp1ppbp/2np2p1/3Pp3/2P1n3/2N2N2/PP2BPPP/R1BQ1RK1 w - - 0 9",
+    "lastMoveUci": "f6e4",
+    "verdict": "blunder",
+    "explain": "Blunder. The e4-pawn was defended by the c3-knight, so White simply plays Nxe4 and Black has no recapture — a knight lost for a single pawn. In the King's Indian you do not snatch e4; you undermine the centre with ...f5 and piece play. Count the defenders before you grab."
+   }
+  ]
+ },
+ "eloFloor": 1620
+}

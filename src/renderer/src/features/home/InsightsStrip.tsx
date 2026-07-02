@@ -7,17 +7,30 @@ import {
   Target,
   type LucideIcon
 } from 'lucide-react'
-import type { CurriculumBand, GameRow, ProgressSummary } from '../../../../shared/types'
+import type {
+  GameRow,
+  ProgressSummary,
+  SchoolChapterMeta,
+  SchoolMastery
+} from '../../../../shared/types'
 import type { HomeNavTarget } from './HomeView'
-import { lessonKindLabel, pickBand, resultKind, suggestNextLesson } from './format'
+import { nextSchoolStep, resultKind, schoolCompletedCount } from './format'
 
 export interface InsightsStripProps {
   summary: ProgressSummary | null
   games: GameRow[]
-  bands: CurriculumBand[]
+  chapters: SchoolChapterMeta[]
+  mastery: SchoolMastery | null
   /** Solved-count baseline captured at first load this run; null until known. */
   sessionBaseline: number | null
   onNavigate: (view: HomeNavTarget) => void
+}
+
+const NEXT_KICKER: Record<'placement' | 'continue' | 'start' | 'review', string> = {
+  placement: 'Start here',
+  continue: 'Continue',
+  start: 'Up next',
+  review: 'Review'
 }
 
 interface StatTileProps {
@@ -70,7 +83,8 @@ function recentForm(games: GameRow[]): { wins: number; total: number } {
 export default function InsightsStrip({
   summary,
   games,
-  bands,
+  chapters,
+  mastery,
   sessionBaseline,
   onNavigate
 }: InsightsStripProps): JSX.Element {
@@ -79,22 +93,20 @@ export default function InsightsStrip({
   const solvedSession =
     sessionBaseline != null ? Math.max(0, solvedTotal - sessionBaseline) : 0
 
-  // The curriculum is keyed off the puzzle rating, which is the app's primary
-  // skill signal for learning content.
-  const rating =
-    summary && Number.isFinite(summary.puzzleRating) ? summary.puzzleRating : 0
-  const pick = pickBand(bands, rating)
-  const nextLesson = pick ? suggestNextLesson(pick.band, rating) : null
+  // School progress drives the learning card now (the old curriculum is gone).
+  const completedChapters = schoolCompletedCount(mastery)
+  const totalChapters = chapters.length
+  const nextStep = nextSchoolStep(chapters, mastery)
 
   const accuracy = recentAccuracy(games)
   const form = recentForm(games)
 
-  // Brand-new profile: nothing rated, nothing solved, no games, no curriculum.
+  // Brand-new profile: nothing rated, nothing solved, no games, no progress.
   const isFresh =
     solvedTotal === 0 &&
     games.length === 0 &&
     (summary == null || summary.gamesPlayed === 0) &&
-    !pick
+    completedChapters === 0
 
   if (isFresh) {
     return (
@@ -135,34 +147,34 @@ export default function InsightsStrip({
         />
         <StatTile
           Icon={Layers}
-          label="Current band"
-          value={pick ? pick.band.label : '—'}
+          label="School"
+          value={totalChapters > 0 ? `${completedChapters}/${totalChapters}` : '—'}
           hint={
-            pick
-              ? pick.belowFloor
-                ? 'building the basics'
+            totalChapters > 0
+              ? completedChapters > 0
+                ? 'chapters complete'
                 : form.total > 0
                   ? `${form.wins}/${form.total} recent wins`
-                  : pick.band.goal
-              : 'not placed yet'
+                  : 'just getting started'
+              : 'with Viktor'
           }
         />
       </div>
 
-      {nextLesson && pick && (
+      {nextStep && (
         <button
           className="insights-next"
-          onClick={() => onNavigate('lessons')}
-          aria-label={`Next lesson: ${nextLesson.title}`}
+          onClick={() => onNavigate('school')}
+          aria-label={`${NEXT_KICKER[nextStep.mode]}: ${nextStep.title}`}
         >
           <span className="insights-next-icon" aria-hidden>
             <GraduationCap size={18} />
           </span>
           <span className="insights-next-body">
             <span className="insights-next-kicker small muted">
-              Suggested next · {lessonKindLabel(nextLesson.kind)}
+              School · {NEXT_KICKER[nextStep.mode]}
             </span>
-            <span className="insights-next-title">{nextLesson.title}</span>
+            <span className="insights-next-title">{nextStep.title}</span>
           </span>
           <ArrowRight size={16} aria-hidden className="insights-next-arrow" />
         </button>

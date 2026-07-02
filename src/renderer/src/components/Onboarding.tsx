@@ -12,7 +12,7 @@ export interface OnboardingProps {
 const TOUR: { view: ViewKey; title: string; body: string; Icon: LucideIcon }[] = [
   { view: 'play', title: 'Play', body: 'Face Stockfish at any strength, or grandmaster-style personas.', Icon: Swords },
   { view: 'puzzles', title: 'Puzzles', body: 'Train tactics with a personal rating that adapts to you.', Icon: Puzzle },
-  { view: 'lessons', title: 'Lessons', body: 'Follow a guided curriculum from the basics upward.', Icon: GraduationCap }
+  { view: 'school', title: 'School', body: 'Learn with Viktor — a guided course from the basics to 2000.', Icon: GraduationCap }
 ]
 
 export function Onboarding({ onClose, onNavigate }: OnboardingProps): JSX.Element {

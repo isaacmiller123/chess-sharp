@@ -6,14 +6,22 @@ import { makeFen } from 'chessops/fen'
 import { makeSan, parseSan } from 'chessops/san'
 import { makeUci } from 'chessops/util'
 
-// Famous-games library backed by the committed resources/famous/games.json.
-// The file holds only public-domain move records (SAN movetext); no copyrighted
+// Famous-games library backed by TWO committed resource files, merged at load:
+//   - resources/famous/games.json          hand-curated classics (build-famous.mjs)
+//   - resources/famous/persona-games.json  GENERATED per-persona signature games
+//     (scripts/build-persona-data.mjs from resources/personas/research.json; ids
+//     are "<personaId>-gN" and are referenced by Persona.famousGameIds)
+// Keeping the generated set in its own file lets the persona pipeline regenerate
+// it idempotently without touching the curated library. On id collision the
+// curated games.json entry wins. Either file may be absent (empty library shard).
+//
+// The files hold only public-domain move records (SAN movetext); no copyrighted
 // annotations are bundled. Coaching/commentary for a famous game is produced at
 // view time by the existing review engine, not stored here.
 //
 // Loaded lazily and cached for the process, mirroring openings.repo.ts. The JSON
 // is the single source of truth; ids are stable, human-readable slugs. The
-// movetext is validated offline by scripts/build-famous.mjs.
+// movetext is validated offline (build-famous.mjs / build-persona-data.mjs).
 
 /** Era / theme bucket used for grouping in the UI. */
 export type FamousGroup = 'romantic' | 'classical' | 'modern'
@@ -33,6 +41,8 @@ export interface FamousGameMeta {
   group: FamousGroup
   /** Number of half-moves (plies) in the game. */
   plies: number
+  /** One-line "why this game matters" blurb, shown on library cards. */
+  significance?: string
 }
 
 /** A single move of a famous game, pre-expanded for the renderer/board. */
@@ -67,6 +77,7 @@ interface RawGame {
   eco?: string
   group: string
   pgnMoves: string | string[]
+  significance?: string
 }
 
 interface RawFile {
@@ -80,26 +91,35 @@ const VALID_RESULTS: ReadonlySet<string> = new Set<FamousResult>(['1-0', '0-1', 
 
 let cache: RawGame[] | null = null
 
-function famousPath(): string {
+function famousDir(): string {
   // Dev: the main bundle is out/main/index.js, so __dirname is <root>/out/main
   // and ../../resources resolves to the repo's resources dir (mirrors
   // src/main/db/database.ts and openings.repo.ts). Packaged: ships under
   // process.resourcesPath/famous (electron-builder extraResources).
   return app.isPackaged
-    ? path.join(process.resourcesPath, 'famous', 'games.json')
-    : path.join(__dirname, '../../resources/famous/games.json')
+    ? path.join(process.resourcesPath, 'famous')
+    : path.join(__dirname, '../../resources/famous')
+}
+
+/** Read one library shard; a missing/corrupt file is just an empty shard. */
+function readShard(file: string): RawGame[] {
+  try {
+    const raw = fs.readFileSync(path.join(famousDir(), file), 'utf-8')
+    const parsed = JSON.parse(raw) as RawFile
+    return Array.isArray(parsed.games) ? parsed.games : []
+  } catch {
+    return []
+  }
 }
 
 function load(): RawGame[] {
   if (cache) return cache
-  try {
-    const raw = fs.readFileSync(famousPath(), 'utf-8')
-    const parsed = JSON.parse(raw) as RawFile
-    cache = Array.isArray(parsed.games) ? parsed.games : []
-  } catch {
-    // Missing/corrupt data must not crash the app — treat as an empty library.
-    cache = []
+  // Curated first so it wins any id collision with the generated persona set.
+  const merged = new Map<string, RawGame>()
+  for (const g of [...readShard('games.json'), ...readShard('persona-games.json')]) {
+    if (g && typeof g.id === 'string' && !merged.has(g.id)) merged.set(g.id, g)
   }
+  cache = [...merged.values()]
   return cache
 }
 
@@ -132,7 +152,8 @@ function toMeta(g: RawGame): FamousGameMeta {
     result: toResult(g.result),
     eco: g.eco,
     group: toGroup(g.group),
-    plies: tokenizeMoves(g.pgnMoves).length
+    plies: tokenizeMoves(g.pgnMoves).length,
+    significance: typeof g.significance === 'string' ? g.significance : undefined
   }
 }
 

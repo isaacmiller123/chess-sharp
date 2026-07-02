@@ -9,15 +9,24 @@
 // curriculum lesson and a streaming engine stub — so the actual product
 // components (Board, PuzzlesView, LessonDetail, AnalysisView, …) exercise the
 // same code paths a user hits, just sourced from canned data.
+//
+// The mock is typed as the shared `Api` contract: if the real surface grows or
+// a return shape changes, this file fails typecheck instead of silently
+// drifting (which used to strand `?mock` on loading states / crashes).
 
 import type {
   Api,
+  DailyStreak,
+  DatasetProgress,
   EngineLine,
+  GameReview,
+  MpEvent,
+  PlacementState,
   Puzzle,
-  CurriculumBand,
-  LessonContent
+  SchoolChapter,
+  SchoolChapterMeta
 } from '../../shared/types'
-import { destsFor, INITIAL_FEN } from './chess/chess'
+import { applyMove, destsFor, turnColor, INITIAL_FEN } from './chess/chess'
 
 /** Legal first moves from a FEN as UCI strings (for engine PV / opponent replies). */
 function legalUcis(fen: string): string[] {
@@ -49,87 +58,182 @@ const MOCK_PUZZLES: Puzzle[] = [
   }
 ]
 
-const MOCK_BANDS: CurriculumBand[] = [
-  {
-    id: 'B0',
-    order: 1,
-    label: 'Beginner (0–600)',
-    ratingFloor: 0,
-    ratingRange: [0, 600],
-    goal: 'Learn how the pieces move and basic checkmates.',
-    units: [
+/** Canned empty streak (puzzles daily + school daily lesson). */
+const ZERO_STREAK: DailyStreak = { current: 0, best: 0, todaySolved: false, recent: [] }
+
+/** Local YYYY-MM-DD (school streaks are LOCAL-day). */
+function localYmd(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate()
+  ).padStart(2, '0')}`
+}
+
+/** UTC YYYY-MM-DD (the puzzle daily is a UTC-day key). */
+function utcYmd(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+// A review in the CURRENT GameReview shape (per-side summaries + Elo bands).
+const MOCK_REVIEW: GameReview = {
+  gameId: null,
+  depth: 12,
+  totalPlies: 0,
+  white: { accuracy: 90, acpl: 18, moves: 0, inaccuracies: 0, mistakes: 0, blunders: 0, best: 0 },
+  black: { accuracy: 88, acpl: 24, moves: 0, inaccuracies: 1, mistakes: 0, blunders: 0, best: 0 },
+  whiteElo: { est: 1350, low: 1200, high: 1500, accuracy: 90, kind: 'estimate' },
+  blackElo: { est: 1300, low: 1150, high: 1450, accuracy: 88, kind: 'estimate' },
+  moveEvals: []
+}
+
+// ---- School: one openable chapter + one locked, so the index/lock UI renders. ----
+const MOCK_CHAPTER: SchoolChapter = {
+  id: 'mock-ch1',
+  band: '400–500',
+  order: 1,
+  title: 'First Steps',
+  subtitle: 'How the pieces fight',
+  concepts: [
+    { id: 'mock-hanging', name: 'Hanging pieces', short: 'A piece nobody defends is free to take.' },
+    { id: 'mock-check', name: 'Check', short: 'Attack the king — it must be answered.' }
+  ],
+  estMinutes: 20,
+  lessons: [
+    {
+      id: 'mock-l1',
+      title: 'Take what is free',
+      kind: 'concept',
+      summary: 'Undefended pieces are gifts. Learn to spot them.',
+      segments: [
+        {
+          kind: 'teach',
+          title: 'The idea',
+          steps: [
+            {
+              fen: INITIAL_FEN,
+              coach: { text: 'Welcome. Before anything else: never leave a piece hanging.' }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  test: {
+    passThreshold: 0.7,
+    questions: [
       {
-        id: 'B0.rules',
-        order: 1,
-        title: 'The rules of chess',
-        goal: 'How every piece moves and captures.',
-        lessons: [
-          {
-            id: 'B0_600.rules.how_pieces_move',
-            title: 'How the pieces move',
-            summary: 'Each piece has its own way of moving and capturing.',
-            objectives: ['Know how each piece moves', 'Make a legal capture'],
-            linkedThemes: ['mateIn1'],
-            ratingRange: [0, 600],
-            kind: 'concept'
-          },
-          {
-            id: 'B0_600.rules.check_and_mate',
-            title: 'Check and checkmate',
-            summary: 'Putting the king in check and delivering mate.',
-            objectives: ['Recognise check', 'Deliver a back-rank mate'],
-            linkedThemes: ['backRankMate'],
-            ratingRange: [0, 600],
-            kind: 'tactics'
-          }
-        ]
+        kind: 'mc',
+        prompt: 'A piece with no defender that your opponent can capture is called…',
+        options: ['pinned', 'hanging', 'forked'],
+        answerIndex: 1,
+        explain: 'An undefended, attackable piece is hanging.'
       }
     ]
+  }
+}
+
+const MOCK_CHAPTER_METAS: SchoolChapterMeta[] = [
+  {
+    id: MOCK_CHAPTER.id,
+    band: MOCK_CHAPTER.band,
+    order: 1,
+    title: MOCK_CHAPTER.title,
+    subtitle: MOCK_CHAPTER.subtitle,
+    estMinutes: MOCK_CHAPTER.estMinutes,
+    conceptCount: MOCK_CHAPTER.concepts.length,
+    lessonCount: MOCK_CHAPTER.lessons?.length ?? 0,
+    locked: false
+  },
+  {
+    id: 'mock-ch2',
+    band: '500–600',
+    order: 2,
+    title: 'Sharper Eyes',
+    subtitle: 'Spotting free material',
+    estMinutes: 25,
+    conceptCount: 2,
+    lessonCount: 3,
+    locked: true,
+    lockReason: 'elo'
   }
 ]
 
-const MOCK_CONTENT: Record<string, LessonContent> = {
-  'B0_600.rules.how_pieces_move': {
-    intro:
-      'Every piece moves in its own way. The rook moves in straight lines; the bishop diagonally; the queen combines both. The knight jumps in an L-shape and can hop over pieces. The king steps one square; pawns march forward but capture diagonally.',
-    examples: [
-      {
-        fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-        title: 'The starting position',
-        explanation:
-          'Both armies are lined up. Try opening with a central pawn — drag the e- or d-pawn forward two squares.'
-      },
-      {
-        fen: '8/8/8/3N4/8/8/8/4K2k w - - 0 1',
-        title: "Knight's reach",
-        explanation:
-          'The knight on d5 can jump to eight L-shaped squares. Drag it around to feel the pattern.'
-      }
-    ],
-    keyPoints: [
-      'Rooks move in straight lines; bishops on diagonals.',
-      'The knight is the only piece that hops over others.',
-      'Pawns capture diagonally, never straight ahead.'
-    ]
-  },
-  'B0_600.rules.check_and_mate': {
-    intro: 'Checkmate ends the game: the king is attacked and cannot escape.',
-    examples: [
-      {
-        fen: '6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1',
-        title: 'Back-rank mate',
-        explanation: 'White plays Ra8#. The trapped king has no escape on the back rank — try it.'
-      }
-    ],
-    keyPoints: ['Trap the king with no escape squares.', 'A rook or queen on the back rank is lethal.']
-  }
+const MOCK_PLACEMENT: PlacementState = {
+  placed: true,
+  estimatedElo: 520,
+  band: { est: 520, low: 420, high: 620, accuracy: 74, kind: 'estimate' },
+  games: []
 }
 
 let handleSeq = 0
 const lineSubs = new Set<(l: EngineLine) => void>()
 
+// ---- Mock LAN multiplayer: a self-driving fake opponent -------------------
+// No sockets in the browser, so we simulate the other player: hosting spawns a
+// guest that connects + plays; every move you send gets a legal reply with
+// plausibly-decremented, host-authoritative clocks. Enough to click through the
+// whole OnlineTab flow (lobby → live game → draw/resign/rematch) in `?mock`.
+const mpSubs = new Set<(ev: MpEvent) => void>()
+const emitMp = (ev: MpEvent): void => mpSubs.forEach((cb) => cb(ev))
+const MOCK_MP_INITIAL = 300_000
+const MOCK_MP_INC = 3_000
+const mpState: {
+  active: boolean
+  yourColor: 'white' | 'black'
+  fen: string
+  clocks: { white: number; black: number }
+  over: boolean
+} = { active: false, yourColor: 'white', fen: INITIAL_FEN, clocks: { white: 0, black: 0 }, over: false }
+
+function mpConfig(): { tc: { initialMs: number; incrementMs: number }; hostColor: 'white' } {
+  return { tc: { initialMs: MOCK_MP_INITIAL, incrementMs: MOCK_MP_INC }, hostColor: 'white' }
+}
+
+/** Apply a UCI to a FEN using the real rules; returns the new FEN or null. */
+function mpApply(fen: string, uci: string): string | null {
+  const from = uci.slice(0, 2)
+  const to = uci.slice(2, 4)
+  const promo =
+    uci.length > 4
+      ? ({ q: 'queen', r: 'rook', b: 'bishop', n: 'knight' } as const)[
+          uci[4] as 'q' | 'r' | 'b' | 'n'
+        ]
+      : undefined
+  const m = applyMove(fen, from, to, promo)
+  return m ? m.fen : null
+}
+
+/** Start a fresh mock game after a short "guest connecting" beat. */
+function mpStart(yourColor: 'white' | 'black'): void {
+  mpState.active = true
+  mpState.over = false
+  mpState.yourColor = yourColor
+  mpState.fen = INITIAL_FEN
+  mpState.clocks = { white: MOCK_MP_INITIAL, black: MOCK_MP_INITIAL }
+  emitMp({ type: 'peer-joined' })
+  emitMp({ type: 'start', yourColor, config: mpConfig() })
+  // If the mock opponent is White (you chose Black), it opens.
+  if (yourColor === 'black') setTimeout(mpOpponentReply, 700)
+}
+
+/** The fake opponent picks a legal move, debits its clock, and replies. */
+function mpOpponentReply(): void {
+  if (!mpState.active || mpState.over) return
+  const oppColor = mpState.yourColor === 'white' ? 'black' : 'white'
+  if (turnColor(mpState.fen) !== oppColor) return
+  const moves = legalUcis(mpState.fen)
+  if (moves.length === 0) return
+  const uci = moves[Math.floor(Math.random() * Math.min(moves.length, 6))]
+  const next = mpApply(mpState.fen, uci)
+  if (!next) return
+  mpState.fen = next
+  // Debit ~1s of "thinking", credit the increment (host-authoritative clocks).
+  mpState.clocks[oppColor] = Math.max(0, mpState.clocks[oppColor] - 1000 + MOCK_MP_INC)
+  emitMp({ type: 'move', uci, clockMs: { ...mpState.clocks } })
+}
+
 // Datasets: start "not installed" so the import flow is exercisable in preview.
-const datasetSubs = new Set<(p: unknown) => void>()
+const datasetSubs = new Set<(p: DatasetProgress) => void>()
 let mockDatasets = { engine: false, puzzles: false, complete: false }
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
@@ -156,49 +260,66 @@ function emitLines(fen: string, handleId: number, multipv: number): void {
 const ok = Promise.resolve({ ok: true as const })
 
 export function installMock(): void {
-  // Cast loosely: this is a preview harness, not a typed contract. Components
-  // only read the fields exercised below.
-  const api = {
+  const api: Api = {
     app: {
-      ping: async () => ({ ok: true, version: 'mock' }),
-      dataVersion: async () => ({ puzzles: 'mock', openings: 'mock', engine: 'mock' })
+      ping: async () => ({ ok: true, ts: Date.now() }),
+      dataVersion: async () => ({ appVersion: 'mock', engineVersion: 'mock', puzzleDbDate: 'mock' }),
+      resetProgress: async () => ({ ok: true })
     },
     settings: {
       get: async () => ({ value: null }),
       set: async () => ok
     },
     engine: {
-      analyze: async ({ fen, multipv }: { fen: string; multipv?: number }) => {
+      analyze: async ({ fen, multipv }) => {
         const handleId = ++handleSeq
         emitLines(fen, handleId, multipv ?? 3)
         return { handleId }
       },
       stop: async () => ok,
-      play: async ({ fen }: { fen: string }) => {
+      play: async ({ fen }) => {
         const ucis = legalUcis(fen)
         return { bestmove: ucis[0] ?? '0000' }
       },
       status: async () => ({ analysisReady: true, playReady: true, lc0Ready: false }),
       newGame: async () => ok,
-      onLine: (cb: (l: EngineLine) => void) => {
+      onLine: (cb) => {
         lineSubs.add(cb)
-        return () => lineSubs.delete(cb)
+        return () => {
+          lineSubs.delete(cb)
+        }
       },
       onBestmove: () => () => {}
     },
     puzzles: {
-      next: async ({ exclude }: { exclude?: string[] }) => {
+      next: async ({ exclude }) => {
         const pool = MOCK_PUZZLES.filter((p) => !(exclude ?? []).includes(p.id))
         return { puzzle: (pool[0] ?? MOCK_PUZZLES[0]) ?? null }
       },
-      get: async (id: string) => ({ puzzle: MOCK_PUZZLES.find((p) => p.id === id) ?? null }),
+      get: async (id) => ({ puzzle: MOCK_PUZZLES.find((p) => p.id === id) ?? null }),
       themes: async () => ({
         themes: [
           { key: 'mateIn1', count: 2 },
           { key: 'backRankMate', count: 1 }
         ]
       }),
-      attempt: async () => ({ ratingAfter: 1010, rd: 80, delta: 10 })
+      attempt: async () => ({ ratingAfter: 1010, rd: 80, delta: 10 }),
+      batch: async () => ({ puzzles: MOCK_PUZZLES }),
+      saveRush: async ({ score }) => ({ id: 1, best: score, isBest: true }),
+      rushRuns: async () => ({ runs: [] }),
+      rushBests: async () => ({ bests: [] }),
+      daily: async () => ({ ymd: utcYmd(), puzzle: MOCK_PUZZLES[0], result: null }),
+      recordDaily: async () => ({ streak: ZERO_STREAK }),
+      dailyStreak: async () => ({ streak: ZERO_STREAK }),
+      stats: async () => ({
+        totalAttempts: 0,
+        totalSolved: 0,
+        accuracy: 0,
+        bestStreak: 0,
+        byTheme: [],
+        daily: []
+      }),
+      history: async () => ({ rows: [] })
     },
     ratings: {
       get: async () => ({ rating: 1000, rd: 80, vol: 0.06 })
@@ -223,7 +344,7 @@ export function installMock(): void {
       reportResult: async () => ({ ratingAfter: 1010, delta: 10 })
     },
     openings: {
-      lookup: async (fen: string) => ({
+      lookup: async (fen) => ({
         opening: fen === INITIAL_FEN ? null : { eco: 'A00', name: 'Mock Opening' }
       })
     },
@@ -232,11 +353,9 @@ export function installMock(): void {
       positional: async () => ({ terms: [], text: 'Mock positional note.' })
     },
     review: {
-      run: async () => ({
-        reviewId: 1,
-        review: { accuracyWhite: 90, accuracyBlack: 88, moveEvals: [], estEloLow: 1200, estEloHigh: 1500 }
-      }),
+      run: async () => ({ reviewId: 1, review: MOCK_REVIEW }),
       get: async () => ({ review: null, moveEvals: [] }),
+      cancel: async () => ok,
       onProgress: () => () => {}
     },
     perf: {
@@ -246,21 +365,56 @@ export function installMock(): void {
       list: async () => ({ games: [] }),
       get: async () => ({ game: null })
     },
-    curriculum: {
-      tree: async () => ({ bands: MOCK_BANDS }),
-      lesson: async (id: string) => {
-        for (const b of MOCK_BANDS)
-          for (const u of b.units) {
-            const l = u.lessons.find((x) => x.id === id)
-            if (l) return { lesson: l }
-          }
-        return { lesson: null }
-      },
-      lessonContent: async (id: string) => ({ content: MOCK_CONTENT[id] ?? null })
+    school: {
+      chapters: async () => ({ chapters: MOCK_CHAPTER_METAS }),
+      chapter: async (id) => ({ chapter: id === MOCK_CHAPTER.id ? MOCK_CHAPTER : null }),
+      mastery: async () => ({ concepts: [], chapters: [], lessons: [] }),
+      recordConcept: async () => ({ mastery: 0.5 }),
+      recordSegment: async () => ok,
+      completeChapter: async () => ok,
+      narrate: async () => ({ line: { text: 'Viktor (mock): a sound move. Continue.' } }),
+      debrief: async () => ({
+        lines: [{ text: 'Mock debrief: you used your lessons well.' }],
+        usedConcepts: [],
+        verdict: 'Well played.'
+      }),
+      recordLesson: async () => ok,
+      recordTest: async ({ scorePct }) => ({
+        passed: scorePct >= 70,
+        attempts: 1,
+        mustRetake: false,
+        bestPct: scorePct
+      }),
+      testState: async () => ({ attempts: 0, passed: false, bestPct: 0 }),
+      recommend: async () => ({ recommended: null }),
+      dueReviews: async () => ({ due: [] }),
+      reviewConcept: async ({ conceptId }) => ({
+        conceptId,
+        due: Date.now() + 86_400_000,
+        reps: 1,
+        lapses: 0,
+        state: 1,
+        remainingDue: 0
+      }),
+      daily: async () => ({
+        ymd: localYmd(),
+        chapterId: MOCK_CHAPTER.id,
+        chapterTitle: MOCK_CHAPTER.title,
+        lessonId: 'mock-l1',
+        lessonTitle: 'Take what is free',
+        doneToday: false,
+        reviewsDue: 0
+      }),
+      recordDaily: async () => ({ streak: ZERO_STREAK }),
+      streak: async () => ({ streak: ZERO_STREAK }),
+      placementState: async () => MOCK_PLACEMENT,
+      recordPlacementGame: async () => MOCK_PLACEMENT,
+      resetPlacement: async () => ({ placed: false, estimatedElo: null, band: null, games: [] }),
+      placementConfig: async () => ({ engineElo: 1350 })
     },
     personas: {
       list: async () => ({ personas: [] }),
-      move: async ({ fen }: { fen: string }) => {
+      move: async ({ fen }) => {
         const ucis = legalUcis(fen)
         return { bestmove: ucis[0] ?? '0000' }
       }
@@ -279,8 +433,8 @@ export function installMock(): void {
         ]
       }),
       import: async () => {
-        const emit = (p: unknown): void => datasetSubs.forEach((cb) => cb(p))
-        const items = [
+        const emit = (p: DatasetProgress): void => datasetSubs.forEach((cb) => cb(p))
+        const items: { key: 'engine' | 'puzzles'; total: number }[] = [
           { key: 'engine', total: 114007552 },
           { key: 'puzzles', total: 705175215 }
         ]
@@ -304,14 +458,80 @@ export function installMock(): void {
         return { ok: true, status: mockDatasets }
       },
       cancel: async () => ok,
-      onProgress: (cb: (p: unknown) => void) => {
+      onProgress: (cb) => {
         datasetSubs.add(cb)
-        return () => datasetSubs.delete(cb)
+        return () => {
+          datasetSubs.delete(cb)
+        }
+      }
+    },
+    // LAN multiplayer: a self-driving fake opponent (no sockets in the browser).
+    // Lets the whole OnlineTab flow be clicked through under `?mock`.
+    mp: {
+      host: async () => {
+        // "Guest" connects a beat later and the game begins (you are White).
+        setTimeout(() => mpStart('white'), 1200)
+        return { code: 'MOCK1-PLAY2' }
+      },
+      join: async (code) => {
+        // Any plausibly-shaped code "connects"; you join as Black.
+        if (code.replace(/[\s-]/g, '').length < 5) return { ok: false, error: 'That code looks too short.' }
+        setTimeout(() => mpStart('black'), 900)
+        return { ok: true }
+      },
+      leave: async () => {
+        mpState.active = false
+        mpState.over = true
+        return { ok: true }
+      },
+      sendMove: async (uci) => {
+        if (!mpState.active || mpState.over) return { ok: false }
+        const next = mpApply(mpState.fen, uci)
+        if (!next) return { ok: false }
+        mpState.fen = next
+        // Credit YOUR increment (host-authoritative), then the opponent replies.
+        mpState.clocks[mpState.yourColor] = Math.max(0, mpState.clocks[mpState.yourColor] + MOCK_MP_INC - 400)
+        setTimeout(mpOpponentReply, 800)
+        return { ok: true }
+      },
+      resign: async () => {
+        if (!mpState.active) return { ok: false }
+        mpState.over = true
+        emitMp({ type: 'resign', by: mpState.yourColor })
+        return { ok: true }
+      },
+      offerDraw: async () => {
+        // The mock opponent accepts a draw after a moment.
+        if (!mpState.active || mpState.over) return { ok: false }
+        setTimeout(() => {
+          if (mpState.active && !mpState.over) {
+            mpState.over = true
+            emitMp({ type: 'drawAccept' })
+          }
+        }, 900)
+        return { ok: true }
+      },
+      acceptDraw: async () => {
+        if (!mpState.active) return { ok: false }
+        mpState.over = true
+        emitMp({ type: 'drawAccept' })
+        return { ok: true }
+      },
+      offerRematch: async () => {
+        // Opponent accepts; colors swap and a new game starts.
+        setTimeout(() => mpStart(mpState.yourColor === 'white' ? 'black' : 'white'), 700)
+        return { ok: true }
+      },
+      onEvent: (cb) => {
+        mpSubs.add(cb)
+        return () => {
+          mpSubs.delete(cb)
+        }
       }
     }
   }
 
-  ;(window as unknown as { api: Api }).api = api as unknown as Api
+  window.api = api
   // eslint-disable-next-line no-console
   console.info('[devMock] window.api installed (preview harness)')
 }

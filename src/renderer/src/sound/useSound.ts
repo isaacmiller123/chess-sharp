@@ -1,9 +1,9 @@
 // useSound — React binding for the SoundManager singleton.
 //
-// Reads the live `sound` flag from the shared settings context so the toggle in
-// SettingsView controls audio in real time, and installs the autoplay
-// gesture-unlock exactly once for the app. Returns a stable `play` callback plus
-// helpers for mapping a chess move to the right sound name.
+// Reads the live `sound` flag, `soundVolume`, and `soundTheme` from the shared
+// settings context so the Settings controls act in real time, and installs the
+// autoplay gesture-unlock exactly once for the app. Returns a stable `play`
+// callback plus helpers for mapping a chess move to the right sound name.
 
 import { useCallback, useEffect, useMemo } from 'react'
 import { useSettings } from '../state/settings'
@@ -49,6 +49,18 @@ export function useSound(): UseSound {
   useEffect(() => {
     manager.setEnabled(enabled)
   }, [manager, enabled])
+
+  // Keep the master volume in sync with the live setting (the singleton also
+  // seeds itself from localStorage, so pre-render sounds match).
+  useEffect(() => {
+    manager.setVolume(settings.soundVolume)
+  }, [manager, settings.soundVolume])
+
+  // Keep the sample pack in sync with the live setting (also seeded from
+  // localStorage at construction; setTheme warms the pack's decodes).
+  useEffect(() => {
+    manager.setTheme(settings.soundTheme)
+  }, [manager, settings.soundTheme])
 
   // Install the autoplay gesture-unlock once for the lifetime of the app.
   useEffect(() => {

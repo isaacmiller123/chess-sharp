@@ -1,0 +1,51 @@
+/* ============================================================
+   OpeningTag (chess/openingTrace.ts) — persistent opening
+   identity line, rendered as a slim header inside the Moves box
+   (panels/MoveList.tsx) in both Play and Analysis. Mirrors the
+   retired .opening-line look (analysis.css) but lives here so
+   Play gets the styles without loading the Analysis chunk.
+   Tokens only; namespaced under .opening-tag.
+   ============================================================ */
+.opening-tag {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  min-width: 0;
+}
+.opening-tag-icon {
+  flex: none;
+  color: var(--text-muted);
+}
+.opening-tag-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.opening-tag-eco,
+.opening-tag-book {
+  flex: none;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.opening-tag-eco {
+  font-feature-settings: var(--num-feature);
+}
+/* Middot separators as generated content, keeping the text nodes clean. */
+.opening-tag-eco::before,
+.opening-tag-book::before {
+  content: '· ';
+}
+/* Still in theory: the status reads as a live state, softly accented. */
+.opening-tag-book.is-book {
+  color: var(--accent);
+  font-weight: var(--fw-medium);
+}

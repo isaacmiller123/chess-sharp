@@ -36,6 +36,14 @@
   border-radius: var(--radius-md);
   background: var(--accent-soft);
   color: var(--accent);
+  transition:
+    background var(--dur-base) var(--ease-out),
+    color var(--dur-base) var(--ease-out);
+}
+/* Idle / out-of-book: dim the book icon so the "named line" state pops. */
+.opening-banner.is-idle .opening-banner-icon {
+  background: var(--surface-2);
+  color: var(--text-muted);
 }
 .opening-banner-text {
   display: flex;
@@ -50,10 +58,30 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  animation: opening-banner-in var(--dur-base) var(--ease-out);
 }
 .opening-banner-name.muted {
   font-weight: var(--fw-medium);
   color: var(--text-muted);
+}
+/* "Family · Variation" split — the family carries the weight. */
+.opening-banner-variation {
+  color: var(--text-secondary);
+  font-weight: var(--fw-regular);
+}
+.opening-banner-variation::before {
+  content: ' · ';
+  color: var(--text-muted);
+}
+@keyframes opening-banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 .opening-eco {
   flex: none;
@@ -216,6 +244,96 @@
 }
 .explorer-item-eco {
   flex: none;
+}
+
+/* ---- Family rows (two-level browser) ---- */
+.explorer-family-block {
+  display: flex;
+  flex-direction: column;
+}
+.explorer-family {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  padding: var(--space-3);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast),
+    border-color var(--dur-fast);
+}
+.explorer-family:hover {
+  background: var(--surface-2);
+}
+/* Collapsed family that contains the loaded line: keep a quiet marker. */
+.explorer-family.has-active {
+  border-color: var(--accent);
+}
+.explorer-family-chevron {
+  flex: none;
+  color: var(--text-muted);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.explorer-family.is-open .explorer-family-chevron {
+  transform: rotate(90deg);
+}
+.explorer-family-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-base);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.explorer-family-count {
+  flex: none;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-radius: var(--radius-pill);
+  padding: 1px var(--space-3);
+  font-feature-settings: var(--num-feature);
+  transition:
+    background var(--dur-fast),
+    color var(--dur-fast);
+}
+.explorer-family.is-open .explorer-family-count {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.explorer-family-eco {
+  flex: none;
+}
+
+/* Nested variation list under an open family. */
+.explorer-variations {
+  list-style: none;
+  margin: var(--space-1) 0 var(--space-2) var(--space-4);
+  padding: 0 0 0 var(--space-4);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.explorer-variation {
+  padding: var(--space-2) var(--space-3);
+}
+.explorer-variation .explorer-item-name {
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-sm);
+}
+.explorer-more-inline {
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
 }
 
 /* ---- Played-line preview ---- */

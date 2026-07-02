@@ -34,25 +34,64 @@ export interface DatasetItem {
   installedBytes: number
 }
 
-export const DATASET_ITEMS: DatasetItem[] = [
-  {
+interface EngineArtifact {
+  /** Asset name in the GitHub release (raw, self-contained Stockfish binary). */
+  asset: string
+  bytes: number
+  sha256: string
+}
+
+// Stockfish 18 binaries, keyed by `${process.platform}-${process.arch}`. Each is
+// the raw, self-contained engine with the NNUE net embedded (same provenance as
+// the official Stockfish sf_18 release), hosted on the project's datasets release.
+// Adding a platform = add one verified row here; nothing else changes.
+const ENGINE_ARTIFACTS: Record<string, EngineArtifact> = {
+  'win32-x64': {
+    asset: 'stockfish-sf18-win-x64.exe',
+    bytes: 114007552,
+    sha256: 'c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911'
+  },
+  'darwin-arm64': {
+    asset: 'stockfish-sf18-mac-arm64',
+    bytes: 113853992,
+    sha256: 'bc0cac905ecdf2147fe22055c733bcd999b1e3f7c399fbaf7fb9055786563590'
+  }
+}
+
+/** The `${platform}-${arch}` key used to look up the engine artifact. */
+export function engineArtifactKey(): string {
+  return `${process.platform}-${process.arch}`
+}
+
+function engineItem(): DatasetItem | null {
+  const a = ENGINE_ARTIFACTS[engineArtifactKey()]
+  if (!a) return null
+  return {
     key: 'engine',
     label: 'Stockfish 18 engine',
-    url: `${RELEASE_BASE}/stockfish-sf18-win-x64.exe`,
-    bytes: 114007552,
-    sha256: 'c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911',
-    installedBytes: 114007552
-  },
-  {
-    key: 'puzzles',
-    label: 'Lichess puzzle database',
-    url: `${RELEASE_BASE}/puzzles.sqlite.zst`,
-    bytes: 705175215,
-    sha256: 'ecc7719bad6fe9edc45cd8d28acc0bf2549a98783f6b3901fa373e8b45bef4b4',
-    compressed: 'zstd',
-    installedBytes: 2148864000
+    url: `${RELEASE_BASE}/${a.asset}`,
+    bytes: a.bytes,
+    sha256: a.sha256,
+    installedBytes: a.bytes
   }
-]
+}
+
+const PUZZLES_ITEM: DatasetItem = {
+  key: 'puzzles',
+  label: 'Lichess puzzle database',
+  url: `${RELEASE_BASE}/puzzles.sqlite.zst`,
+  bytes: 705175215,
+  sha256: 'ecc7719bad6fe9edc45cd8d28acc0bf2549a98783f6b3901fa373e8b45bef4b4',
+  compressed: 'zstd',
+  installedBytes: 2148864000
+}
+
+// The puzzle DB is a plain SQLite file — identical on every OS. The engine is
+// per-platform; on a platform with no published binary the engine row is simply
+// absent (a bundled engine, if any, still resolves) and only puzzles import.
+export const DATASET_ITEMS: DatasetItem[] = [engineItem(), PUZZLES_ITEM].filter(
+  (x): x is DatasetItem => x !== null
+)
 
 export interface DatasetStatus {
   engine: boolean
@@ -137,6 +176,12 @@ async function downloadItem(
   // Atomic publish: only a fully-downloaded, verified file ever appears at dest.
   fs.rmSync(dest, { force: true })
   fs.renameSync(tmp, dest)
+
+  // A freshly downloaded engine binary needs the executable bit on macOS/Linux
+  // (Windows ignores file modes). Without this, spawning it fails with EACCES.
+  if (it.key === 'engine' && process.platform !== 'win32') {
+    fs.chmodSync(dest, 0o755)
+  }
 }
 
 export async function runImport(

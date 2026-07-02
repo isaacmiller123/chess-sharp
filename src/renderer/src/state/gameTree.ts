@@ -38,6 +38,17 @@ export interface GameTree {
   first: () => void
   last: () => void
   reset: (fen?: string) => void
+  /**
+   * TAKEBACK SUPPORT (additive — every existing member is untouched): remove
+   * the last `n` mainline plies at the TIP of the mainline (the children[0]
+   * chain from the root), regardless of where `current` points. The removed
+   * subtree — including any variations hanging off the removed nodes — is
+   * forgotten, and `current` jumps to the new tip. No-ops when n <= 0 or the
+   * mainline is already at (or shorter than) the requested cut. Play's game
+   * tree is strictly linear; if a caller ever had variations at the cut node,
+   * the next sibling would inherit mainline status (documented, not used).
+   */
+  undoPlies: (n: number) => void
 }
 
 export function useGameTree(initialFen: string = INITIAL_FEN): GameTree {
@@ -102,6 +113,29 @@ export function useGameTree(initialFen: string = INITIAL_FEN): GameTree {
     setCurrentId(n.id)
   }, [currentId])
 
+  const undoPlies = useCallback((n: number) => {
+    if (n <= 0) return
+    // Find the mainline tip, then the node n plies above it (clamped at root).
+    let tip = rootRef.current
+    while (tip.children[0]) tip = tip.children[0]
+    let target: TreeNode = tip
+    for (let i = 0; i < n && target.parent; i++) target = target.parent
+    const drop = target.children[0]
+    if (!drop) return // nothing below the cut — already the tip
+    target.children.splice(0, 1)
+    // Forget every removed node so goTo can never resurrect a cut position.
+    const stack: TreeNode[] = [drop]
+    while (stack.length > 0) {
+      const node = stack.pop() as TreeNode
+      mapRef.current.delete(node.id)
+      for (const c of node.children) stack.push(c)
+    }
+    setCurrentId(target.id)
+    // The root object is mutated in place; force a re-read even when `current`
+    // already sat on the new tip (same discipline as reset()).
+    rerender()
+  }, [])
+
   const reset = useCallback((fen: string = INITIAL_FEN) => {
     const root = makeRoot(fen)
     rootRef.current = root
@@ -123,6 +157,7 @@ export function useGameTree(initialFen: string = INITIAL_FEN): GameTree {
     next,
     first,
     last,
-    reset
+    reset,
+    undoPlies
   }
 }

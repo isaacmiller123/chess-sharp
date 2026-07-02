@@ -49,7 +49,19 @@ The active set's author and license are shown in **Settings → Appearance**.
 
 ## Sounds
 
-Bundled move/notify sounds are from open sources under permissive/CC licenses.
+- **"Standard" sound theme — Lichess standard sound set**
+  - **Source:** [lichess-org/lila](https://github.com/lichess-org/lila), commit
+    [`ecf6f39ed8b5`](https://github.com/lichess-org/lila/tree/ecf6f39ed8b5dc6d9b5d6847954e8cd332127b1d/public/sound/standard)
+    (`public/sound/standard/`)
+  - **License:** GNU Affero General Public License v3.0 or any later version (AGPL-3.0-or-later),
+    per lila's COPYING.md. Copyright (c) 2012–2026 the lila authors.
+  - **Notes:** Files are unmodified apart from renaming to this app's sound-event names and are
+    distributed as data assets alongside (not linked into) this GPL-3.0-or-later application. The
+    full file mapping and license details live in
+    `src/renderer/src/assets/sounds/ATTRIBUTION.md`.
+- **"Classic" and "Realistic" sound themes** are original works synthesized offline in-repo by
+  `scripts/gen-sounds.mjs` (pure-Node procedural audio, no third-party recordings) and are covered
+  by this project's own license.
 
 ## Icons
 

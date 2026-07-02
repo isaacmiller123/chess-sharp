@@ -1,13 +1,16 @@
 import type { Role } from 'chessops/types'
 import type { Color } from '../chess/chess'
+import { PieceIcon } from './PieceIcon'
 
-const GLYPH: Record<Color, Record<'queen' | 'rook' | 'bishop' | 'knight', string>> = {
-  white: { queen: '♕', rook: '♖', bishop: '♗', knight: '♘' },
-  black: { queen: '♛', rook: '♜', bishop: '♝', knight: '♞' }
-}
+/** Promotion choices, strongest first (chess.com/lichess order). */
+const ROLES = ['queen', 'rook', 'bishop', 'knight'] as const
 
-const ROLES: Array<'queen' | 'rook' | 'bishop' | 'knight'> = ['queen', 'rook', 'bishop', 'knight']
-
+/**
+ * Modal promotion chooser over the board. Click a piece to promote (buttons
+ * are natively keyboard-operable: Tab + Enter/Space); clicking the dimmed
+ * overlay cancels. Choices render the real artwork of the active piece set
+ * via PieceIcon — no unicode glyphs.
+ */
 export function PromotionPicker({
   color,
   onSelect,
@@ -22,7 +25,7 @@ export function PromotionPicker({
       <div className="promo-card" onClick={(e) => e.stopPropagation()}>
         {ROLES.map((r) => (
           <button key={r} className="promo-choice" onClick={() => onSelect(r)} aria-label={`Promote to ${r}`}>
-            <span className="promo-glyph">{GLYPH[color][r]}</span>
+            <PieceIcon role={r} color={color} size={44} />
           </button>
         ))}
       </div>

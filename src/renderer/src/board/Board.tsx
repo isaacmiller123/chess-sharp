@@ -3,7 +3,7 @@ import { Chessground } from 'chessground'
 import type { Api } from 'chessground/api'
 import type { Config } from 'chessground/config'
 import type { Key } from 'chessground/types'
-import type { DrawShape } from 'chessground/draw'
+import type { DrawBrush, DrawBrushes, DrawShape } from 'chessground/draw'
 import type { Color } from '../chess/chess'
 
 export interface BoardProps {
@@ -22,6 +22,12 @@ export interface BoardProps {
    *  auto-shapes — they never interfere with, and are not erased by, the user's
    *  own right-click drawings. */
   shapes?: DrawShape[]
+  /** Extra draw brushes, deep-merged OVER chessground's defaults (configure()
+   *  merges plain objects key-by-key, so stock green/red/pale* survive). Any
+   *  shape referencing a non-default brush key MUST have it registered here or
+   *  chessground's SVG defs sync crashes. Pass a module-level constant (e.g.
+   *  SCHOOL_BRUSHES) — identity is not diffed. */
+  brushes?: Record<string, DrawBrush>
   /** Bump to force the board to re-sync to `fen` even when fen is unchanged (e.g. cancelled promotion / illegal move). */
   syncNonce?: number
   onMove?: (orig: Key, dest: Key) => void
@@ -79,7 +85,18 @@ export function Board(props: BoardProps) {
       selectable: { enabled: interactive },
       // eraseOnClick: a plain left-click clears the user's own drawings (lichess
       // behaviour). autoShapes carry engine arrows and are managed separately.
-      drawable: { enabled: true, visible: true, eraseOnClick: true, autoShapes: p.shapes ?? [] }
+      // NOTE: `brushes` is only included when provided — an undefined value in
+      // the config would REPLACE (wipe) chessground's default brush map.
+      drawable: {
+        enabled: true,
+        visible: true,
+        eraseOnClick: true,
+        autoShapes: p.shapes ?? [],
+        // Cast: chessground's DrawBrushes TYPE demands the four stock keys, but
+        // configure() deep-merges partial maps over the defaults at runtime
+        // (verified in chessground/src/config.ts), so extra-keys-only is safe.
+        ...(p.brushes ? { brushes: p.brushes as DrawBrushes } : {})
+      }
     }
   }
 

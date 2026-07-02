@@ -94,6 +94,12 @@
   gap: var(--space-7);
   align-items: start;
 }
+/* Stack the board and sidebar on narrow widths so neither gets crushed. */
+@media (max-width: 1080px) {
+  .analysis-view {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .board-area {
   display: flex;
   flex-direction: column;
@@ -157,6 +163,10 @@
 .eval-bar.eval-black .eval-fill-white {
   bottom: auto;
   top: 0;
+}
+/* Neutral state: engine off or before the first line — no number, dimmed. */
+.eval-bar.eval-empty {
+  opacity: 0.5;
 }
 .eval-label {
   position: absolute;
@@ -363,19 +373,141 @@
   accent-color: var(--accent);
 }
 
-/* Move list */
+/* ============================================================
+   Move list — chess.com-style notation TABLE (panels/MoveList.tsx).
+   Number gutter + White column + Black column, one row per full
+   move; analysis variations interrupt the table as indented inline
+   blocks under the row where they branch. Serves Play, Analysis
+   and Review (badge chips only appear once a review exists).
+   ============================================================ */
 .move-panel .move-list {
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) 0;
   max-height: 320px;
   overflow: auto;
-  line-height: 2;
 }
 .move-list.empty {
+  padding: var(--space-3) var(--space-4);
   line-height: var(--lh-body);
 }
-/* Move tokens are real <button>s for keyboard/AT support, but must read as
-   inline text inside the flowing move list. Reset button chrome and lay them out
-   inline; the figurine/SAN run keeps its natural wrapping. */
+
+/* ---- Mainline rows ---- */
+.ml-row {
+  display: grid;
+  grid-template-columns: var(--space-9) minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+}
+.ml-row-alt {
+  background: var(--bg-subtle);
+}
+.ml-num {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-feature-settings: var(--num-feature);
+  user-select: none;
+}
+.ml-cell {
+  min-width: 0;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+}
+/* Cells are real <button>s for keyboard/AT support; reset the chrome. */
+.ml-move {
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.ml-move:hover {
+  background: var(--surface-2);
+}
+.ml-move:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+/* Current move: soft accent box; text keeps its classification tint. */
+.ml-move.is-current {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  font-weight: var(--fw-semibold);
+}
+.ml-san {
+  font-weight: var(--fw-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ml-chip {
+  flex: none;
+}
+/* "…" continuation / end-of-line placeholder cells. */
+.ml-gap {
+  color: var(--text-muted);
+  user-select: none;
+}
+
+/* ---- Variation blocks (indented, lichess-style, flowing inline) ---- */
+.ml-vars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-9);
+}
+.ml-var {
+  border-left: 2px solid var(--border-strong);
+  padding-left: var(--space-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-body);
+  color: var(--text-secondary);
+}
+.ml-subvar {
+  color: var(--text-muted);
+}
+.ml-var-move {
+  display: inline;
+  padding: var(--space-1);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.ml-var-move:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+.ml-var-move:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+.ml-var-move.is-current {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: var(--fw-semibold);
+}
+.ml-var-num {
+  color: var(--text-muted);
+  margin-right: var(--space-1);
+  user-select: none;
+}
+
+/* Legacy inline move tokens — now used ONLY by the Openings trainer's
+   "Line" panel (OpeningsView), which flows moves as inline text. */
 .move {
   display: inline;
   padding: 1px var(--space-2);
@@ -408,13 +540,6 @@
 }
 .move-san {
   font-weight: var(--fw-medium);
-}
-.variation {
-  color: var(--text-secondary);
-  font-size: var(--fs-sm);
-}
-.variation .move-san {
-  font-weight: var(--fw-regular);
 }
 
 /* FEN panel */

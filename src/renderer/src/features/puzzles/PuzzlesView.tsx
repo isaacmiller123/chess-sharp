@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
-import { RotateCcw, ChevronRight, GraduationCap, ChevronDown } from 'lucide-react'
+import {
+  RotateCcw,
+  ChevronRight,
+  GraduationCap,
+  ChevronDown,
+  Dumbbell,
+  SlidersHorizontal,
+  Timer,
+  CalendarDays,
+  Eye,
+  SkipForward
+} from 'lucide-react'
 import { Board } from '../../board/Board'
 import { pieceSetClass } from '../../board/pieceSets'
 import { useSettings } from '../../state/settings'
@@ -12,14 +23,82 @@ import { StreakBadge } from './StreakBadge'
 import { HintLadder } from './HintLadder'
 import { ThemePicker } from './ThemePicker'
 import { CoachHint } from '../../components/CoachHint'
+import CustomMode from './modes/CustomMode'
+import RushMode from './modes/RushMode'
+import DailyMode from './modes/DailyMode'
 import './puzzles.css'
 
+// Puzzle modes + the persisted-tab MODE_KEY live in ./modeKey so Home cards can
+// deep-link a tab without statically importing this lazily-loaded view.
+import { MODE_KEY, type PuzzleModeKey } from './modeKey'
+
+export type { PuzzleModeKey }
+
+const MODES: { key: PuzzleModeKey; label: string; Icon: typeof Dumbbell }[] = [
+  { key: 'train', label: 'Train', Icon: Dumbbell },
+  { key: 'custom', label: 'Custom', Icon: SlidersHorizontal },
+  { key: 'rush', label: 'Rush', Icon: Timer },
+  { key: 'daily', label: 'Daily', Icon: CalendarDays }
+]
+
+function loadMode(): PuzzleModeKey {
+  try {
+    const raw = localStorage.getItem(MODE_KEY)
+    if (raw === 'train' || raw === 'custom' || raw === 'rush' || raw === 'daily') return raw
+  } catch {
+    /* storage may be unavailable */
+  }
+  return 'train'
+}
+
 /**
- * Puzzles trainer — board + side panel over the bundled puzzle DB.
- * Default export so it can be routed in App.tsx (currently a Placeholder).
- * Takes no props.
+ * Puzzles trainer shell — a top mode switcher over four puzzle modes. Default
+ * export so it can be routed in App.tsx. Takes no props.
  */
 export default function PuzzlesView(): JSX.Element {
+  const [mode, setMode] = useState<PuzzleModeKey>(loadMode)
+
+  const changeMode = (m: PuzzleModeKey): void => {
+    setMode(m)
+    try {
+      localStorage.setItem(MODE_KEY, m)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return (
+    <div className="puzzles-shell">
+      <nav className="puzzle-modebar" aria-label="Puzzle modes">
+        {MODES.map(({ key, label, Icon }) => (
+          <button
+            key={key}
+            type="button"
+            className={`puzzle-modetab${mode === key ? ' is-active' : ''}`}
+            aria-pressed={mode === key}
+            onClick={() => changeMode(key)}
+          >
+            <Icon size={16} aria-hidden />
+            <span>{label}</span>
+          </button>
+        ))}
+      </nav>
+
+      {mode === 'train' && <TrainMode />}
+      {mode === 'custom' && <CustomMode />}
+      {mode === 'rush' && <RushMode />}
+      {mode === 'daily' && <DailyMode />}
+    </div>
+  )
+}
+
+/**
+ * Classic adaptive trainer (the original PuzzlesView body). Board + side panel
+ * over the bundled puzzle DB, with an adaptive rating walk, hint ladder, theme
+ * filter, and on-demand coach. Lives here (scaffold-owned) so the new mode
+ * builders never touch it.
+ */
+function TrainMode(): JSX.Element {
   const { settings } = useSettings()
   const s = usePuzzleSession()
   const [coachOpen, setCoachOpen] = useState(false)
@@ -28,8 +107,10 @@ export default function PuzzlesView(): JSX.Element {
   const isDone = s.phase === 'solved' || s.phase === 'failed'
   const isLoading = s.phase === 'loading'
   const isEmpty = s.phase === 'empty' || s.phase === 'error'
+  const hintsEnabled = settings.hintsEnabled
 
-  // Keyboard shortcuts: n = next, r = retry, h = hint.
+  // Keyboard shortcuts: n = next, r = retry, h = hint (when hints are enabled),
+  // s = show solution (records the fail — retry-on-wrong give-up path).
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
@@ -38,12 +119,14 @@ export default function PuzzlesView(): JSX.Element {
       } else if (e.key === 'r') {
         if (s.puzzle) s.retry()
       } else if (e.key === 'h') {
-        if (isSolving) s.bumpHint()
+        if (isSolving && hintsEnabled) s.bumpHint()
+      } else if (e.key === 's') {
+        if (isSolving) s.showSolution()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [isDone, isEmpty, isSolving, s])
+  }, [isDone, isEmpty, isSolving, hintsEnabled, s])
 
   return (
     <div className="puzzles-view">
@@ -65,7 +148,9 @@ export default function PuzzlesView(): JSX.Element {
               onMove={s.onUserMove}
               syncNonce={s.nonce}
             />
-            <HintArrow from={s.hintFrom} to={s.hintTo} stage={s.hintStage} orientation={s.orientation} />
+            {hintsEnabled && (
+              <HintArrow from={s.hintFrom} to={s.hintTo} stage={s.hintStage} orientation={s.orientation} />
+            )}
             {isLoading && <div className="puzzle-skeleton" aria-hidden />}
           </div>
         </div>
@@ -74,14 +159,26 @@ export default function PuzzlesView(): JSX.Element {
           <button className="icon-btn" onClick={s.retry} disabled={!s.puzzle} title="Retry (r)">
             <RotateCcw size={18} />
           </button>
-          <button className="icon-btn" onClick={s.next} title="Next puzzle (n)">
-            <ChevronRight size={18} />
+          {/* Mid-solve, advancing = skipping, which records the fail (honest
+              accounting — same rule as the Skip button in the sidebar). */}
+          <button
+            className="icon-btn"
+            onClick={isSolving ? s.skip : s.next}
+            title={isSolving ? 'Skip — counts as failed' : 'Next puzzle (n)'}
+          >
+            {isSolving ? <SkipForward size={18} /> : <ChevronRight size={18} />}
           </button>
         </div>
       </div>
 
       <aside className="analysis-sidebar">
-        <PuzzlePrompt phase={s.phase} userColor={s.orientation} correctSan={s.correctSan} />
+        <PuzzlePrompt
+          phase={s.phase}
+          userColor={s.orientation}
+          correctSan={s.correctSan}
+          keepTrying={s.keepTrying}
+          lateSolve={s.lateSolve}
+        />
 
         {!s.apiReady && (
           <div className="panel pad muted small">
@@ -101,17 +198,44 @@ export default function PuzzlesView(): JSX.Element {
         </div>
 
         <div className="panel pad hint-row">
-          <HintLadder
-            stage={s.hintStage}
-            disabled={!isSolving}
-            onHint={s.bumpHint}
-            revealSan={s.revealSan}
-          />
+          {hintsEnabled && (
+            <HintLadder
+              stage={s.hintStage}
+              disabled={!isSolving}
+              onHint={s.bumpHint}
+              revealSan={s.revealSan}
+            />
+          )}
+          {/* Give-up actions (retry-on-wrong): available while solving — incl.
+              the keep-trying state after a wrong move. Both record the fail
+              once if it isn't already on the books. */}
+          {isSolving && (
+            <div className="hint-actions">
+              <button
+                className="btn ghost"
+                onClick={s.showSolution}
+                disabled={!s.puzzle}
+                title="Reveal the solution (s) — counts as failed"
+              >
+                <Eye size={16} aria-hidden /> Show solution
+              </button>
+              <button
+                className="btn ghost"
+                onClick={s.skip}
+                disabled={!s.puzzle}
+                title="Skip this puzzle — counts as failed"
+              >
+                Skip <SkipForward size={16} aria-hidden />
+              </button>
+            </div>
+          )}
           <div className="hint-actions">
             <button className="btn ghost" onClick={s.retry} disabled={!s.puzzle}>
               Retry
             </button>
-            <button className="btn" onClick={s.next}>
+            {/* Mid-solve the honest advance is Skip (above); Next unlocks once
+                the puzzle is finished. */}
+            <button className="btn" onClick={s.next} disabled={isSolving}>
               Next
             </button>
           </div>

@@ -62,3 +62,13 @@ export function listGames(limit = 25, offset = 0): GameRow[] {
 export function getGame(id: number): GameRow | null {
   return (getAppDb().prepare('SELECT * FROM game WHERE id=?').get(id) as GameRow | undefined) ?? null
 }
+
+/**
+ * Persist the computed per-side accuracies onto a game row (so the Progress
+ * "accuracy" column populates). Called after a review:run that carried a gameId.
+ */
+export function setGameAccuracy(gameId: number, white: number, black: number): void {
+  getAppDb()
+    .prepare('UPDATE game SET accuracy_white=?, accuracy_black=? WHERE id=?')
+    .run(white, black, gameId)
+}

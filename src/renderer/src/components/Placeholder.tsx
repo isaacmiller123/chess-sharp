@@ -3,7 +3,7 @@ import type { ViewKey } from './Layout'
 const COPY: Partial<Record<ViewKey, { title: string; body: string }>> = {
   home: {
     title: 'Home dashboard',
-    body: 'Your progress at a glance, recent games, and continue-where-you-left-off across play, puzzles, and lessons.'
+    body: 'Your progress at a glance, recent games, and continue-where-you-left-off across play, puzzles, and the School.'
   },
   play: {
     title: 'Play',
@@ -12,10 +12,6 @@ const COPY: Partial<Record<ViewKey, { title: string; body: string }>> = {
   puzzles: {
     title: 'Puzzles',
     body: '4.7M bundled Lichess puzzles with a local Glicko-2 rating and spaced-repetition review.'
-  },
-  lessons: {
-    title: 'Lessons & Famous Games',
-    body: 'A curriculum from beginner to ~2000, plus an annotated library of famous games.'
   },
   openings: {
     title: 'Openings',

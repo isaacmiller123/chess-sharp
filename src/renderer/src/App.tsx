@@ -15,8 +15,7 @@ const PlayView = lazy(() => import('./features/play/PlayView'))
 const PuzzlesView = lazy(() => import('./features/puzzles/PuzzlesView'))
 const OpeningsView = lazy(() => import('./features/openings/OpeningsView'))
 const ProgressView = lazy(() => import('./features/progress/ProgressView'))
-const LessonsView = lazy(() => import('./features/lessons/LessonsView'))
-const FamousView = lazy(() => import('./features/famous/FamousView'))
+const SchoolView = lazy(() => import('./features/school/SchoolView'))
 const AnalysisView = lazy(() =>
   import('./features/analysis/AnalysisView').then((m) => ({ default: m.AnalysisView }))
 )
@@ -29,8 +28,7 @@ const TITLES: Record<ViewKey, string> = {
   play: 'Play',
   analysis: 'Analysis',
   puzzles: 'Puzzles',
-  lessons: 'Lessons',
-  famous: 'Famous Games',
+  school: 'School',
   openings: 'Openings',
   progress: 'Progress',
   settings: 'Settings'
@@ -47,24 +45,37 @@ function ViewFallback(): JSX.Element {
   )
 }
 
-function CurrentView({ view, onNavigate }: { view: ViewKey; onNavigate: (v: ViewKey) => void }): JSX.Element {
+function CurrentView({
+  view,
+  onNavigate,
+  gameId,
+  onOpenGame,
+  famousId,
+  onOpenFamousGame
+}: {
+  view: ViewKey
+  onNavigate: (v: ViewKey) => void
+  gameId?: number
+  onOpenGame: (id: number) => void
+  /** Famous-game id to open in Analysis (e.g. "morphy-g1"). */
+  famousId?: string
+  onOpenFamousGame: (id: string) => void
+}): JSX.Element {
   switch (view) {
     case 'home':
-      return <HomeView onNavigate={onNavigate} />
+      return <HomeView onNavigate={onNavigate} onOpenGame={onOpenGame} />
     case 'play':
-      return <PlayView />
+      return <PlayView onAnalyzeGame={onOpenGame} onOpenFamousGame={onOpenFamousGame} />
     case 'puzzles':
       return <PuzzlesView />
     case 'openings':
       return <OpeningsView />
-    case 'lessons':
-      return <LessonsView onNavigate={(v) => onNavigate(v as ViewKey)} />
-    case 'famous':
-      return <FamousView />
+    case 'school':
+      return <SchoolView />
     case 'progress':
-      return <ProgressView onNavigate={onNavigate} />
+      return <ProgressView onNavigate={onNavigate} onOpenGame={onOpenGame} />
     case 'analysis':
-      return <AnalysisView />
+      return <AnalysisView gameId={gameId} famousId={famousId} />
     case 'settings':
       return <SettingsView />
     default:
@@ -86,12 +97,32 @@ function isMacPlatform(): boolean {
 function AppShell(): JSX.Element {
   const { settings } = useSettings()
   const [view, setView] = useState<ViewKey>('home')
+  const [pendingGameId, setPendingGameId] = useState<number | null>(null)
+  const [pendingFamousId, setPendingFamousId] = useState<string | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [onboardingOpen, setOnboardingOpen] = useState(false)
   const isMac = isMacPlatform()
 
-  const navigate = useCallback((v: ViewKey) => setView(v), [])
+  // Plain navigation clears any pending game so opening Analysis from the rail
+  // gives a fresh board; openGame carries a saved game's id into Analysis and
+  // openFamousGame a famous-game id (persona "see their famous games"). The two
+  // pending ids are mutually exclusive — setting one clears the other.
+  const navigate = useCallback((v: ViewKey) => {
+    setPendingGameId(null)
+    setPendingFamousId(null)
+    setView(v)
+  }, [])
+  const openGame = useCallback((id: number) => {
+    setPendingFamousId(null)
+    setPendingGameId(id)
+    setView('analysis')
+  }, [])
+  const openFamousGame = useCallback((id: string) => {
+    setPendingGameId(null)
+    setPendingFamousId(id)
+    setView('analysis')
+  }, [])
 
   // First-run onboarding: brand-new profile (default username) with no saved
   // games and no prior 'seen' flag. Never blocks — purely additive, and the flag
@@ -163,7 +194,14 @@ function AppShell(): JSX.Element {
     <>
       <Layout active={view} onNavigate={navigate} title={TITLES[view]}>
         <Suspense fallback={<ViewFallback />}>
-          <CurrentView view={view} onNavigate={navigate} />
+          <CurrentView
+            view={view}
+            onNavigate={navigate}
+            gameId={pendingGameId ?? undefined}
+            onOpenGame={openGame}
+            famousId={pendingFamousId ?? undefined}
+            onOpenFamousGame={openFamousGame}
+          />
         </Suspense>
       </Layout>
       {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} onNavigate={navigate} />}

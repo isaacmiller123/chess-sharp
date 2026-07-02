@@ -14,13 +14,14 @@ import './home.css'
  * to a shared file. App.tsx's setView accepts the superset, so passing it is
  * assignment-compatible.
  */
-export type HomeNavTarget = 'play' | 'puzzles' | 'analysis' | 'lessons' | 'openings' | 'progress'
+export type HomeNavTarget = 'play' | 'puzzles' | 'analysis' | 'school' | 'openings' | 'progress'
 
 export interface HomeViewProps {
   onNavigate: (view: HomeNavTarget) => void
+  onOpenGame: (gameId: number) => void
 }
 
-export default function HomeView({ onNavigate }: HomeViewProps): JSX.Element {
+export default function HomeView({ onNavigate, onOpenGame }: HomeViewProps): JSX.Element {
   const { data, sessionBaseline } = useHomeData()
   const lastGame = data.games.length > 0 ? data.games[0] : null
 
@@ -30,14 +31,15 @@ export default function HomeView({ onNavigate }: HomeViewProps): JSX.Element {
       <InsightsStrip
         summary={data.summary}
         games={data.games}
-        bands={data.bands}
+        chapters={data.chapters}
+        mastery={data.mastery}
         sessionBaseline={sessionBaseline}
         onNavigate={onNavigate}
       />
       <div className="home-grid">
         <StrengthCard puzzle={data.puzzleRating} vsBot={data.vsBotRating} fallback={data.summary} />
-        <ContinueCard lastGame={lastGame} onNavigate={onNavigate} />
-        <RecentGamesCard games={data.games} onNavigate={onNavigate} />
+        <ContinueCard lastGame={lastGame} onNavigate={onNavigate} onOpenGame={onOpenGame} />
+        <RecentGamesCard games={data.games} onNavigate={onNavigate} onOpenGame={onOpenGame} />
         <DailyPuzzleCard onNavigate={onNavigate} />
       </div>
     </div>

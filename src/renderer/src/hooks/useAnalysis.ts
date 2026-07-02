@@ -11,11 +11,29 @@ export interface PvLine {
 
 // Live infinite analysis of `fen` while `enabled`. Streams MultiPV lines from the
 // main-process Stockfish via the engine IPC push channel.
+//
+// Lines are tagged with the fen they were produced for and the hook only returns
+// lines matching the *current* fen. A render-time guard clears the buffer the
+// instant `fen` changes, so the eval bar and on-board arrows never show the
+// previous position for a frame (the prior bug: the clear ran in a post-render
+// effect, one frame late).
 export function useAnalysis(fen: string, enabled: boolean, multipv = 3) {
-  const [lines, setLines] = useState<PvLine[]>([])
-  const [depth, setDepth] = useState(0)
+  const [state, setState] = useState<{ fen: string; lines: PvLine[]; depth: number }>({
+    fen,
+    lines: [],
+    depth: 0
+  })
   const handleRef = useRef<number | null>(null)
   const linesRef = useRef<Map<number, PvLine>>(new Map())
+  const fenRef = useRef(fen)
+
+  // Synchronous reset on fen change: drop the previous position's lines during
+  // render so this render already returns an empty set for the new fen.
+  if (state.fen !== fen) {
+    linesRef.current = new Map()
+    fenRef.current = fen
+    setState({ fen, lines: [], depth: 0 })
+  }
 
   useEffect(() => {
     if (!window.api?.engine) return
@@ -28,8 +46,8 @@ export function useAnalysis(fen: string, enabled: boolean, multipv = 3) {
         mate: l.mate,
         pv: l.pv
       })
-      setLines(Array.from(linesRef.current.values()).sort((a, b) => a.multipv - b.multipv))
-      if (l.depth) setDepth(l.depth)
+      const lines = Array.from(linesRef.current.values()).sort((a, b) => a.multipv - b.multipv)
+      setState({ fen: fenRef.current, lines, depth: l.depth ?? 0 })
     })
     return off
   }, [])
@@ -39,8 +57,7 @@ export function useAnalysis(fen: string, enabled: boolean, multipv = 3) {
     if (!engine) return
     let cancelled = false
     linesRef.current = new Map()
-    setLines([])
-    setDepth(0)
+    fenRef.current = fen
 
     const stopCurrent = () => {
       if (handleRef.current !== null) {
@@ -66,5 +83,8 @@ export function useAnalysis(fen: string, enabled: boolean, multipv = 3) {
     }
   }, [fen, enabled, multipv])
 
+  // Only surface lines that belong to the current fen.
+  const lines = state.fen === fen ? state.lines : []
+  const depth = state.fen === fen ? state.depth : 0
   return { lines, depth }
 }

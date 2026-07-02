@@ -343,12 +343,16 @@ function evalTolerancePawns(persona: Persona): number {
 /**
  * Select a style-weighted move for the given persona in the given position.
  * Spawns its own short-lived Stockfish (kept arms-length from the analysis/play
- * pool so a persona game never starves analysis), caps strength near peakElo, and
- * returns the chosen UCI move plus its line eval.
+ * pool so a persona game never starves analysis), caps strength near the persona's
+ * MODERN-era Elo estimate (a 2700 from 1900 is far weaker than a 2700 today — the
+ * bot should play at the honest present-day strength the detail card advertises;
+ * peakElo remains the historical display number), and returns the chosen UCI move
+ * plus its line eval.
  */
 export async function selectMove(args: SelectMoveArgs): Promise<SelectMoveResult> {
   const persona = getPersona(args.personaId)
   if (!persona) throw new Error(`Unknown persona: ${args.personaId}`)
+  const strengthElo = persona.modernElo ?? persona.peakElo
 
   // Validate the position up front so we fail fast on garbage input.
   const pos = posFromFen(args.fen)
@@ -367,13 +371,13 @@ export async function selectMove(args: SelectMoveArgs): Promise<SelectMoveResult
     engine.setOption('Threads', 1)
     engine.setOption('Hash', 64)
     engine.setOption('UCI_LimitStrength', true)
-    engine.setOption('UCI_Elo', clampElo(persona.peakElo))
+    engine.setOption('UCI_Elo', clampElo(strengthElo))
     await engine.newGame()
 
     const limit =
       args.movetimeMs !== undefined
         ? ({ kind: 'movetime', value: Math.max(50, Math.round(args.movetimeMs)) } as const)
-        : ({ kind: 'depth', value: Math.max(4, args.depth ?? defaultDepth(persona.peakElo)) } as const)
+        : ({ kind: 'depth', value: Math.max(4, args.depth ?? defaultDepth(strengthElo)) } as const)
 
     const { lines, bestmove } = await searchLines(engine, fen, 6, limit)
 

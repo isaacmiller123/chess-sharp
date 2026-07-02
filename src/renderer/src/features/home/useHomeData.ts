@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import type {
-  CurriculumBand,
   GameRow,
   ProgressSummary,
-  RatingValue
+  RatingValue,
+  SchoolChapterMeta,
+  SchoolMastery
 } from '../../../../shared/types'
 
 export interface HomeData {
@@ -11,7 +12,8 @@ export interface HomeData {
   games: GameRow[]
   puzzleRating: RatingValue | null
   vsBotRating: RatingValue | null
-  bands: CurriculumBand[]
+  chapters: SchoolChapterMeta[]
+  mastery: SchoolMastery | null
 }
 
 export interface UseHomeDataResult {
@@ -30,7 +32,8 @@ const EMPTY: HomeData = {
   games: [],
   puzzleRating: null,
   vsBotRating: null,
-  bands: []
+  chapters: [],
+  mastery: null
 }
 
 /**
@@ -60,12 +63,13 @@ export function useHomeData(): UseHomeDataResult {
     }
 
     void (async () => {
-      const [summaryR, gamesR, puzzleR, vsBotR, treeR] = await Promise.allSettled([
+      const [summaryR, gamesR, puzzleR, vsBotR, chaptersR, masteryR] = await Promise.allSettled([
         api.progress.summary(),
         api.games.list({ limit: 5 }),
         api.ratings.get('puzzle'),
         api.ratings.get('vs-bot'),
-        api.curriculum.tree()
+        api.school?.chapters?.() ?? Promise.resolve({ chapters: [] }),
+        api.school?.mastery?.() ?? Promise.resolve(null)
       ])
       if (cancelled) return
 
@@ -85,7 +89,8 @@ export function useHomeData(): UseHomeDataResult {
         games: gamesR.status === 'fulfilled' ? (gamesR.value.games ?? []) : [],
         puzzleRating: puzzleR.status === 'fulfilled' ? puzzleR.value : null,
         vsBotRating: vsBotR.status === 'fulfilled' ? vsBotR.value : null,
-        bands: treeR.status === 'fulfilled' ? (treeR.value.bands ?? []) : []
+        chapters: chaptersR.status === 'fulfilled' ? (chaptersR.value.chapters ?? []) : [],
+        mastery: masteryR.status === 'fulfilled' ? masteryR.value : null
       })
       setLoading(false)
     })()

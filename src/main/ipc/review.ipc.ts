@@ -1,7 +1,7 @@
 import { type WebContents } from 'electron'
 import { z } from 'zod'
 import { handle } from './util'
-import { getGame } from '../db/games.repo'
+import { getGame, setGameAccuracy } from '../db/games.repo'
 import { runReview, getCachedReview, movesFromPgn } from '../review/review'
 import { estimateElo } from '../analysis/estElo'
 
@@ -23,6 +23,8 @@ const runSchema = z
 
 // Only one review at a time (single shared review engine, heavy CPU).
 let reviewing = false
+// Abort handle for the in-flight review, so review:cancel can actually stop it.
+let reviewAbort: AbortController | null = null
 
 export function registerReview(): void {
   handle('review:run', runSchema, async ({ gameId, pgn, depth }, e) => {
@@ -43,20 +45,32 @@ export function registerReview(): void {
 
     const sender: WebContents = e.sender
     reviewing = true
+    const abort = new AbortController()
+    reviewAbort = abort
     try {
       const review = await runReview({
         moves,
         depth,
         gameId: resolvedGameId ?? undefined,
+        signal: abort.signal,
         onProgress: (ply, total) => {
           if (!sender.isDestroyed()) {
             sender.send('review:progress', { gameId: resolvedGameId, ply, total })
           }
         }
       })
+      // Persist per-side accuracy onto the game row so the Progress "accuracy"
+      // column populates (only meaningful when reviewing a stored game).
+      if (resolvedGameId != null) {
+        setGameAccuracy(resolvedGameId, review.white.accuracy, review.black.accuracy)
+      }
       return { reviewId: resolvedGameId, review }
     } finally {
+      // The single-flight flag clears ONLY when the run settles (including an
+      // aborted one) — never out-of-band — so two reviews can never overlap on
+      // the shared engine.
       reviewing = false
+      if (reviewAbort === abort) reviewAbort = null
     }
   })
 
@@ -83,20 +97,35 @@ export function registerReview(): void {
         const band = estimateElo(accuracy)
         return { est: band.est, low: band.low, high: band.high, accuracy: band.accuracy }
       }
-      // Cached-game estimate: average the two sides' accuracy as a whole-game proxy,
-      // but prefer returning the user's side if a single side is clearly present.
+      // Cached-game estimate: the user only played ONE side, so averaging both
+      // accuracies is meaningless for a lopsided game (e.g. 2200 vs 900). Derive
+      // the user's color from the game row and estimate from THAT side alone.
       const cached = getCachedReview(gameId as number)
       if (!cached) throw new Error(`perf:estimate: no cached review for game ${gameId}`)
       const { white, black } = cached.review
-      const acc =
-        white.moves > 0 && black.moves > 0
-          ? (white.accuracy + black.accuracy) / 2
-          : white.moves > 0
-            ? white.accuracy
-            : black.accuracy
-      const moves = white.moves + black.moves
-      const band = estimateElo(acc, Math.max(1, Math.round(moves / 2)))
+      const userColor = getGame(gameId as number)?.user_color
+      // Prefer the user's side; fall back to whichever side actually has moves.
+      const side =
+        userColor === 'black'
+          ? black
+          : userColor === 'white'
+            ? white
+            : white.moves > 0
+              ? white
+              : black
+      // Blend the side's ACPL in: accuracy anchors alone overrate short games.
+      const band = estimateElo(side.accuracy, Math.max(1, side.moves), side.acpl)
       return { est: band.est, low: band.low, high: band.high, accuracy: band.accuracy }
     }
   )
+
+  // Cancel the in-flight review, if any: aborts the run (runReview checks the
+  // signal between searches and stops the current one). The `reviewing` flag is
+  // released by the run's own finally when it settles — clearing it here would
+  // let a second review race the aborted one on the same engine. A dead/stuck
+  // engine can't wedge the flag either: analyzeFen's hard timeout settles it.
+  handle('review:cancel', z.object({}).strict(), () => {
+    reviewAbort?.abort()
+    return { ok: true }
+  })
 }

@@ -1,4 +1,4 @@
-// Per-persona opening book lookup. Built by scripts/build-persona-books.mjs into
+// Per-persona opening book lookup. Built by scripts/build-persona-data.mjs into
 // resources/personas/books.json as { personaId: { epd: [uci, ...] } } containing
 // ONLY that player's own moves. Transposition-friendly (keyed by EPD).
 import { app } from 'electron'

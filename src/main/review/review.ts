@@ -3,6 +3,9 @@
 // Accuracy / classification, per-side accuracy + ACPL, an estimated-Elo band, and
 // a coach hook for each critical move. Results are cached to app.sqlite.
 //
+// Depth scales with game length (short games afford deeper searches): <=40 plies
+// -> 20, <=80 -> 18, else 16. An explicit opts.depth overrides the scaling.
+//
 // content-coaching.md is authoritative for all formulas/thresholds; architecture.md
 // §6 for the engine contract. This module owns its own DB tables (game_review,
 // move_eval) created lazily with CREATE TABLE IF NOT EXISTS — it does NOT touch the
@@ -15,7 +18,6 @@ import { parseFen, makeFen, INITIAL_FEN } from 'chessops/fen'
 import { makeSan, parseSan } from 'chessops/san'
 import { parseUci, makeUci } from 'chessops/util'
 import { parsePgn, startingPosition } from 'chessops/pgn'
-import type { Move, Role } from 'chessops/types'
 import { UciEngine, type InfoLine } from '../engine/UciEngine'
 import { stockfishPath } from '../engine/paths'
 import { getAppDb } from '../db/database'
@@ -25,15 +27,16 @@ import {
   moveAccuracy,
   gameAccuracy,
   acpl,
-  reviewVerdict,
-  mateTransition,
   classifyBadge,
-  isSacrifice,
-  PIECE_VALUE,
+  computeIsBest,
+  canonicalUci,
+  sanLine,
+  BOOK_MAX_PLY,
   type ReviewVerdict,
   type MoveBadge,
   type EvalScore
 } from '../analysis/accuracy'
+import { lookupByFen } from '../openings/openings.repo'
 import { estimateElo, type EloBand } from '../analysis/estElo'
 
 // ---- Public input/output shapes -------------------------------------------------
@@ -51,12 +54,18 @@ export interface RunReviewOptions {
   moves?: ReviewMoveInput[]
   /** A PGN string; the mainline is extracted and analyzed. */
   pgn?: string
-  /** Fixed analysis depth (architecture default ~16). */
+  /** Fixed analysis depth. Omitted => length-scaled default (see reviewDepthFor). */
   depth?: number
   /** Persist under this game id (enables review:get caching). */
   gameId?: number
   /** Progress callback: fired per analyzed ply. */
   onProgress?: (ply: number, total: number) => void
+  /**
+   * Optional abort signal (review:cancel). Checked between engine searches; a
+   * fired signal also stops the in-flight search so cancellation is prompt. An
+   * aborted run rejects with 'review cancelled' and persists nothing.
+   */
+  signal?: AbortSignal
 }
 
 /** Engine eval at a position, from the side-to-move POV. */
@@ -97,6 +106,8 @@ export interface MoveEval {
   verdict: ReviewVerdict
   /** Rich badge label. */
   badge: MoveBadge
+  /** Factual per-move comment (engine data only; absent on old cached rows). */
+  comment?: string
   /** Whether the played move was the engine's best. */
   isBest: boolean
   /** Critical = a move worth a coach comment (inaccuracy+, or a notable badge). */
@@ -169,18 +180,46 @@ interface MultiPvSnapshot {
  * arrives with the latest line per multipv index.
  */
 function analyzeFen(engine: UciEngine, fen: string, depth: number, multipv: number): Promise<MultiPvSnapshot> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const lines = new Map<number, InfoLine>()
+    let done = false
     const onInfo = (info: InfoLine): void => {
       const idx = info.multipv ?? 1
       if (info.pv && info.pv.length > 0) lines.set(idx, info)
     }
-    const onBest = (): void => {
+    const cleanup = (): void => {
+      clearTimeout(timer)
       engine.off('info', onInfo)
+      engine.off('bestmove', onBest)
+      engine.off('exit', onExit)
+      engine.off('engineError', onErr)
+    }
+    const onBest = (): void => {
+      if (done) return
+      done = true
+      cleanup()
       resolve({ lines })
     }
+    const fail = (e: Error): void => {
+      if (done) return
+      done = true
+      cleanup()
+      reject(e)
+    }
+    const onExit = (): void => fail(new Error('engine exited during review'))
+    const onErr = (err: Error): void =>
+      fail(err instanceof Error ? err : new Error('engine error during review'))
+    // Depth-scaled hard ceiling so a crashed or stuck search can never hang the
+    // whole review forever — that used to wedge the single-flight `reviewing` flag
+    // (review.ipc.ts) until an app restart. Generous: ~2.5s/depth, floored at 20s.
+    const timer = setTimeout(
+      () => fail(new Error('engine analysis timeout')),
+      Math.max(20000, depth * 2500)
+    )
     engine.on('info', onInfo)
     engine.once('bestmove', onBest)
+    engine.once('exit', onExit)
+    engine.once('engineError', onErr)
     void engine.search(fen, { kind: 'depth', value: depth }, multipv)
   })
 }
@@ -207,96 +246,90 @@ function evalWinPercent(e: PovEval): number {
   return winPercent(e.cp, e.mate)
 }
 
-// ---- Sacrifice PV inspection ----------------------------------------------------
+// ---- Factual per-move comment (chess.com style) -----------------------------------
+// Derived ONLY from engine data: played/best SAN, mate distances, the punishing PV
+// line, and the Brilliant sacrifice detector's role. No motif guessing.
 
-/**
- * Walk the engine PV after the played move and collect captures (truncated to even
- * length) tagged by who captured, relative to the mover. Drives the §3.2 detector.
- */
-function pvCaptures(
-  fenAfterPlayed: string,
-  pv: string[]
-): { by: 'mover' | 'opp'; role: string }[] {
-  const out: { by: 'mover' | 'opp'; role: string }[] = []
-  let pos: Chess
-  try {
-    pos = posFromFen(fenAfterPlayed)
-  } catch {
-    return out
-  }
-  // In fenAfterPlayed it's the OPPONENT to move (the mover just moved). So ply 0 of
-  // this PV is by 'opp', ply 1 by 'mover', etc.
-  const even = pv.slice(0, pv.length - (pv.length % 2))
-  for (let i = 0; i < even.length; i++) {
-    const move = parseUci(even[i])
-    if (!move) break
-    const captured = capturedRole(pos, move)
-    if (captured) {
-      out.push({ by: i % 2 === 0 ? 'opp' : 'mover', role: captured })
-    }
-    if (!pos.isLegal(move)) break
-    pos.play(move)
-  }
-  return out
+const ROLE_NAME: Record<string, string> = {
+  pawn: 'pawn',
+  knight: 'knight',
+  bishop: 'bishop',
+  rook: 'rook',
+  queen: 'queen',
+  king: 'king'
 }
 
-/** Single-char value key ('p'/'n'/...) of the piece captured by `move`, or null. */
-function capturedRole(pos: Chess, move: Move): string | null {
-  if (!('to' in move)) return null
-  const piece = pos.board.get(move.to)
-  if (piece) return roleToValueChar(piece.role)
-  // en passant: pawn capture to an empty ep square
-  if ('from' in move) {
-    const from = pos.board.get(move.from)
-    if (from && from.role === 'pawn') {
-      const fromFile = move.from & 7
-      const toFile = move.to & 7
-      if (fromFile !== toFile) return 'p'
-    }
-  }
-  return null
-}
-
-function roleToValueChar(role: Role | string): string {
-  switch (role) {
-    case 'pawn':
-      return 'p'
-    case 'knight':
-      return 'n'
-    case 'bishop':
-      return 'b'
-    case 'rook':
-      return 'r'
-    case 'queen':
-      return 'q'
+function buildComment(a: {
+  badge: MoveBadge
+  playedSan: string
+  bestSan: string
+  bestMate: number | null
+  playedMate: number | null
+  /** SANs of the opponent's punishing continuation, from fenAfter. */
+  refutation: string[]
+  sacrificedRole: string | null
+}): string {
+  const { badge, playedSan, bestSan } = a
+  const ref = a.refutation.join(' ')
+  const allowsMate =
+    a.playedMate != null && a.playedMate < 0 ? ` This allows mate in ${-a.playedMate}.` : ''
+  const missedMate =
+    a.bestMate != null && a.bestMate > 0 ? ` ${bestSan} forced mate in ${a.bestMate}.` : ''
+  switch (badge) {
+    case 'Brilliant':
+      return `${playedSan} is brilliant! Giving up ${
+        a.sacrificedRole ? `the ${ROLE_NAME[a.sacrificedRole] ?? 'piece'}` : 'material'
+      } is the strongest move here.`
+    case 'Great':
+      return `${playedSan} is a great find — the only good move in the position.`
+    case 'Best':
+      return `${playedSan} is the best move.`
+    case 'Excellent':
+      return `${playedSan} is an excellent move.`
+    case 'Good':
+      return `${playedSan} is a good move. ${bestSan} was the engine's first choice.`
+    case 'Book':
+      return `${playedSan} is opening theory.`
+    case 'Forced':
+      return `${playedSan} was forced.`
+    case 'Inaccuracy':
+      return `${playedSan} is an inaccuracy. ${bestSan} was best.${allowsMate}`
+    case 'Miss':
+      return `${playedSan} misses the chance — ${bestSan} was much stronger.${missedMate}`
+    case 'Mistake':
+      return `${playedSan} is a mistake. ${bestSan} was best.${allowsMate}${
+        ref ? ` The problem: ${ref}.` : ''
+      }`
+    case 'Blunder':
+      return `${playedSan} is a blunder. ${bestSan} was best.${allowsMate}${
+        ref ? ` Now ${ref} punishes it.` : ''
+      }`
     default:
-      return 'k'
-  }
-}
-
-/** Is the played move a recapture (it captures on the square the opponent just moved to)? */
-function isRecapture(prevFen: string, playedUci: string, prevMoveUci: string | null): boolean {
-  if (!prevMoveUci) return false
-  const played = parseUci(playedUci)
-  const prev = parseUci(prevMoveUci)
-  if (!played || !prev || !('to' in played) || !('to' in prev)) return false
-  if (played.to !== prev.to) return false
-  // and it must actually be a capture
-  try {
-    const pos = posFromFen(prevFen)
-    return capturedRole(pos, played) != null
-  } catch {
-    return false
+      return `${playedSan}.`
   }
 }
 
 // ---- Critical-move detection ----------------------------------------------------
 
 const CRITICAL_VERDICTS: ReviewVerdict[] = ['inaccuracy', 'mistake', 'blunder']
-const NOTABLE_BADGES: MoveBadge[] = ['Brilliant', 'Great']
+const NOTABLE_BADGES: MoveBadge[] = ['Brilliant', 'Great', 'Miss']
 
 function isCritical(verdict: ReviewVerdict, badge: MoveBadge): boolean {
   return CRITICAL_VERDICTS.includes(verdict) || NOTABLE_BADGES.includes(badge)
+}
+
+// ---- Depth scaling ----------------------------------------------------------------
+
+/**
+ * Length-scaled review depth: short games get the deepest search, long games a
+ * still-strong one so total review time stays bounded. The analyzeFen timeout
+ * (~2.5s/depth, 20s floor) scales off whatever depth this returns, so the
+ * hard-ceiling stays consistent with the deeper defaults.
+ */
+export function reviewDepthFor(totalPlies: number): number {
+  if (totalPlies <= 40) return 20
+  if (totalPlies <= 80) return 18
+  return 16
 }
 
 // ---- Main entry -----------------------------------------------------------------
@@ -309,14 +342,27 @@ function isCritical(verdict: ReviewVerdict, badge: MoveBadge): boolean {
 export async function runReview(opts: RunReviewOptions): Promise<GameReview> {
   initReviewTables()
 
-  const depth = opts.depth ?? 16
   const moves = opts.moves ?? (opts.pgn ? movesFromPgn(opts.pgn) : [])
   const total = moves.length
+  const depth = opts.depth ?? reviewDepthFor(total)
 
   const engine = new UciEngine(stockfishPath())
   const moveEvals: MoveEval[] = []
 
+  const signal = opts.signal
+  const throwIfAborted = (): void => {
+    if (signal?.aborted) throw new Error('review cancelled')
+  }
+  // A fired abort interrupts whichever search is in flight (UCI `stop` makes its
+  // `bestmove` arrive immediately); the throwIfAborted checks below then exit the
+  // loop before another search starts. The signal only ever fires once.
+  const onAbort = (): void => {
+    void engine.stop().catch(() => {})
+  }
+  signal?.addEventListener('abort', onAbort, { once: true })
+
   try {
+    throwIfAborted()
     await engine.start()
     engine.setOption('UCI_LimitStrength', false)
     engine.setOption('Threads', 1)
@@ -324,9 +370,11 @@ export async function runReview(opts: RunReviewOptions): Promise<GameReview> {
     engine.setOption('MultiPV', 2)
     await engine.newGame()
 
-    let prevMoveUci: string | null = null
+    // Book tracking: theory only while EVERY prior move was theory (unbroken prefix).
+    let stillInBook = true
 
     for (let i = 0; i < total; i++) {
+      throwIfAborted()
       const m = moves[i]
       const fenBefore = m.fen
       const beforePos = posFromFen(fenBefore)
@@ -353,23 +401,47 @@ export async function runReview(opts: RunReviewOptions): Promise<GameReview> {
         /* keep uci fallback */
       }
 
-      // 2) Eval AFTER the played move. If the played move IS the best move, reuse
-      //    bestEval. Otherwise evaluate the resulting position and negate to mover POV.
+      // Canonicalised UCIs (castling e1g1 vs e1h1) so best/second matching is exact.
+      const playedC = canonicalUci(fenBefore, m.uci)
+      const bestC = canonicalUci(fenBefore, bestUci)
+      const secondC = secondUci ? canonicalUci(fenBefore, secondUci) : null
+      const secondEval: PovEval | null = second ? infoToEval(second) : null
+
+      // 2) Eval AFTER the played move. Matching PV1 reuses bestEval; matching PV2
+      //    reuses PV2's eval from the SAME fenBefore search (no fresh opposite-
+      //    parity search -> no phantom drop, and co-best moves can earn Best).
+      //    Only a move outside both lines pays for a second search.
       let playedEval: PovEval
       let playedPv: string[] = bestPv
-      const playedIsBest = bestUci === m.uci
+      let isBest = false
       if (playedMove && beforePos.isLegal(playedMove)) {
         const afterPos = beforePos.clone()
         afterPos.play(playedMove)
         fenAfter = makeFen(afterPos.toSetup())
         if (afterPos.isCheckmate()) {
-          // mover delivered mate
+          // mover delivered mate — by definition the best practical outcome, even
+          // when the engine's PV preferred a different (e.g. faster-mate) move.
           playedEval = { cp: null, mate: 1 }
           playedPv = [m.uci]
-        } else if (playedIsBest) {
+          isBest = true
+        } else if (playedC === bestC) {
+          isBest = true
           playedEval = bestEval
           playedPv = bestPv
+        } else if (secondC != null && playedC === secondC && secondEval) {
+          isBest = computeIsBest(
+            playedC,
+            bestC,
+            secondC,
+            evalToScore(bestEval),
+            evalToScore(secondEval)
+          )
+          playedEval = secondEval
+          playedPv = second?.pv ?? [m.uci]
         } else {
+          // Second search of this ply: bail here too so an abort fired during the
+          // first search (already stopped by onAbort) can't launch a fresh one.
+          throwIfAborted()
           const afterSnap = await analyzeFen(engine, fenAfter, depth, 1)
           const afterBest = afterSnap.lines.get(1)
           // afterBest is from the OPPONENT's POV (they are to move) -> negate.
@@ -382,7 +454,7 @@ export async function runReview(opts: RunReviewOptions): Promise<GameReview> {
         fenAfter = fenBefore
       }
 
-      // 3) Win% + accuracy + classification (all mover POV).
+      // 3) Win% + accuracy (all mover POV).
       const winBefore = evalWinPercent(bestEval)
       const winAfter = evalWinPercent(playedEval)
       const accuracy = moveAccuracy(winBefore, winAfter)
@@ -391,33 +463,47 @@ export async function runReview(opts: RunReviewOptions): Promise<GameReview> {
       const chancesAfter = winChances(playedEval.cp, playedEval.mate)
       const winChancesDrop = chancesBefore - chancesAfter
 
-      // base verdict from chances delta; override with mate transition if any.
-      let verdict = reviewVerdict(winChancesDrop)
-      const mt = mateTransition(evalToScore(bestEval), evalToScore(playedEval))
-      if (mt.severity) verdict = mt.severity
-
       // cp loss (mover POV), capped per move at 1000.
-      const cpBefore = bestEval.mate != null ? Math.sign(bestEval.mate) * 1000 : (bestEval.cp ?? 0)
-      const cpAfter = playedEval.mate != null ? Math.sign(playedEval.mate) * 1000 : (playedEval.cp ?? 0)
+      // 'mate 0' means the POV side is already mated => losing extreme (-1000), NOT
+      // equal (Math.sign(0) === 0 would mis-score a decided position as 0 cp).
+      const mateToCpSide = (mate: number): number => (mate === 0 ? -1000 : Math.sign(mate) * 1000)
+      const cpBefore = bestEval.mate != null ? mateToCpSide(bestEval.mate) : (bestEval.cp ?? 0)
+      const cpAfter = playedEval.mate != null ? mateToCpSide(playedEval.mate) : (playedEval.cp ?? 0)
       const cpLoss = Math.max(0, Math.min(1000, cpBefore - cpAfter))
 
-      // sacrifice + recapture detection for the badge.
-      const caps = pvCaptures(fenAfter, playedPv.slice(1))
-      const sac = isSacrifice(caps)
-      const recap = isRecapture(fenBefore, m.uci, prevMoveUci)
-      const secondWinMover = second ? evalWinPercent(infoToEval(second)) : null
+      // Book: an unbroken openings-DB prefix — this move is theory only while every
+      // move before it was, the resulting position is still in the book, and we are
+      // within the book ply window.
+      const inBook = stillInBook && i + 1 <= BOOK_MAX_PLY && lookupByFen(fenAfter) != null
+      if (!inBook) stillInBook = false
 
-      const forced = countLegalMoves(beforePos) <= 1
+      // The opponent's immediately preceding move's FINAL badge (Great G3 / Miss).
+      const prevOppFinalBadge = moveEvals.length > 0 ? moveEvals[moveEvals.length - 1].badge : null
 
-      const badge = classifyBadge({
-        winDiff: winAfter - winBefore,
-        winAfterMover: winAfter,
-        winBeforeMover: winBefore,
-        playedIsBest,
-        forced,
-        isRecapture: recap,
-        isSacrifice: sac,
-        secondBestWinMover: secondWinMover
+      // 4) Classification (REVIEW-SPEC S1-S9) + the derived verdict, so the badge
+      //    chip and the verdict counters can never disagree.
+      const { badge, verdict, sacrificedRole } = classifyBadge({
+        fenBefore,
+        fenAfter,
+        playedUci: playedC,
+        playedSan: m.san,
+        isBest,
+        bestEval: evalToScore(bestEval),
+        playedEval: evalToScore(playedEval),
+        secondEval: secondEval ? evalToScore(secondEval) : null,
+        inBook,
+        prevOppFinalBadge
+      })
+
+      // 5) Factual comment (engine data only — no motif guessing).
+      const comment = buildComment({
+        badge,
+        playedSan: m.san,
+        bestSan,
+        bestMate: bestEval.mate ?? null,
+        playedMate: playedEval.mate ?? null,
+        refutation: sanLine(fenAfter, playedPv.slice(1), 3),
+        sacrificedRole: sacrificedRole ?? null
       })
 
       const me: MoveEval = {
@@ -440,15 +526,16 @@ export async function runReview(opts: RunReviewOptions): Promise<GameReview> {
         winChancesDrop,
         verdict,
         badge,
-        isBest: playedIsBest,
+        comment,
+        isBest,
         critical: isCritical(verdict, badge)
       }
       moveEvals.push(me)
 
-      prevMoveUci = m.uci
       opts.onProgress?.(i + 1, total)
     }
   } finally {
+    signal?.removeEventListener('abort', onAbort)
     await engine.quit().catch(() => engine.kill())
   }
 
@@ -457,15 +544,6 @@ export async function runReview(opts: RunReviewOptions): Promise<GameReview> {
   return review
 }
 
-function countLegalMoves(pos: Chess): number {
-  let n = 0
-  const ctx = pos.ctx()
-  for (const [, dests] of pos.allDests(ctx)) {
-    n += dests.size()
-    if (n > 1) return n
-  }
-  return n
-}
 
 // ---- Summaries ------------------------------------------------------------------
 
@@ -510,8 +588,9 @@ function summarize(moveEvals: MoveEval[], depth: number, gameId: number | null):
     totalPlies: moveEvals.length,
     white,
     black,
-    whiteElo: estimateElo(white.accuracy, white.moves),
-    blackElo: estimateElo(black.accuracy, black.moves),
+    // Blend accuracy with ACPL: accuracy anchors alone overrate short games.
+    whiteElo: estimateElo(white.accuracy, white.moves, white.acpl),
+    blackElo: estimateElo(black.accuracy, black.moves, black.acpl),
     moveEvals
   }
 }
@@ -782,5 +861,5 @@ export function getCachedReview(
   return { review, moveEvals }
 }
 
-// Re-export so the IPC layer / lead can use these without reaching into accuracy.ts.
-export { INITIAL_FEN, PIECE_VALUE }
+// Re-export so the IPC layer can use this without reaching into chess helpers.
+export { INITIAL_FEN }

@@ -9,12 +9,15 @@ licenses, and how to host or rebuild them yourself.
 
 | Key | Dataset | Imported file | Download size | On-disk size |
 |---|---|---|---|---|
-| `engine` | Stockfish 18 (Windows x64, NNUE embedded) | `datasets/engine/stockfish.exe` | ~109 MB | ~109 MB |
+| `engine` | Stockfish 18 (per-OS binary, NNUE embedded) | `datasets/engine/stockfish.exe` (Windows) · `datasets/engine/stockfish` (macOS/Linux) | ~109 MB | ~109 MB |
 | `puzzles` | Lichess puzzle database (Zstandard-compressed SQLite) | `datasets/puzzles.sqlite` | ~673 MB | ~2.0 GB |
 
-Both are stored under `app.getPath('userData')/datasets/` — i.e. `%APPDATA%/Chess#/datasets/` in a normal
-install (in development this is redirected to `<project>/.devdata/datasets/`). Every consumer resolves an
-**imported file first**, then any bundled file, so importing applies without a reinstall.
+The engine artifact is selected per `process.platform`/`process.arch` (see `ENGINE_ARTIFACTS` in
+`src/main/datasets/datasets.service.ts`); the puzzle SQLite is byte-for-byte identical on every OS. Both
+are stored under `app.getPath('userData')/datasets/` — `%APPDATA%/Chess#/datasets/` on Windows,
+`~/Library/Application Support/Chess#/datasets/` on macOS (in development this is redirected to
+`<project>/.devdata/datasets/`). Every consumer resolves an **imported file first**, then any bundled file,
+so importing applies without a reinstall.
 
 The smaller content — the openings book, the 0→2000 curriculum, famous games, persona definitions, and
 piece/sound assets — is committed to the repo and bundled in the app, so those features work immediately.
@@ -23,11 +26,12 @@ piece/sound assets — is committed to the repo and bundled in the app, so those
 
 `Settings → Datasets → Import datasets` triggers the main-process importer (`src/main/datasets`):
 
-1. Streams each missing artifact from the release URL.
+1. Streams the artifact matching the host OS/arch from the release URL.
 2. For the puzzle DB, decompresses the Zstandard stream on the fly using Node's built-in `zlib` zstd
-   support (Node 24 / Electron 42) — no external tools required.
+   support (Node 24+ / Electron 42) — no external tools required.
 3. Verifies the download against a known **SHA-256** and writes atomically (`*.part` → rename), so a failed
    or cancelled download never leaves a corrupt install.
+4. On macOS/Linux, marks the freshly written engine binary executable (`chmod 0o755`) so it can be spawned.
 
 The download is the only time the app touches the network; everything afterwards is fully offline.
 
@@ -35,9 +39,10 @@ The download is the only time the app touches the network; everything afterwards
 
 ### Stockfish 18 — GPL-3.0
 
-- **Binary source:** the official release, `stockfish-windows-x86-64-avx2` from
-  <https://github.com/official-stockfish/Stockfish/releases> (tag `sf_18`). The NNUE evaluation network is
-  embedded in the binary.
+- **Binary source:** the official release at <https://github.com/official-stockfish/Stockfish/releases>
+  (tag `sf_18`), one binary per OS/CPU — `stockfish-windows-x86-64-avx2` on Windows,
+  `stockfish-macos-m1-apple-silicon` on Apple-Silicon macOS (and the matching `stockfish-macos-x86-64-avx2`
+  on Intel). The NNUE evaluation network is embedded in each binary.
 - **License:** GNU GPL v3. Redistributing the binary obliges us to offer the **corresponding source**.
   That source is the upstream repository at tag `sf_18`:
   <https://github.com/official-stockfish/Stockfish/tree/sf_18>. Because Chess# itself is licensed
@@ -66,10 +71,11 @@ The download is the only time the app touches the network; everything afterwards
 You don't need the release to build everything from the original public sources:
 
 ```bash
-# Stockfish engine -> resources/engine/win/stockfish.exe
+# Stockfish engine -> resources/engine/<os>/stockfish[.exe]  (auto-detects your OS/CPU)
 npm run setup:engines
 
 # Lichess puzzle dump -> data/raw, then build the SQLite DB -> resources/data/puzzles.sqlite
+# (build:puzzles needs Python 3.14+ for stdlib zstd, or `pip install zstandard` on older Python)
 npm run setup:puzzles
 npm run build:puzzles
 
@@ -80,11 +86,18 @@ node scripts/build-openings-list.mjs  # src/.../openings-db.json (full searchabl
 
 ## Hosting the release assets (maintainers)
 
-The importer (`src/main/datasets/datasets.service.ts`) points at a release named `datasets-v1` and expects
-two assets:
+The importer (`src/main/datasets/datasets.service.ts`) points at a release named `datasets-v1`. It needs the
+shared puzzle DB plus **one engine binary per supported platform** — the raw binary, not the upstream
+archive (the importer streams a single file; it does not unzip/untar):
 
+- `puzzles.sqlite.zst` — `resources/data/puzzles.sqlite` compressed with Zstandard (level ~12). Shared by all OSes.
 - `stockfish-sf18-win-x64.exe` — a copy of `resources/engine/win/stockfish.exe`.
-- `puzzles.sqlite.zst` — `resources/data/puzzles.sqlite` compressed with Zstandard (level ~12).
+- `stockfish-sf18-mac-arm64` — a copy of `resources/engine/mac/stockfish` (Apple Silicon).
+
+Each engine asset name + its `bytes`/`sha256` live in the `ENGINE_ARTIFACTS` map in
+`src/main/datasets/datasets.service.ts`, keyed by `${process.platform}-${process.arch}`. **Adding a platform
+= upload its raw binary here and add one verified row to that map.** Until a platform's asset is uploaded,
+Macs/PCs of that kind can still run from a *bundled* engine (a from-source build) but cannot import one.
 
 To regenerate and publish them:
 
@@ -95,12 +108,19 @@ node -e "const fs=require('fs'),z=require('zlib'),{pipeline}=require('stream'); 
   z.createZstdCompress({params:{[z.constants.ZSTD_c_compressionLevel]:12}}), \
   fs.createWriteStream('puzzles.sqlite.zst'), e=>{if(e)throw e; console.log('done')})"
 
-cp resources/engine/win/stockfish.exe stockfish-sf18-win-x64.exe
+# Engine binaries (run setup:engines on each OS first to populate resources/engine/<os>/)
+cp resources/engine/win/stockfish.exe stockfish-sf18-win-x64.exe   # on Windows
+cp resources/engine/mac/stockfish      stockfish-sf18-mac-arm64    # on Apple-Silicon macOS
+
+# Record the sha256 + byte size for each, then update ENGINE_ARTIFACTS to match:
+shasum -a 256 stockfish-sf18-mac-arm64 && stat -f%z stockfish-sf18-mac-arm64
 
 gh release create datasets-v1 \
-  stockfish-sf18-win-x64.exe puzzles.sqlite.zst \
-  --title "Datasets v1" --notes "Stockfish 18 engine + Lichess puzzle DB (compressed)."
+  puzzles.sqlite.zst stockfish-sf18-win-x64.exe stockfish-sf18-mac-arm64 \
+  --title "Datasets v1" --notes "Stockfish 18 engines (per-OS) + Lichess puzzle DB (compressed)."
+# (or `gh release upload datasets-v1 stockfish-sf18-mac-arm64` to add the Mac binary to an existing release)
 ```
 
-If you change the asset bytes, update the `bytes`/`sha256` fields in
-`src/main/datasets/datasets.service.ts` to match (the importer verifies them).
+If you change the asset bytes, update the matching `bytes`/`sha256` fields in
+`src/main/datasets/datasets.service.ts` (the importer verifies them). The current `darwin-arm64` row already
+carries the verified checksum for `stockfish-sf18-mac-arm64`.

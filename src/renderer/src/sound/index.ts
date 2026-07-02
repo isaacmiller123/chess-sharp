@@ -3,6 +3,8 @@ export {
   SoundManager,
   getSoundManager,
   readSoundEnabledFromSettings,
+  readSoundVolumeFromSettings,
+  readSoundThemeFromSettings,
   type SoundName,
   type SoundManagerOptions
 } from './SoundManager'

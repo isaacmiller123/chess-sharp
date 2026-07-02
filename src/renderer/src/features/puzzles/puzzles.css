@@ -2,6 +2,73 @@
    (.board-area .board-stage .board-wrap .board-controls .panel .pad .btn
    .icon-btn .eval-chip .num .muted .small .analysis-sidebar). */
 
+/* ---- Mode shell (Train / Custom / Rush / Daily switcher) ---- */
+.puzzles-shell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.puzzle-modebar {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+}
+.puzzle-modetab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.puzzle-modetab:hover {
+  color: var(--text-primary);
+}
+.puzzle-modetab.is-active {
+  background: var(--surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---- Mode stub (placeholder until a slice is built) ---- */
+.puzzle-mode-stub {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  text-align: center;
+  min-height: 320px;
+  padding: var(--space-8) var(--space-6);
+  color: var(--text-muted);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+}
+.puzzle-mode-stub h2 {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.puzzle-mode-stub p {
+  margin: 0;
+  max-width: 36ch;
+  font-size: var(--fs-sm);
+}
+
 .puzzles-view {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 344px;
@@ -37,6 +104,14 @@
 }
 .puzzle-prompt.is-failed .prompt-title {
   color: var(--danger);
+}
+/* Retry-on-wrong: fail recorded, learner still solving (matches Custom mode). */
+.puzzle-prompt.is-keeptrying {
+  background: var(--warning-soft);
+  border-color: transparent;
+}
+.puzzle-prompt.is-keeptrying .prompt-title {
+  color: var(--warning);
 }
 
 /* ---- Rating + streak row ---- */

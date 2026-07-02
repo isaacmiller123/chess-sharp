@@ -11,14 +11,38 @@ import fs from 'node:fs'
 //   bundled:   <resources>/...           (only present in a "full" build)
 //
 // In dev, userData is redirected to <project>/.devdata (see main/index.ts), so
-// imports land there and never touch %APPDATA% or the Desktop.
+// imports land there and never touch the per-user app-data folder or the Desktop
+// (%APPDATA% on Windows, ~/Library/Application Support on macOS).
+//
+// Everything below is platform-aware off a single code path (congruent, not
+// forked): the engine binary is `stockfish.exe` on Windows and `stockfish`
+// (no extension) on macOS/Linux, and the bundled copy lives under a per-platform
+// subfolder (win | mac | linux). The puzzle DB is a plain SQLite file and is
+// byte-for-byte identical on every OS.
+
+/** Per-platform subfolder holding the bundled engine binary. */
+function enginePlatformDir(): 'win' | 'mac' | 'linux' {
+  switch (process.platform) {
+    case 'win32':
+      return 'win'
+    case 'darwin':
+      return 'mac'
+    default:
+      return 'linux'
+  }
+}
+
+/** Engine binary filename: only Windows carries the `.exe` extension. */
+export function engineBinaryName(): string {
+  return process.platform === 'win32' ? 'stockfish.exe' : 'stockfish'
+}
 
 export function datasetsDir(): string {
   return path.join(app.getPath('userData'), 'datasets')
 }
 
 export function importedEnginePath(): string {
-  return path.join(datasetsDir(), 'engine', 'stockfish.exe')
+  return path.join(datasetsDir(), 'engine', engineBinaryName())
 }
 
 export function importedPuzzlesPath(): string {
@@ -26,9 +50,10 @@ export function importedPuzzlesPath(): string {
 }
 
 function bundledEnginePath(): string {
+  const rel = path.join('engine', enginePlatformDir(), engineBinaryName())
   return app.isPackaged
-    ? path.join(process.resourcesPath, 'engine', 'win', 'stockfish.exe')
-    : path.join(__dirname, '../../resources/engine/win/stockfish.exe')
+    ? path.join(process.resourcesPath, rel)
+    : path.join(__dirname, '../../resources', rel)
 }
 
 function bundledPuzzlesPath(): string {

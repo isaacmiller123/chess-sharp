@@ -7,9 +7,14 @@ import { formatRelativeDate, opponentLabelOf } from './format'
 export interface ContinueCardProps {
   lastGame: GameRow | null
   onNavigate: (view: HomeNavTarget) => void
+  onOpenGame: (gameId: number) => void
 }
 
-export default function ContinueCard({ lastGame, onNavigate }: ContinueCardProps): JSX.Element {
+export default function ContinueCard({
+  lastGame,
+  onNavigate,
+  onOpenGame
+}: ContinueCardProps): JSX.Element {
   const when = lastGame ? formatRelativeDate(lastGame.created_at) : ''
   const subtitle = lastGame ? [opponentLabelOf(lastGame), when].filter(Boolean).join(' · ') : ''
 
@@ -27,7 +32,7 @@ export default function ContinueCard({ lastGame, onNavigate }: ContinueCardProps
         </button>
         {lastGame && (
           <div className="continue-secondary">
-            <button className="btn ghost" onClick={() => onNavigate('analysis')}>
+            <button className="btn ghost" onClick={() => onOpenGame(lastGame.id)}>
               <History size={14} aria-hidden /> Review last game
             </button>
             <button className="btn ghost" onClick={() => onNavigate('play')}>

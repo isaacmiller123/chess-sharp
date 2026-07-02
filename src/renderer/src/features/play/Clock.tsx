@@ -1,4 +1,3 @@
-import { Clock as ClockIcon } from 'lucide-react'
 import { formatClock, LOW_TIME_MS } from './timeControl'
 
 export interface ClockProps {
@@ -13,9 +12,10 @@ export interface ClockProps {
 }
 
 /**
- * A single side's countdown clock. Reads as mm:ss, switching to tenths under 10s.
- * The active side is highlighted; a low clock turns urgent. Purely presentational
- * — all timing lives in useChessClock.
+ * A single side's countdown, rendered as a chess.com-style digit block docked
+ * to the right edge of its player card. Reads mm:ss, switching to tenths under
+ * 10s. The ticking side is highlighted; a low clock turns urgent and blinks.
+ * Purely presentational — all timing lives in useChessClock.
  */
 export function Clock({ ms, active, over, label }: ClockProps) {
   const low = ms < LOW_TIME_MS
@@ -36,7 +36,6 @@ export function Clock({ ms, active, over, label }: ClockProps) {
       aria-label={`${label} clock`}
       aria-live={active && !over ? 'off' : 'polite'}
     >
-      <ClockIcon className="play-clock-icon" size={14} aria-hidden />
       <span className="play-clock-time num">{formatClock(ms)}</span>
     </span>
   )
