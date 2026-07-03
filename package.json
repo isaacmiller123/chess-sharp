@@ -1,6 +1,6 @@
 {
   "name": "chess-sharp",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Chess# — offline, local-first chess analysis & teaching desktop app powered by Stockfish, with bundled Lichess content and local coaching.",
   "author": "Isaac Miller",
   "license": "GPL-3.0-or-later",
