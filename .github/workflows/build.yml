@@ -27,8 +27,9 @@ concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
+# `contents: write` lets the tag build attach the installers to a GitHub Release.
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -88,3 +89,28 @@ jobs:
             release/*.zip
             release/*.blockmap
             release/latest*.yml
+
+      # Tag builds also publish the installers as GitHub Release assets — the
+      # public download page. Both matrix legs race to create the release; the
+      # loser's create fails harmlessly (|| true) and both then upload their own
+      # platform's files (--clobber makes re-runs idempotent). `gh` is
+      # preinstalled on all runners; the ambient GITHUB_TOKEN has contents:write
+      # (see permissions above). Only user-facing files are attached — installers
+      # and zips, not blockmaps/update metadata (the app has no auto-updater).
+      - name: Publish installers to the GitHub Release (tag builds only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --title "Chess# $GITHUB_REF_NAME" \
+            --notes "Offline chess studio — school with Viktor, chess.com-grade game review, grandmaster bots with realistic clocks, puzzles, and worldwide P2P multiplayer (share a code, play anyone, anywhere — no account, no port forwarding).
+
+**Windows:** download \`Chess-Setup-$GITHUB_REF_NAME.exe\` (installer) or \`Chess-Portable-*.exe\` (no install).
+**macOS:** download the \`.dmg\` for your chip (arm64 = Apple Silicon, x64 = Intel).
+
+Builds are unsigned: Windows SmartScreen → More info → Run anyway; macOS → right-click the app → Open (first launch only). On first run, use Settings → Datasets to import the engine and puzzle database." \
+            2>/dev/null || true
+          files=$(ls release/*.exe release/*.dmg release/*.zip 2>/dev/null || true)
+          [ -n "$files" ] && gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber $files
