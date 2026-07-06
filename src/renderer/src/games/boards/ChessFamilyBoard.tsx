@@ -45,6 +45,7 @@ import type { ChessVariantState } from '../chessVariants'
 import { ffishStateCheck } from '../ffishVariants'
 import { isFfishReady } from '../ffish'
 import { ensureChessFamilyArtCss, hasBoardArt } from './chessFamilyArt'
+import { keyToUciSquare, uciSquareToKey } from './cgKeys'
 import './chess-family-pieces.css'
 import './chess-family-board.css'
 
@@ -70,28 +71,45 @@ const PROMO_LABEL: Record<string, string> = {
 
 // ---------------------------------------------------------------------------
 // Move codec (kernel canonical strings ↔ chessgroundx keys)
+//
+// Kernel/UCI squares use numeric ranks ('a10'); chessgroundx keys use
+// single-character ranks (rank 10 = ':', so a10 is key 'a:'). ALL squares
+// handed to / received from chessground go through boards/cgKeys.ts — a raw
+// `as cg.Key` cast on a UCI square breaks rank 10 (immobile xiangqi/janggi
+// back-rank pieces). parseMove/destsOf/lastMoveOf are pure and exported for
+// scripts/test-cg-keys.mjs.
 
 interface ParsedMove {
+  /** chessgroundx orig — board key ('a:') or drop orig ('P@') */
   orig: cg.Orig
+  /** chessgroundx dest key ('a:') */
   dest: cg.Key
   /** promotion suffix: chess 'q|r|b|n|k', shogi '+', makruk 'm', else '' */
   suffix: string
 }
 
-const BOARD_MOVE_RE = /^([a-i](?:10|[1-9]))([a-i](?:10|[1-9]))([a-z+]?)$/
-const DROP_MOVE_RE = /^([A-Z])@([a-i](?:10|[1-9]))$/
+// files a–p / ranks 1–16 = chessgroundx limits (fairy-sf largeboard tops out
+// at l10 — see games/customVariants.ts — comfortably inside).
+const BOARD_MOVE_RE = /^([a-p](?:1[0-6]|[1-9]))([a-p](?:1[0-6]|[1-9]))([a-z+]?)$/
+const DROP_MOVE_RE = /^([A-Z])@([a-p](?:1[0-6]|[1-9]))$/
 
-function parseMove(move: string): ParsedMove | null {
+export function parseMove(move: string): ParsedMove | null {
   const drop = DROP_MOVE_RE.exec(move)
-  if (drop) return { orig: `${drop[1]}@` as cg.Orig, dest: drop[2] as cg.Key, suffix: '' }
+  if (drop) {
+    const dest = uciSquareToKey(drop[2])
+    return dest ? { orig: `${drop[1]}@` as cg.Orig, dest, suffix: '' } : null
+  }
   const m = BOARD_MOVE_RE.exec(move)
   if (!m) return null
-  return { orig: m[1] as cg.Orig, dest: m[2] as cg.Key, suffix: m[3] }
+  const orig = uciSquareToKey(m[1])
+  const dest = uciSquareToKey(m[2])
+  if (!orig || !dest) return null
+  return { orig, dest, suffix: m[3] }
 }
 
 /** Group legal moves by origin. Same-square moves (janggi pass) are skipped —
  *  they cannot be a board gesture; owners surface them as a Pass control. */
-function destsOf(moves: readonly string[]): cg.Dests {
+export function destsOf(moves: readonly string[]): cg.Dests {
   const dests = new Map<cg.Orig, cg.Key[]>()
   for (const move of moves) {
     const p = parseMove(move)
@@ -103,7 +121,7 @@ function destsOf(moves: readonly string[]): cg.Dests {
   return dests
 }
 
-function lastMoveOf(moves: readonly string[]): cg.Orig[] | undefined {
+export function lastMoveOf(moves: readonly string[]): cg.Orig[] | undefined {
   const last = moves.length > 0 ? moves[moves.length - 1] : undefined
   if (!last) return undefined
   const p = parseMove(last)
@@ -417,7 +435,8 @@ export default function ChessFamilyBoard({
         afterNewPiece: (piece, key) => {
           const live = liveRef.current
           const letter = letterOf(piece.role, true)
-          live.onMove(`${letter}@${key}`)
+          // key is a cg key ('a:' on rank 10) — kernel moves want 'a10'
+          live.onMove(`${letter}@${keyToUciSquare(key)}`)
           setNonce((n) => n + 1)
         }
       }
