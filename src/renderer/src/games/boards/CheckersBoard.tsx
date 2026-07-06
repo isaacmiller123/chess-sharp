@@ -17,7 +17,12 @@
 // reconciler transfers the mover's id origin→destination) so CSS transitions
 // animate slides; captured men fade out in place; a man reaching the crown
 // row pops its new crown. Orientation flips render instantly (no cross-board
-// slides) — flipPolicy 'rotate' is the OTB auto-flip.
+// slides) — the pieces layer is remounted via key={orientation}, so a flip
+// creates fresh DOM with the rotated transforms already in place and the
+// slide transition can never lerp pieces across the board (a one-render
+// "suppress transitions" class was tried first and lost the race: the
+// selection-reset effect re-renders before the browser's next style recalc,
+// which restored transitions while the flip delta was still unpainted).
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
@@ -33,6 +38,7 @@ import {
   type IntlCheckersState
 } from '../checkers'
 import type { PlayerColor } from '../kernel'
+import { rcToSquare, squareToRC, viewRC } from './orient'
 import { useBoardSound } from './useBoardSound'
 
 interface ParsedLegal {
@@ -57,21 +63,6 @@ interface PieceModel {
   moves: readonly string[]
   pieces: RenderPiece[]
   nextId: number
-}
-
-/** 1-based codec square → board row/col (row 0 = top as numbered). */
-function squareToRC(square: number, n: number): { row: number; col: number } {
-  const half = n / 2
-  const p = square - 1
-  const row = Math.floor(p / half)
-  const col = 2 * (p % half) + (row % 2 === 0 ? 1 : 0)
-  return { row, col }
-}
-
-/** Board row/col → 1-based codec square, or null on a light square. */
-function rcToSquare(row: number, col: number, n: number): number | null {
-  if ((row + col) % 2 !== 1) return null
-  return row * (n / 2) + (col - (row % 2 === 0 ? 1 : 0)) / 2 + 1
 }
 
 function movesOf(state: unknown): readonly string[] {
@@ -189,13 +180,6 @@ export default function CheckersBoard({ kind, state, orientation, interactive, o
     return out
   })()
 
-  // Orientation flips render instantly — suppress slide transitions for it.
-  const lastOrientRef = useRef(orientation)
-  const noAnim = lastOrientRef.current !== orientation
-  useEffect(() => {
-    lastOrientRef.current = orientation
-  })
-
   // Last move: origin + destination tint.
   const lastEnds = useMemo(() => {
     const moves = movesOf(state)
@@ -209,10 +193,10 @@ export default function CheckersBoard({ kind, state, orientation, interactive, o
 
   // ---- squares ----
   const cells: JSX.Element[] = []
+  const flipped = orientation !== 'white'
   for (let r = 0; r < n; r++) {
     for (let c = 0; c < n; c++) {
-      const row = orientation === 'white' ? r : n - 1 - r
-      const col = orientation === 'white' ? c : n - 1 - c
+      const { row, col } = viewRC(r, c, n, flipped)
       const sq = rcToSquare(row, col, n)
       if (sq === null) {
         cells.push(<div key={`${r}-${c}`} className="ck-sq is-light" />)
@@ -241,11 +225,12 @@ export default function CheckersBoard({ kind, state, orientation, interactive, o
     <div className={`ckboard is-${kind}`}>
       <div className="ckboard-grid" style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }}>
         {cells}
-        <div className={`ck-pieces${noAnim ? ' no-anim' : ''}`}>
+        {/* key={orientation}: a flip remounts the layer so transforms never
+            transition across the board (instant 180° repaint). */}
+        <div className="ck-pieces" key={orientation}>
           {pieces.map((p) => {
-            const { row, col } = squareToRC(p.square, n)
-            const r = orientation === 'white' ? row : n - 1 - row
-            const c = orientation === 'white' ? col : n - 1 - col
+            const rc = squareToRC(p.square, n)
+            const { row: r, col: c } = viewRC(rc.row, rc.col, n, flipped)
             return (
               <div
                 key={p.id}

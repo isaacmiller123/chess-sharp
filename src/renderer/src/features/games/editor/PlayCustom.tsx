@@ -8,6 +8,7 @@ import {
   type CustomVariantState
 } from '../../../games/customVariants'
 import { useSound } from '../../../sound/useSound'
+import { useOtbOrientation } from '../useOtbOrientation'
 import CustomBoard from './CustomBoard'
 
 type Phase =
@@ -74,6 +75,14 @@ export function PlayCustom({
     })
   }, [])
 
+  // Hook stays above the early returns (hook-after-return caused a prior
+  // crash — see CLAUDE.md). Chess-OTB flip timing: turn a beat after the move.
+  const result =
+    phase.t === 'ready' ? (phase.entry.spec as GameSpec<CustomVariantState>).result(phase.game) : null
+  const turn: 'white' | 'black' =
+    phase.t === 'ready' && phase.game.fen.split(' ')[1] === 'b' ? 'black' : 'white'
+  const orientation = useOtbOrientation(turn, autoFlip && !result)
+
   if (phase.t === 'loading') {
     return (
       <div className="vl-play-loading" role="status">
@@ -96,9 +105,6 @@ export function PlayCustom({
 
   const spec = phase.entry.spec as GameSpec<CustomVariantState>
   const game = phase.game
-  const result = spec.result(game)
-  const turn: 'white' | 'black' = game.fen.split(' ')[1] === 'b' ? 'black' : 'white'
-  const orientation = autoFlip && !result ? turn : 'white'
   const resultLabel =
     result &&
     (result.winner === null

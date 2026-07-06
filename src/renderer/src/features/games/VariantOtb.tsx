@@ -7,6 +7,7 @@ import { getGame, isRegisteredGame } from '../../games/registry'
 import type { GameKind } from '../../games/kernel'
 import { useBoardSound } from '../../games/boards/useBoardSound'
 import { Board3DHost, BoardModeToggle, useBoardMode } from './boardMode'
+import { useOtbOrientation } from './useOtbOrientation'
 
 /**
  * Local over-the-board play for the WHOLE chess family (all 14 kinds), driven
@@ -113,7 +114,8 @@ export function VariantOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
   }, [ready, spec])
 
   const rotates = spec.flipPolicy === 'rotate'
-  const orientation = rotates && autoFlip ? turn : 'white'
+  // Chess-OTB timing: flip a beat AFTER the committed move, instant repaint.
+  const orientation = useOtbOrientation(turn, rotates && autoFlip)
   const sides = SIDE_NAMES[kind] ?? ['White', 'Black']
   const sideName = (color: 'white' | 'black'): string => (color === 'white' ? sides[0] : sides[1])
 

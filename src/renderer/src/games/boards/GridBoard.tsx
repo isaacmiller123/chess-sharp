@@ -32,6 +32,7 @@ import { CONNECT4_SPEC, type Connect4State } from '../small/connect4'
 import { HEX_N, HEX_SPEC, hexName, type HexState } from '../small/hex'
 import { MORRIS_MILLS, MORRIS_POINTS, MORRIS_SPEC, type MorrisState } from '../small/morris'
 import { TICTACTOE_SPEC, tttName, type TicTacToeState } from '../small/tictactoe'
+import { MOR_S, MOR_STEP, morXY } from './orient'
 
 /** One-ply advance from `prev` to `next` (same game, exactly one new move)? */
 function isOnePly(prev: readonly string[] | null, next: readonly string[]): boolean {
@@ -424,24 +425,6 @@ function HexBoard({ state, interactive, onMove }: GameBoardProps): JSX.Element {
 // Nine Men's Morris
 // ===========================================================================
 
-const MOR_S = 340
-const MOR_PAD = 34
-const MOR_STEP = (MOR_S - MOR_PAD * 2) / 6
-
-interface MorPt {
-  x: number
-  y: number
-}
-
-function morXY(index: number, rotated: boolean): MorPt {
-  const name = MORRIS_POINTS[index]
-  const file = name.charCodeAt(0) - 97
-  const rank = Number(name[1]) - 1
-  const x = MOR_PAD + file * MOR_STEP
-  const y = MOR_PAD + (6 - rank) * MOR_STEP
-  return rotated ? { x: MOR_S - x, y: MOR_S - y } : { x, y }
-}
-
 interface MorLegal {
   str: string
   from: number | null
@@ -660,6 +643,9 @@ function MorrisBoard({ state, orientation, interactive, onMove }: GameBoardProps
             </g>
           )
         })}
+        {/* key={rotated}: an orientation flip remounts the men so the cx/cy
+            slide transitions never lerp them across the board. */}
+        <g key={rotated ? 'rot' : 'std'}>
         {men.map((man) => {
           const { x, y } = morXY(man.point, rotated)
           const isSel = selFrom === man.point && !man.captured
@@ -677,6 +663,7 @@ function MorrisBoard({ state, orientation, interactive, onMove }: GameBoardProps
             />
           )
         })}
+        </g>
         {/* in-hand trays */}
         {([1, 2] as const).map((player) =>
           Array.from({ length: s.inHand[player - 1] }, (_, i) => (

@@ -17,24 +17,25 @@ interface CameraRigProps {
   /** Largest board dimension in world units — drives distances. */
   span: number
   topDown: boolean
-  /** π when the black seat faces the camera. */
-  seatYaw: number
   /** Upright boards (connect four) get a lower, more frontal default. */
   upright: boolean
   /** False while a piece drag is in progress. */
   enabled: boolean
 }
 
+// The camera always sits at azimuth 0 — the user's seat. Board orientation is
+// handled entirely by the layout (world mirror + piece seatYaw); giving the
+// orientation to the camera as well would cancel the mirror out.
 function presetSpherical(props: CameraRigProps): THREE.Spherical {
-  const { span, topDown, seatYaw, upright } = props
-  if (topDown) return new THREE.Spherical(span * 1.3 + 1.2, 0.08, seatYaw)
-  if (upright) return new THREE.Spherical(span * 1.7 + 1.2, 1.28, seatYaw)
+  const { span, topDown, upright } = props
+  if (topDown) return new THREE.Spherical(span * 1.3 + 1.2, 0.08, 0)
+  if (upright) return new THREE.Spherical(span * 1.7 + 1.2, 1.28, 0)
   // 35° elevation → polar 55° from the up axis.
-  return new THREE.Spherical(span * 1.38 + 1.2, (55 * Math.PI) / 180, seatYaw)
+  return new THREE.Spherical(span * 1.38 + 1.2, (55 * Math.PI) / 180, 0)
 }
 
 export function CameraRig(props: CameraRigProps): JSX.Element {
-  const { center, span, topDown, seatYaw, upright, enabled } = props
+  const { center, span, topDown, upright, enabled } = props
   const camera = useThree((s) => s.camera)
   const controls = useRef<OrbitControlsImpl | null>(null)
   const anim = useRef<{ t0: number; from: THREE.Spherical; to: THREE.Spherical } | null>(null)
@@ -56,7 +57,7 @@ export function CameraRig(props: CameraRigProps): JSX.Element {
     }
     anim.current = { t0: -1, from, to }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rerun on preset inputs only
-  }, [topDown, seatYaw, upright, span, camera])
+  }, [topDown, upright, span, camera])
 
   useFrame(({ clock }) => {
     const a = anim.current

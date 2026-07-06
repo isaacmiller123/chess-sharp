@@ -222,9 +222,6 @@
   transition: transform 260ms cubic-bezier(0.22, 0.9, 0.35, 1);
   will-change: transform;
 }
-.ck-pieces.no-anim .ck-piece {
-  transition: none;
-}
 .ck-man {
   position: relative;
   width: 80%;

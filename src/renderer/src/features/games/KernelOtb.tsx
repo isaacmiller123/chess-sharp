@@ -21,6 +21,7 @@ import { getGame, isRegisteredGame, type GameBoardProps } from '../../games/regi
 import type { PlayerColor } from '../../games/kernel'
 import type { GoSpec, GoState } from '../../games/go'
 import { Board3DHost, BoardModeToggle, useBoardMode } from './boardMode'
+import { useOtbOrientation } from './useOtbOrientation'
 
 /** Per-idiom color naming (spec players stay white/black on the wire). */
 export function kernelColorLabel(kind: string, c: PlayerColor): string {
@@ -124,7 +125,8 @@ export function KernelOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
   )
 
   const rotates = spec.flipPolicy === 'rotate'
-  const orientation: PlayerColor = rotates && autoFlip ? turn : 'white'
+  // Chess-OTB timing: flip a beat AFTER the committed move, instant repaint.
+  const orientation: PlayerColor = useOtbOrientation(turn, rotates && autoFlip)
   const canPass = legal.includes('pass')
   const canSwap = legal.includes('swap')
 

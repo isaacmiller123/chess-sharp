@@ -68,6 +68,21 @@ export class MotionController {
     // Flip target changes are driven explicitly via setFlip.
   }
 
+  /**
+   * Re-home a piece with NO slide — used when the whole layout changes under
+   * the pieces (OTB orientation flip mirrors the world): every piece must
+   * repaint at its new spot instantly, never glide across the board.
+   */
+  teleport(id: string, home: THREE.Vector3): void {
+    const e = this.entries.get(id)
+    if (!e) return
+    e.home.copy(home)
+    e.moveFrom = null
+    e.spawnT0 = -1
+    e.drag = null
+    e.dragCur = null
+  }
+
   moveTo(id: string, home: THREE.Vector3): void {
     const e = this.entries.get(id)
     if (!e) return

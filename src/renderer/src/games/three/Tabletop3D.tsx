@@ -265,6 +265,9 @@ function TabletopScene({
 
   const prevPieces = useRef<Map<string, { type: string; color: 'white' | 'black' }>>(new Map())
   const firstSync = useRef(true)
+  // Layout identity — when it changes (OTB orientation flip mirrors the world)
+  // existing pieces TELEPORT to their re-homed spots instead of sliding.
+  const prevLayout = useRef(layout)
 
   const spawnGhost = useCallback(
     (id: string): void => {
@@ -291,6 +294,8 @@ function TabletopScene({
   useEffect(() => {
     const first = firstSync.current
     firstSync.current = false
+    const layoutChanged = prevLayout.current !== layout
+    prevLayout.current = layout
     const seen = new Set<string>()
     for (const p of prepared) {
       seen.add(p.id)
@@ -305,6 +310,10 @@ function TabletopScene({
         } else {
           controller.ensure(p.id, p.home, angle, !first)
         }
+      } else if (layoutChanged) {
+        // Orientation flip re-homed the whole board: instant repaint, no slides.
+        controller.teleport(p.id, p.home)
+        controller.setFlip(p.id, angle, false)
       } else {
         controller.ensure(p.id, p.home, angle, false)
         controller.setFlip(p.id, angle, !first)
@@ -314,7 +323,7 @@ function TabletopScene({
       if (!seen.has(id)) spawnGhost(id)
     }
     prevPieces.current = new Map(prepared.map((p) => [p.id, { type: p.type, color: p.color }]))
-  }, [prepared, provider, controller, piecesById, spawnGhost])
+  }, [prepared, provider, controller, piecesById, spawnGhost, layout])
 
   // Imperative handle backing.
   useEffect(() => {
@@ -523,11 +532,14 @@ function TabletopScene({
       {system}
       {interactive && hoverPos ? <HoverMarker layout={layout} pos={hoverPos} /> : null}
       {pickPlane}
+      {/* The camera stays at the user's seat (theta 0): orientation is done by
+          the LAYOUT mirroring the world (and seatYaw turning the pieces).
+          Feeding seatYaw to the camera too walked it to the far side and
+          cancelled the mirror — the OTB auto-flip became a visual no-op. */}
       <CameraRig
         center={layout.center}
         span={span}
         topDown={topDown}
-        seatYaw={layout.seatYaw}
         upright={upright}
         enabled={!dragId}
       />
