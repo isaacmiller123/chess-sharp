@@ -98,7 +98,7 @@ globalThis.__MP_MOCK__ = {
 // The store derives fen incrementally; to assert its board state we compare against
 // the same chessops the store uses. We bundle a tiny helper module for that.
 const CHESS_HELPERS = `
-export { applyMove, turnColor, INITIAL_FEN, outcome } from '${resolve(ROOT, 'src/renderer/src/chess/chess.ts').replace(/\\\\/g, '/')}'
+export { applyMove, turnColor, INITIAL_FEN, outcome } from '${resolve(ROOT, 'src/renderer/src/chess/chess.ts').replace(/\\/g, '/')}'
 `
 
 async function bundle(entry, outfile, extraPlugins = []) {
