@@ -1269,7 +1269,17 @@ export class MpNetSession {
     }
   }
 
+  /** TEST-ONLY: pin the rolling RTT estimate so the lag-compensation path is
+   *  deterministically testable (real pongs would EMA-decay any injected value).
+   *  Cleared by resetState(). Never call outside tests. */
+  __setRttForTests(ms: number): void {
+    this.rtt = ms
+    this.rttPinnedForTests = true
+  }
+  private rttPinnedForTests = false
+
   private onPong(sentTs: number): void {
+    if (this.rttPinnedForTests) return
     // Real monotonic time, matching the ping timestamp — see heartbeatTick.
     const sample = Math.max(0, performance.now() - sentTs)
     // Exponential moving average so a single spike doesn't dominate forgiveness.
@@ -1383,5 +1393,6 @@ export class MpNetSession {
     this.lastTickAt = 0
     this.missedEvals = 0
     this.rtt = 0
+    this.rttPinnedForTests = false
   }
 }

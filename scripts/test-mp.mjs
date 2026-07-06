@@ -684,13 +684,11 @@ async function main() {
     const { host, guest, he, ge, pair } = await connectPair(CFG(INITIAL, 0), { clock })
     await host.sendMove('e2e4')
     await waitEvent(ge, (e) => e.type === 'move' && e.uci === 'e2e4', { label: 'e2e4 (lag)' })
-    const guestSlot = [...pair.room.members.values()][1]
-    // Feed the host a backdated pong repeatedly so its EMA rtt converges high. A
-    // ts of now−800 ⇒ rtt sample 800 ⇒ forgiveness min(400,250)=250 (the cap).
-    for (let i = 0; i < 20; i++) {
-      guestSlot.transport.send(JSON.stringify({ t: 'pong', ts: clock.now() - 800 }))
-      await sleep(6)
-    }
+    // Pin the host's RTT via the dedicated test seam. (RTT is measured with REAL
+    // monotonic time since the Windows-CI fix — injected-clock tricks and crafted
+    // pongs can no longer influence it, and real heartbeat pongs would EMA-decay
+    // any transient value; the pin freezes it at exactly 800.)
+    host.__setRttForTests(800)
     // Black thinks exactly 1000ms of monotonic time, then moves. The host debits
     // 1000 − forgiveness. With rtt≈800 the cap (250ms) applies, so debit ≈ 750.
     clock.advance(1_000)
