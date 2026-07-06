@@ -189,12 +189,23 @@ try {
   }
 
   // ---- 4. level 5 > level 1 quick sanity (othello + connect4) ---------------
+  // Level-1 bots pick via noisyArgmax(Math.random), so unseeded matches flake
+  // (~few % of runs L5 drops half a point). Seed Math.random for this section
+  // only, keeping it the deterministic regression check the header promises.
   console.log('level 5 beats level 1 (2 games each, alternating first move)')
-  for (const kind of ['othello', 'connect4']) {
-    let score = 0
-    score += await playMatch(kind, 5, 1, true)
-    score += await playMatch(kind, 5, 1, false)
-    ok(score >= 1.5, `${kind}: level 5 scores ${score}/2 vs level 1`)
+  {
+    const origRandom = Math.random
+    Math.random = mulberry32(0xc4c4)
+    try {
+      for (const kind of ['othello', 'connect4']) {
+        let score = 0
+        score += await playMatch(kind, 5, 1, true)
+        score += await playMatch(kind, 5, 1, false)
+        ok(score >= 1.5, `${kind}: level 5 scores ${score}/2 vs level 1`)
+      }
+    } finally {
+      Math.random = origRandom
+    }
   }
 
   // ---- 5. intl draughts top level stays interactive ---------------------------
