@@ -30,14 +30,16 @@ export { MAIA_LEVELS, type MaiaLevel }
 
 interface MaiaWeightArtifact {
   level: MaiaLevel
-  /** Asset name in the CSSLab release AND the on-disk filename. */
+  /** Asset name in BOTH releases (ours + CSSLab's) AND the on-disk filename. */
   asset: string
   bytes: number
   sha256: string
 }
 
 // All five verified 2026-07-06 against the CSSLab release (HTTP content-length
-// + local sha256 of the downloaded files).
+// + local sha256 of the downloaded files). The same files are mirrored
+// byte-for-byte on our datasets-v1 release (re-hashed after upload), so the
+// importer tries the mirror first and falls back to CSSLab upstream.
 export const MAIA_WEIGHTS: MaiaWeightArtifact[] = [
   {
     level: 1100,
@@ -82,25 +84,20 @@ interface Lc0File {
 }
 
 // lc0 0.32.1, keyed by `${process.platform}-${process.arch}` like ENGINE_ARTIFACTS.
-// TODO(P2): upload both platforms' files to the datasets-v1 release, then fill in
-// bytes+sha256 (rows with sha256 '' are treated as "not yet published" and are
-// skipped by importMaia so a missing upload can never 404 the whole import).
-//   mac-arm64: extract from the Homebrew bottle (lc0 0.32.1, eigen backend):
-//     https://ghcr.io/v2/homebrew/core/lc0/blobs/sha256:d26534ed3db2d70eeb6b02f404defdfa04bc3a402437d2fc334bdac71baff11e
-//     (sequoia bottle; fetch with header `Authorization: Bearer QQ==`, untar,
-//     upload bin/lc0 as lc0-0.32.1-mac-arm64).
-//   win-x64: official release zip (24,001,097 bytes):
+// Both platforms uploaded + verified 2026-07-06 (see docs/DATASETS.md):
+//   mac-arm64: the raw Mach-O from the Homebrew bottle's libexec/lc0 (0.32.1,
+//     Metal/Accelerate — links only system libraries, so one file suffices).
+//   win-x64: lc0.exe + dnnl.dll extracted from the official release zip
 //     https://github.com/LeelaChessZero/lc0/releases/download/v0.32.1/lc0-v0.32.1-windows-cpu-dnnl.zip
-//     (unzip, upload lc0.exe as lc0-0.32.1-win-x64.exe and dnnl.dll as
-//     lc0-0.32.1-win-x64-dnnl.dll — two raw files, keeping the one-file-per-item
-//     download pattern; no archive support needed in the importer).
+//     (two raw files, keeping the one-file-per-item download pattern; no
+//     archive support needed in this importer).
 const LC0_ARTIFACTS: Record<string, Lc0File[]> = {
   'darwin-arm64': [
     {
       asset: 'lc0-0.32.1-mac-arm64',
       file: 'lc0',
-      bytes: 0, // TODO(P2)
-      sha256: '', // TODO(P2)
+      bytes: 1848672,
+      sha256: '6a6f5e8083025c6cd194ddcfb3ead17b51347c4591cff436670ce7a3bd14f98f',
       executable: true
     }
   ],
@@ -108,14 +105,14 @@ const LC0_ARTIFACTS: Record<string, Lc0File[]> = {
     {
       asset: 'lc0-0.32.1-win-x64.exe',
       file: 'lc0.exe',
-      bytes: 0, // TODO(P2)
-      sha256: '' // TODO(P2)
+      bytes: 2196992,
+      sha256: '2130a6b980c8d9543888d3d4b2e45642b550ba73b36e05ae892e9c9130afd5ed'
     },
     {
       asset: 'lc0-0.32.1-win-x64-dnnl.dll',
       file: 'dnnl.dll',
-      bytes: 0, // TODO(P2)
-      sha256: '' // TODO(P2)
+      bytes: 19601280,
+      sha256: '4c642ebe5e4300fb74417d43cc57d5ef33656f7b5fc536a9655ca02f8120c930'
     }
   ]
 }
@@ -180,8 +177,8 @@ export interface MaiaImportProgress {
 
 /** Everything still missing for this platform, as concrete download specs.
  *  lc0 rows without a published checksum are excluded (upload pending). */
-function missingItems(): Array<DownloadSpec & { dest: string }> {
-  const items: Array<DownloadSpec & { dest: string }> = []
+function missingItems(): Array<DownloadSpec & { dest: string; fallbackUrl?: string }> {
+  const items: Array<DownloadSpec & { dest: string; fallbackUrl?: string }> = []
   const lc0 = LC0_ARTIFACTS[`${process.platform}-${process.arch}`] ?? []
   for (const f of lc0.filter((f) => f.sha256 !== '')) {
     const dest = path.join(maiaDir(), f.file)
@@ -200,7 +197,10 @@ function missingItems(): Array<DownloadSpec & { dest: string }> {
     if (!maiaWeightInstalled(w.level)) {
       items.push({
         label: `Maia ${w.level} weights`,
-        url: `${MAIA_RELEASE}/${w.asset}`,
+        // Mirror-first (our datasets release), CSSLab upstream as fallback —
+        // identical bytes, one sha256 verifies either source.
+        url: `${RELEASE_BASE}/${w.asset}`,
+        fallbackUrl: `${MAIA_RELEASE}/${w.asset}`,
         bytes: w.bytes,
         sha256: w.sha256,
         dest: maiaWeightPath(w.level)
@@ -224,9 +224,17 @@ export async function importMaia(
     const items = missingItems()
     for (let i = 0; i < items.length; i++) {
       const it = items[i]
-      await downloadVerified(it, it.dest, (received, total) =>
+      const report = (received: number, total: number): void =>
         onProgress({ label: it.label, received, total, itemIndex: i, itemCount: items.length })
-      )
+      try {
+        await downloadVerified(it, it.dest, report)
+      } catch (err) {
+        // Mirror failed (offline release asset, checksum mismatch, ...): retry
+        // once from upstream when the item has one. Cancellation is not retried.
+        const cancelled = err instanceof Error && err.message === 'cancelled'
+        if (!it.fallbackUrl || cancelled) throw err
+        await downloadVerified({ ...it, url: it.fallbackUrl }, it.dest, report)
+      }
     }
     return { ok: true }
   } catch (err) {

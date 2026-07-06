@@ -39,6 +39,17 @@ export type SoundName =
   | 'lowTime'
   | 'puzzleSolved'
   | 'puzzleFailed'
+  // Games-platform events (docs/GAMES-PLATFORM-SPEC.md) — synthesized by
+  // scripts/gen-game-sounds.mjs into assets/sounds/games/ (shared across the
+  // three themes; a theme dir may override any of them with its own file).
+  | 'goStone' // slate stone snapped onto a kaya goban
+  | 'discFlip' // othello disc flipping over (double-click flutter)
+  | 'discPlace' // felt-damped wooden disc tap (checkers/morris)
+  | 'discDrop' // connect-4 disc rattling down the slot + landing
+  | 'pieceSlideCapture' // checkers multi-jump swoosh + landing tap
+  | 'penStroke' // soft marker squeak (tic-tac-toe/hex)
+  | 'shogiPiece' // crisp shogi wedge snap ("pachi")
+  | 'gameStartGong' // subtle low gong (go game start)
 
 const SOUND_EVENT_NAMES: readonly SoundName[] = [
   'move',
@@ -50,7 +61,15 @@ const SOUND_EVENT_NAMES: readonly SoundName[] = [
   'gameEnd',
   'lowTime',
   'puzzleSolved',
-  'puzzleFailed'
+  'puzzleFailed',
+  'goStone',
+  'discFlip',
+  'discPlace',
+  'discDrop',
+  'pieceSlideCapture',
+  'penStroke',
+  'shogiPiece',
+  'gameStartGong'
 ]
 
 /** Local copy of the theme ids so this module stays React-free (the type-only
@@ -264,6 +283,85 @@ const RECIPES: Record<SoundName, Recipe> = {
     attack: 0.005,
     duration: 0.34,
     peak: 0.4
+  },
+  // --- games-platform fallbacks (samples ship in assets/sounds/games/; these
+  // --- only voice the first hit while decoding, or if an asset ever breaks).
+  // goStone — hard glassy clack over a deep board 'pok'.
+  goStone: {
+    partials: [
+      { type: 'triangle', freq: 2800, toFreq: 2200, gain: 0.35, dur: 0.03 },
+      { type: 'sine', freq: 220, toFreq: 180, gain: 1 }
+    ],
+    attack: 0.001,
+    duration: 0.12,
+    peak: 0.55
+  },
+  // discFlip — two quick light ticks.
+  discFlip: {
+    partials: [
+      { type: 'triangle', freq: 1400, toFreq: 1100, gain: 0.7, dur: 0.03 },
+      { type: 'triangle', freq: 950, toFreq: 760, gain: 0.9, delay: 0.035, dur: 0.05 }
+    ],
+    attack: 0.001,
+    duration: 0.1,
+    peak: 0.45
+  },
+  // discPlace — dull felt-damped tap, lower and softer than a chess move.
+  discPlace: {
+    partials: [{ type: 'triangle', freq: 240, toFreq: 160, gain: 1 }],
+    attack: 0.002,
+    duration: 0.08,
+    peak: 0.48
+  },
+  // discDrop — three descending ticks then a landing knock.
+  discDrop: {
+    partials: [
+      { type: 'triangle', freq: 1800, gain: 0.3, delay: 0, dur: 0.02 },
+      { type: 'triangle', freq: 1500, gain: 0.35, delay: 0.07, dur: 0.02 },
+      { type: 'triangle', freq: 1250, gain: 0.4, delay: 0.125, dur: 0.02 },
+      { type: 'square', freq: 300, toFreq: 190, gain: 0.9, delay: 0.18, dur: 0.09 }
+    ],
+    attack: 0.001,
+    duration: 0.3,
+    peak: 0.5
+  },
+  // pieceSlideCapture — quick downward swoosh into a tap.
+  pieceSlideCapture: {
+    partials: [
+      { type: 'triangle', freq: 900, toFreq: 320, gain: 0.4, dur: 0.11 },
+      { type: 'triangle', freq: 280, toFreq: 190, gain: 0.9, delay: 0.11, dur: 0.08 }
+    ],
+    attack: 0.004,
+    duration: 0.22,
+    peak: 0.5
+  },
+  // penStroke — soft high squeak with a slight downward bend.
+  penStroke: {
+    partials: [{ type: 'sine', freq: 1500, toFreq: 1150, gain: 1 }],
+    attack: 0.02,
+    duration: 0.13,
+    peak: 0.3
+  },
+  // shogiPiece — sharper, brighter snap than the western move.
+  shogiPiece: {
+    partials: [
+      { type: 'triangle', freq: 1700, toFreq: 1300, gain: 0.4, dur: 0.025 },
+      { type: 'sine', freq: 200, toFreq: 160, gain: 1 }
+    ],
+    attack: 0.0008,
+    duration: 0.1,
+    peak: 0.55
+  },
+  // gameStartGong — soft low gong swell.
+  gameStartGong: {
+    partials: [
+      { type: 'sine', freq: 165, gain: 1, dur: 0.7 },
+      { type: 'sine', freq: 249, gain: 0.4, dur: 0.55 },
+      { type: 'sine', freq: 333, gain: 0.18, dur: 0.4 }
+    ],
+    attack: 0.015,
+    duration: 0.75,
+    peak: 0.35
   }
 }
 
@@ -272,6 +370,11 @@ const RECIPES: Record<SoundName, Recipe> = {
 // renderer bundle as a base64 data: URL (`?inline`). File name convention:
 //   <event>.mp3|wav          single take        (standard/, classic/)
 //   <event>.<n>.wav          variant n of many  (real/ — 3 takes per event)
+//
+// assets/sounds/games/ is a special pseudo-theme: samples for the games
+// platform (goStone, discFlip, ...) shared by EVERY theme. A real theme dir
+// may override any game event by shipping its own file for it — theme files
+// always win over the shared pool (see urlsFor).
 // ---------------------------------------------------------------------------
 
 const SAMPLE_MODULES = import.meta.glob('../assets/sounds/*/*.{mp3,wav,ogg}', {
@@ -283,12 +386,24 @@ const SAMPLE_MODULES = import.meta.glob('../assets/sounds/*/*.{mp3,wav,ogg}', {
 /** theme -> event -> data URLs (one per variant, variant order preserved). */
 const THEME_SAMPLES: Partial<Record<SoundTheme, Partial<Record<SoundName, string[]>>>> = {}
 
+/** Theme-agnostic samples from assets/sounds/games/ (generated by
+ *  scripts/gen-game-sounds.mjs). Fallback pool for every theme. */
+const SHARED_GAME_SAMPLES: Partial<Record<SoundName, string[]>> = {}
+
+const SHARED_SAMPLE_DIR = 'games'
+
 for (const modulePath of Object.keys(SAMPLE_MODULES).sort()) {
-  const m = /\/sounds\/([^/]+)\/([A-Za-z]+)(?:\.(\d+))?\.(?:mp3|wav|ogg)$/.exec(modulePath)
+  const m = /\/sounds\/([^/]+)\/([A-Za-z0-9]+)(?:\.(\d+))?\.(?:mp3|wav|ogg)$/.exec(modulePath)
   if (!m) continue
-  const theme = m[1] as SoundTheme
+  const dir = m[1]
   const event = m[2] as SoundName
-  if (!KNOWN_SOUND_THEMES.includes(theme) || !SOUND_EVENT_NAMES.includes(event)) continue
+  if (!SOUND_EVENT_NAMES.includes(event)) continue
+  if (dir === SHARED_SAMPLE_DIR) {
+    ;(SHARED_GAME_SAMPLES[event] ??= []).push(SAMPLE_MODULES[modulePath])
+    continue
+  }
+  const theme = dir as SoundTheme
+  if (!KNOWN_SOUND_THEMES.includes(theme)) continue
   const perTheme = (THEME_SAMPLES[theme] ??= {})
   ;(perTheme[event] ??= []).push(SAMPLE_MODULES[modulePath])
 }
@@ -520,10 +635,14 @@ export class SoundManager {
     return this.ctx
   }
 
-  /** Sample URLs for an event in a theme, following the theme's alias table. */
+  /** Sample URLs for an event in a theme, following the theme's alias table.
+   *  Theme files win; the shared games/ pool backs any event the theme does
+   *  not ship (that's how the game-platform sounds reach all three themes). */
   private urlsFor(theme: SoundTheme, name: SoundName): string[] {
     const effective = THEME_ALIASES[theme]?.[name] ?? name
-    return THEME_SAMPLES[theme]?.[effective] ?? []
+    const themed = THEME_SAMPLES[theme]?.[effective]
+    if (themed && themed.length > 0) return themed
+    return SHARED_GAME_SAMPLES[effective] ?? []
   }
 
   /** A decoded buffer for the event, preferring a variant that differs from the
@@ -573,12 +692,17 @@ export class SoundManager {
     return task
   }
 
-  /** Kick off decodes for every sample in a theme (idempotent, fire-and-forget). */
+  /** Kick off decodes for every sample in a theme — plus the shared games/
+   *  pool every theme falls back to (idempotent, fire-and-forget). */
   private preloadTheme(theme: SoundTheme): void {
-    const samples = THEME_SAMPLES[theme]
-    if (!samples) return
     if (!this.ensureContext()) return
-    for (const urls of Object.values(samples)) {
+    const samples = THEME_SAMPLES[theme]
+    if (samples) {
+      for (const urls of Object.values(samples)) {
+        for (const url of urls) void this.ensureDecoded(url)
+      }
+    }
+    for (const urls of Object.values(SHARED_GAME_SAMPLES)) {
       for (const url of urls) void this.ensureDecoded(url)
     }
   }

@@ -342,6 +342,36 @@ function migrate(db: DatabaseSync): void {
       throw err
     }
   }
+
+  if (row.user_version < 9) {
+    // Variant Lab: user-authored custom chess variants. `ini_text` (a
+    // Fairy-Stockfish variants.ini snippet) is the single source of truth for
+    // the rules; `id` is a client-generated slug and the dynamic game kind is
+    // 'custom-<id>' (src/renderer/src/games/customVariants.ts). board_files/
+    // board_ranks are denormalized so the gallery can draw cards without
+    // parsing ini text. Gallery orders by updated_at DESC.
+    db.exec('BEGIN')
+    try {
+      db.exec(`
+      CREATE TABLE custom_variant(
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        ini_text TEXT NOT NULL,
+        board_files INTEGER NOT NULL,
+        board_ranks INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE INDEX idx_custom_variant_updated ON custom_variant(updated_at DESC);
+      PRAGMA user_version = 9;
+    `)
+      db.exec('COMMIT')
+    } catch (err) {
+      db.exec('ROLLBACK')
+      throw err
+    }
+  }
 }
 
 export function closeDbs(): void {

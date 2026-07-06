@@ -9,3 +9,4 @@ export {
   type SoundManagerOptions
 } from './SoundManager'
 export { useSound, soundForMove, type UseSound, type MoveSoundInput } from './useSound'
+export { soundsFor, GAME_SOUNDS, type GameSoundMap } from './gameSounds'

@@ -1,0 +1,1083 @@
+/* ============================================================
+   Variant Lab (features/games/editor) — tokens only (tokens.css).
+   The Lab is a creative surface: boards read like real boards
+   (warm wood squares), panels stay quiet, actions pop.
+   Everything namespaced under .vl-*.
+   ============================================================ */
+
+.vl-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+  max-width: 1180px;
+}
+
+.vl-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-5);
+}
+.vl-head > div {
+  flex: 1;
+}
+.vl-title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+}
+.vl-title svg {
+  color: var(--accent);
+}
+.vl-sub {
+  margin: var(--space-2) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  max-width: 64ch;
+}
+.vl-new {
+  flex: none;
+}
+
+/* ---- Buttons ---- */
+
+.vl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+.vl-btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+.vl-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.vl-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.vl-btn.is-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.vl-btn.is-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.vl-btn.is-danger {
+  background: var(--danger, #c0392b);
+  border-color: var(--danger, #c0392b);
+  color: #fff;
+}
+.vl-btn.is-quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+}
+.vl-btn.is-quiet:hover:not(:disabled) {
+  color: var(--danger, #c0392b);
+  background: var(--surface-2);
+}
+.vl-back {
+  flex: none;
+  margin-top: var(--space-1);
+}
+
+/* ---- Cards (templates + gallery) ---- */
+
+.vl-template-grid {
+  display: grid;
+  gap: var(--space-6);
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.vl-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    border-color 140ms ease;
+}
+button.vl-card {
+  cursor: pointer;
+}
+button.vl-card:hover,
+button.vl-card:focus-visible {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--border-strong);
+}
+button.vl-card:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.vl-card-thumb {
+  display: block;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  line-height: 0;
+}
+.vl-card-title {
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-md);
+}
+.vl-card-sub {
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+}
+.vl-card-meta {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.vl-chip {
+  display: inline-flex;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full, 999px);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: var(--fs-2xs, 11px);
+  font-weight: var(--fw-medium);
+}
+
+.vl-gallery {
+  display: grid;
+  gap: var(--space-6);
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+}
+.vl-card.is-saved .vl-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1;
+}
+.vl-card-actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.vl-card-actions .vl-btn {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--fs-xs);
+}
+
+.vl-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-9) var(--space-6);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  text-align: center;
+}
+.vl-empty svg {
+  color: var(--accent);
+}
+.vl-empty h3 {
+  margin: 0;
+  color: var(--text-primary);
+}
+.vl-empty p {
+  margin: 0;
+  max-width: 46ch;
+  font-size: var(--fs-sm);
+}
+
+/* ---- Mini board (cards) ---- */
+
+.vl-mini-board {
+  display: grid;
+  width: 100%;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+}
+.vl-mini-sq {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.vl-mini-sq.is-light {
+  background: var(--sq-light, #f0d9b5);
+}
+.vl-mini-sq.is-dark {
+  background: var(--sq-dark, #b58863);
+}
+
+/* ---- Painter / live board ---- */
+
+.vl-painter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  user-select: none;
+}
+.vl-board-frame {
+  position: relative;
+}
+.vl-board {
+  display: grid;
+  width: 100%;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.22),
+    var(--shadow-md);
+}
+.vl-sq {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  line-height: 0;
+}
+.vl-sq:disabled {
+  cursor: default;
+}
+.vl-sq.is-light {
+  background: var(--sq-light, #f0d9b5);
+}
+.vl-sq.is-dark {
+  background: var(--sq-dark, #b58863);
+}
+.vl-sq.is-last.is-light {
+  background: #ced26b;
+}
+.vl-sq.is-last.is-dark {
+  background: #aaa23a;
+}
+.vl-sq.is-selected {
+  box-shadow: inset 0 0 0 3px rgba(20, 85, 30, 0.55);
+}
+.vl-sq.is-selected.is-light {
+  background: #829769;
+}
+.vl-sq.is-selected.is-dark {
+  background: #64784d;
+}
+/* quiet destination: a soft dot */
+.vl-sq.is-dest::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 26%;
+  height: 26%;
+  border-radius: 50%;
+  background: rgba(20, 85, 30, 0.35);
+}
+/* capture destination: a ring */
+.vl-sq.is-capture-dest::after {
+  content: '';
+  position: absolute;
+  inset: 4%;
+  border-radius: 50%;
+  border: 3px solid rgba(20, 85, 30, 0.45);
+}
+.vl-board.is-locked {
+  filter: saturate(0.55) brightness(0.92);
+}
+.vl-board-lock {
+  position: absolute;
+  inset: auto var(--space-4) var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  backdrop-filter: blur(4px);
+}
+
+.vl-coord {
+  position: absolute;
+  font-size: 10px;
+  font-weight: var(--fw-semibold);
+  line-height: 1;
+  opacity: 0.65;
+  pointer-events: none;
+}
+.vl-coord-rank {
+  top: 3px;
+  left: 4px;
+}
+.vl-coord-file {
+  right: 4px;
+  bottom: 3px;
+}
+.vl-sq.is-light .vl-coord {
+  color: #b58863;
+}
+.vl-sq.is-dark .vl-coord {
+  color: #f0d9b5;
+}
+
+/* ---- Palette ---- */
+
+.vl-palette-row {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.vl-palette-piece {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+.vl-palette-piece:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+.vl-palette-piece.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.vl-palette-piece.is-fairy {
+  border-style: dashed;
+}
+.vl-palette-piece:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.vl-painter-tools {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.vl-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.vl-tool:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+.vl-tool.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.vl-tool.is-danger:hover:not(:disabled) {
+  color: var(--danger, #c0392b);
+  border-color: var(--danger, #c0392b);
+}
+.vl-tool:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---- Fairy glyphs ---- */
+
+.vl-fairy {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+.vl-fairy-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.vl-fairy-badge {
+  position: absolute;
+  right: -2%;
+  bottom: -2%;
+  display: grid;
+  place-items: center;
+  min-width: 38%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  font-size: 62%;
+  font-weight: var(--fw-bold);
+  line-height: 1;
+  pointer-events: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.vl-fairy-badge.is-white {
+  background: #2d2d2b;
+  color: #f5f5f2;
+}
+.vl-fairy-badge.is-black {
+  background: #f5f5f2;
+  color: #2d2d2b;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.vl-medallion {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  font-weight: var(--fw-bold);
+  font-size: 44%;
+  aspect-ratio: 1;
+  margin: 8%;
+  width: 84% !important;
+  height: 84% !important;
+}
+.vl-medallion.is-white {
+  background: radial-gradient(circle at 35% 30%, #ffffff, #d9d9d4);
+  color: #2d2d2b;
+  box-shadow:
+    inset 0 0 0 2px #2d2d2b,
+    0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.vl-medallion.is-black {
+  background: radial-gradient(circle at 35% 30%, #4a4a47, #232320);
+  color: #f5f5f2;
+  box-shadow:
+    inset 0 0 0 2px #f5f5f2,
+    0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* ---- Editor layout ---- */
+
+.vl-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 1180px;
+}
+.vl-editor-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-5);
+}
+.vl-editor-title {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.vl-name-input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+  font-family: inherit;
+}
+.vl-desc-input {
+  width: 100%;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  font-family: inherit;
+}
+.vl-name-input:hover:not(:disabled),
+.vl-desc-input:hover:not(:disabled) {
+  border-color: var(--border);
+}
+.vl-name-input:focus,
+.vl-desc-input:focus {
+  border-color: var(--accent);
+  outline: none;
+  background: var(--surface);
+}
+.vl-editor-cta {
+  display: flex;
+  gap: var(--space-2);
+  flex: none;
+  margin-top: var(--space-1);
+}
+
+.vl-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 560px) minmax(300px, 1fr);
+  gap: var(--space-7);
+  align-items: start;
+}
+@media (max-width: 980px) {
+  .vl-editor-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.vl-editor-panels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.vl-panel {
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.vl-panel-title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+.vl-panel-note {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+
+.vl-slider {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+.vl-slider-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.vl-slider-label strong {
+  color: var(--text-primary);
+}
+.vl-slider input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.vl-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.vl-field select {
+  flex: 1;
+  max-width: 240px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.vl-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.vl-toggle input {
+  accent-color: var(--accent);
+}
+.vl-toggle-note {
+  color: var(--text-muted);
+  font-style: normal;
+  font-size: var(--fs-xs);
+}
+
+.vl-promo-picks {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.vl-pick {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  cursor: pointer;
+  opacity: 0.45;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.vl-pick.is-active {
+  opacity: 1;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.vl-pick:hover:not(:disabled) {
+  opacity: 1;
+}
+
+/* ---- Advanced ini pane ---- */
+
+.vl-advanced-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+}
+.vl-raw-pill {
+  margin-left: auto;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full, 999px);
+  background: var(--warning-soft, #4a3b12);
+  color: var(--warning, #e2b93b);
+  font-size: var(--fs-2xs, 11px);
+  font-weight: var(--fw-semibold);
+}
+.vl-advanced {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+.vl-ini-view,
+.vl-ini-edit {
+  width: 100%;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-x: auto;
+}
+.vl-ini-edit {
+  resize: vertical;
+  min-height: 140px;
+}
+.vl-ini-edit:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* ---- Validation ---- */
+
+.vl-validate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+.vl-validation {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+.vl-validation svg {
+  flex: none;
+  margin-top: 2px;
+}
+.vl-validation.is-ok {
+  color: var(--success, #4caf50);
+}
+.vl-validation.is-bad {
+  color: var(--danger, #e57373);
+}
+
+.vl-rawonly-note {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-5);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+/* ---- Play view ---- */
+
+.vl-play {
+  display: grid;
+  grid-template-columns: minmax(320px, 640px) minmax(240px, 320px);
+  gap: var(--space-7);
+  align-items: start;
+  max-width: 1080px;
+}
+@media (max-width: 900px) {
+  .vl-play {
+    grid-template-columns: 1fr;
+  }
+}
+.vl-play-stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.vl-play-board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.vl-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+.vl-banner svg {
+  color: var(--accent);
+}
+.vl-banner .vl-btn {
+  margin-left: auto;
+}
+
+.vl-play-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.vl-play-head h3 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--fs-lg);
+}
+.vl-play-head p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+.vl-play-turn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+.vl-turn-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+.vl-turn-dot.is-white {
+  background: #f5f5f2;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+.vl-turn-dot.is-black {
+  background: #232320;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+.vl-play-movecount {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+.vl-flip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.vl-flip input {
+  accent-color: var(--accent);
+}
+.vl-movelist {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  columns: 2;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  color: var(--text-secondary);
+  list-style-position: inside;
+}
+.vl-play-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.vl-play-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+.vl-play-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8);
+  color: var(--text-secondary);
+}
+.vl-error-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-6);
+  border: 1px solid var(--danger, #c0392b);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  max-width: 560px;
+}
+.vl-error-panel p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+/* ---- Pocket trays (crazyhouse / placement) ---- */
+
+.vl-tray {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.vl-tray-empty {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  padding: 0 var(--space-2);
+}
+.vl-tray-piece {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: pointer;
+}
+.vl-tray-piece:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+.vl-tray-piece.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.vl-tray-piece:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.vl-tray-count {
+  position: absolute;
+  right: -3px;
+  top: -3px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: var(--radius-full, 999px);
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: var(--fw-bold);
+  line-height: 15px;
+  text-align: center;
+}
+
+/* ---- Promotion picker (play) ---- */
+
+.vl-promo {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  background: color-mix(in srgb, var(--bg, #000) 45%, transparent);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(2px);
+}
+.vl-promo-choice {
+  display: grid;
+  place-items: center;
+  min-width: 54px;
+  height: 54px;
+  padding: var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.vl-promo-choice:hover {
+  transform: scale(1.08);
+  border-color: var(--accent);
+}
+.vl-promo-label {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  padding: 0 var(--space-2);
+}
+
+/* Games-view hero (the Lab's front door lives in GamesView) */
+.vl-hero {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-7);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    120deg,
+    var(--accent-soft) 0%,
+    var(--surface) 55%
+  );
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    border-color 140ms ease;
+}
+.vl-hero:hover,
+.vl-hero:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--border-strong);
+}
+.vl-hero:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.vl-hero-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  background: var(--accent);
+  color: #fff;
+  box-shadow: var(--shadow-md);
+}
+.vl-hero-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.vl-hero-title {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+}
+.vl-hero-sub {
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  max-width: 68ch;
+}
+.vl-hero-cta {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--accent);
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-sm);
+}
