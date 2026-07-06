@@ -9,8 +9,18 @@ import { session, type BrowserWindow } from 'electron'
 // the window is served by loadFile 'self' happens to cover file:, but the
 // explicit scheme keeps art working after the planned app:// migration
 // (window.ts TODO(packaging)).
+//
+// script-src 'wasm-unsafe-eval': required for WebAssembly compilation (the
+// ffish-es6 rules engine behind xiangqi/shogi/janggi/makruk/placement and the
+// Variant Lab). It allows ONLY wasm compilation, not JS string-eval — do NOT
+// widen to 'unsafe-eval': ffish's embind glue used to need it (new Function)
+// but is rewritten eval-free by scripts/patch-ffish-csp.mjs (npm postinstall).
+// Both keywords are scheme-independent, so this holds for file:// today and
+// the planned app:// migration alike. Verified against the packaged app by
+// scripts/smoke-packed-wasm.mjs — dev CSP has 'unsafe-eval', so ONLY the
+// packaged app proves this; run the smoke after touching this line.
 const PROD_CSP =
-  "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+  "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; " +
   "img-src 'self' data: file:; font-src 'self'; connect-src 'self' wss: file:; " +
   "media-src 'self'"
 

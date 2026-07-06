@@ -2,7 +2,10 @@ import { app, BrowserWindow } from 'electron'
 import path from 'node:path'
 
 // Locked security defaults (architecture §2.4). Changing any of these is a review bug.
-export function createWindow(): BrowserWindow {
+// opts.smokeWasm: --smoke-wasm self-test (see main/smokeWasm.ts) — the window
+// stays hidden and the renderer gets ?smoke-wasm=1 so it runs the WASM probe.
+export function createWindow(opts?: { smokeWasm?: boolean }): BrowserWindow {
+  const smokeWasm = opts?.smokeWasm === true
   const win = new BrowserWindow({
     title: 'Chess#',
     width: 1280,
@@ -27,13 +30,18 @@ export function createWindow(): BrowserWindow {
     }
   })
 
-  win.once('ready-to-show', () => win.show())
+  if (!smokeWasm) win.once('ready-to-show', () => win.show())
 
   if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
-    win.loadURL(process.env.ELECTRON_RENDERER_URL)
+    const url = new URL(process.env.ELECTRON_RENDERER_URL)
+    if (smokeWasm) url.searchParams.set('smoke-wasm', '1')
+    win.loadURL(url.toString())
   } else {
     // TODO(packaging): serve via a registered app:// protocol for strict-CSP correctness.
-    win.loadFile(path.join(__dirname, '../renderer/index.html'))
+    win.loadFile(
+      path.join(__dirname, '../renderer/index.html'),
+      smokeWasm ? { query: { 'smoke-wasm': '1' } } : undefined
+    )
   }
 
   return win
