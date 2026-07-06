@@ -63,6 +63,18 @@ jobs:
       - name: Build (renderer + main)
         run: npm run build
 
+      # Cross-platform congruence gate: the pure-node game/platform suites run on
+      # BOTH OS legs (they need no engine binaries or display — headless esbuild
+      # bundles). Engine-dependent suites (bots-ui live probes) stay local-only.
+      - name: Game & platform suites
+        shell: bash
+        run: |
+          for t in test-games-kernel test-ffish-games test-go test-checkers \
+                   test-small-games test-custom-variants test-mp test-mp-store \
+                   test-est-elo test-ratings-integrity test-manuals test-board3d; do
+            echo "== $t =="; node scripts/$t.mjs
+          done
+
       # Package for the current OS only. electron-builder auto-selects the win/mac
       # target block from electron-builder.yml based on the runner. --publish never
       # keeps it from touching any GitHub release. The datasets (engine + puzzle DB)
