@@ -83,6 +83,12 @@ export interface GameSpec<S = unknown> {
   /** OTB auto-flip; go/gomoku/othello/hex/c4 = 'none'. */
   flipPolicy: 'rotate' | 'none'
   clock: { supported: boolean; byoyomi?: boolean }
+  /**
+   * Present when the rules engine needs async init (e.g. ffish WASM). Await it
+   * once before any other spec call; the other methods throw a clear error if
+   * used first. Registry entries mirror this via `requiresPreload`.
+   */
+  preload?(): Promise<void>
   init(options?: unknown): S
   /** Canonical move strings, empty when the game is over. */
   legalMoves(s: S): string[]
