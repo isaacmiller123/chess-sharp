@@ -48,6 +48,12 @@ await build({
   format: 'esm',
   platform: 'node',
   jsx: 'automatic',
+  // games/ffish.ts resolves the WASM asset via a Vite '?url' import; headless
+  // bundles keep it external (never executed in node — tests pass wasmBinary).
+  external: ['*?url'],
+  // board renderers reachable from registry.ts pull in CSS (e.g. shudan's
+  // goban.css via games/boards/GoBoard.tsx) — drop it for headless node
+  loader: { '.css': 'empty' },
   alias: { '@shared': resolve(ROOT, 'src/shared'), '@': resolve(ROOT, 'src/renderer/src') },
   logLevel: 'silent'
 })
@@ -84,7 +90,7 @@ try {
     }),
     'all variants: 8x8 cells board'
   )
-  eq(listGames().length, 9, 'registry lists exactly the 9 chess-family games')
+  ok(listGames().length >= 9, 'registry lists at least the 9 chess-family games (P2 kinds may add more)')
   ok(KINDS.every((k) => getGame(k)?.spec.kind === k), 'registry: kind → entry.spec.kind for all 9')
   eq(getGame('chess').botProviderId, 'stockfish', 'registry: chess bot provider = stockfish')
   ok(
@@ -92,7 +98,7 @@ try {
     'registry: variants bot provider = fairy-stockfish'
   )
   ok(KINDS.every((k) => getGame(k).manualId === k), 'registry: manual id = kind')
-  ok(isRegisteredGame('atomic') && !isRegisteredGame('go'), 'registry: isRegisteredGame guards P2 kinds')
+  ok(isRegisteredGame('atomic') && !isRegisteredGame('not-a-game'), 'registry: isRegisteredGame guards unknown kinds')
 
   // ---- chess ----------------------------------------------------------------
   console.log('chess')

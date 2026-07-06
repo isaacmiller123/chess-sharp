@@ -3,6 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 import { resolvePuzzlesPath, puzzlesInstalled } from '../datasets/paths'
+import { migrateRatingsIntegrityV8 } from '../ratings/recompute'
 
 // We use Node's built-in node:sqlite (Electron 42 / Node 24) — no native module
 // build needed. The puzzles.sqlite (imported at runtime, or bundled) is opened
@@ -315,6 +316,26 @@ function migrate(db: DatabaseSync): void {
       ALTER TABLE lesson_progress ADD COLUMN auto_completed INTEGER NOT NULL DEFAULT 0;
       PRAGMA user_version = 7;
     `)
+      db.exec('COMMIT')
+    } catch (err) {
+      db.exec('ROLLBACK')
+      throw err
+    }
+  }
+
+  if (row.user_version < 8) {
+    // Ratings integrity: every historical vs-bot Glicko update rated the user
+    // against the bot's NOMINAL level label, but sub-floor (<1320) engine
+    // levels measurably play up to ~+270 Elo above their labels (calibration
+    // record in src/shared/botStrength.ts) — the stored rating is corrupted.
+    // The game table stores opponent_kind + opponent_elo per game, so the
+    // corrected labels ARE reconstructible: replay the whole history from the
+    // seed via measuredElo() instead of resetting to provisional. No schema
+    // change; the bump just makes the one-time recompute run exactly once.
+    db.exec('BEGIN')
+    try {
+      migrateRatingsIntegrityV8(db)
+      db.exec('PRAGMA user_version = 8')
       db.exec('COMMIT')
     } catch (err) {
       db.exec('ROLLBACK')

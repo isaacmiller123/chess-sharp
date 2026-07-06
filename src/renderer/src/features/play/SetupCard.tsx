@@ -11,6 +11,7 @@
 import type { CSSProperties } from 'react'
 import { Crown, Cpu, Users, Swords, Wifi } from 'lucide-react'
 import { ENGINE_ELO_FLOOR, type FamousGameMeta, type Persona } from '@shared/types'
+import { measuredElo } from '@shared/botStrength'
 import { EngineAvatar } from '../../components/Avatar'
 import { TimeControlPicker } from './TimeControlPicker'
 import type { TimeControl } from './timeControl'
@@ -248,8 +249,9 @@ function EngineSetup({
         </p>
         {elo < ENGINE_ELO_FLOOR && (
           <p className="qm-floor-note muted">
-            Below {ENGINE_ELO_FLOOR} the engine is softened artificially, so ratings there are
-            approximate.
+            Below {ENGINE_ELO_FLOOR} the engine is softened artificially — this level is measured
+            to play at roughly ~{measuredElo({ kind: 'engine', elo })} strength, and your rating
+            is updated against that measured number.
           </p>
         )}
       </div>

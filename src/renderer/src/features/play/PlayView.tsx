@@ -17,7 +17,8 @@ import {
   type Color,
   type GameResult
 } from '../../chess/chess'
-import { chooseBotMove } from '../../chess/botStrength'
+import { chooseBotMove, ENGINE_ELO_FLOOR } from '../../chess/botStrength'
+import { measuredElo } from '@shared/botStrength'
 import {
   DEEP_THINK_MS,
   ENGINE_OVERHEAD_MS,
@@ -359,8 +360,11 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
       if (!otb) {
         try {
           rep = await window.api?.games.reportResult({
+            // The NOMINAL label — main maps it through measuredElo (sub-floor
+            // engine levels play stronger than their labels) before rating.
             botElo: oppElo,
-            score: userScore(result, userColor)
+            score: userScore(result, userColor),
+            opponentKind: isPersona ? 'persona' : 'engine'
           })
         } catch {
           rep = undefined // rating unchanged; banner shows no delta
@@ -837,14 +841,18 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
   const topColor: Color = bottomColor === 'white' ? 'black' : 'white'
 
   // Personas are billed at their modern strength estimate (the elo captured at
-  // game start), which the "~" flags as approximate.
+  // game start), which the "~" flags as approximate. Sub-floor engine levels
+  // show their MEASURED strength (shared/botStrength calibration) next to the
+  // selected level — the number the rating update actually uses.
   const opponentSub = isOtb
     ? topColor === 'white'
       ? 'White'
       : 'Black'
     : opponent.kind === 'persona'
       ? `~${oppElo} Elo · modern strength`
-      : `${oppElo} Elo`
+      : opponent.elo < ENGINE_ELO_FLOOR
+        ? `Level ${opponent.elo} · plays ~${measuredElo({ kind: 'engine', elo: opponent.elo })} Elo`
+        : `${oppElo} Elo`
   const opponentStyleLine = opponent.kind === 'persona' ? `in the style of ${opponent.persona.name}` : undefined
 
   const clockLive = clock.active && !over

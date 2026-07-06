@@ -16,7 +16,13 @@ import type { PlacementState, PlacementGameResult } from '../../shared/types'
 /** The fixed engine level placement games are played against. Accuracy is measured
  *  vs the analysis engine's best move (independent of opponent strength), so a
  *  single calibration level keeps placement simple and within engine.play's
- *  uciElo>=1320 floor (see memory: engine.play silently rejects weaker). */
+ *  uciElo>=1320 floor (see memory: engine.play silently rejects weaker).
+ *  Label integrity: 1500 >= ENGINE_ELO_FLOOR is a NATIVE UCI_Elo level, so
+ *  ratings/botStrength.measuredElo({kind:'engine', elo:1500}) === 1500 — the
+ *  label needs no sub-floor correction (the mislabeled bands are all <1320).
+ *  The Elo estimate itself comes from estimateElo(accuracy, moveCount), which
+ *  is opponent-independent; recalibrations of that estimator flow through here
+ *  transparently. */
 export const PLACEMENT_ENGINE_ELO = 1500
 
 interface PlacementRow {

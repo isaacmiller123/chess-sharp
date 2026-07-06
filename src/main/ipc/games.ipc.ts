@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { handle } from './util'
 import { getGame, listGames, saveGame } from '../db/games.repo'
 import { applyGameResult } from '../db/ratings.repo'
+import { measuredElo } from '../ratings/botStrength'
 
 export function registerGames(): void {
   handle(
@@ -37,9 +38,19 @@ export function registerGames(): void {
 
   handle(
     'games:reportResult',
-    z.object({ botElo: z.number().int(), score: z.number() }).strict(),
-    ({ botElo, score }) => {
-      const r = applyGameResult(botElo, score)
+    z
+      .object({
+        botElo: z.number().int(),
+        score: z.number(),
+        // The renderer reports the NOMINAL label (UI-selected level / persona
+        // modernElo) plus the kind; MAIN owns the nominal→measured mapping so a
+        // stale renderer can never rate against an uncorrected label again.
+        opponentKind: z.enum(['engine', 'persona']).optional()
+      })
+      .strict(),
+    ({ botElo, score, opponentKind }) => {
+      const rated = measuredElo({ kind: opponentKind ?? 'engine', elo: botElo })
+      const r = applyGameResult(rated, score)
       return { ratingAfter: Math.round(r.after.rating), delta: r.delta }
     }
   )

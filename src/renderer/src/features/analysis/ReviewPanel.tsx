@@ -129,8 +129,10 @@ function SummaryTable({ review }: { review: GameReview }) {
 
       <div className="rv-row" role="row">
         <EloCell band={review.whiteElo} />
+        {/* An accuracy-derived ESTIMATE (EloBand), not a rating — the band range
+            below the point value is mandatory, and the label must say so. */}
         <span className="rv-cell rv-label" role="cell">
-          Game rating
+          Est. performance
         </span>
         <EloCell band={review.blackElo} />
       </div>
@@ -177,7 +179,7 @@ function SummaryTable({ review }: { review: GameReview }) {
 function EloCell({ band }: { band: EloBand }) {
   return (
     <span className="rv-cell rv-elo" role="cell">
-      <span className="rv-elo-est num">{Math.round(band.est)}</span>
+      <span className="rv-elo-est num">~{Math.round(band.est)}</span>
       <span className="rv-elo-range small muted num">
         {Math.round(band.low)}–{Math.round(band.high)}
       </span>

@@ -78,8 +78,9 @@ const playSchema = z
 
 // NOTE: the pick model below (weakDepth/weakMultiPv/weakTemperature/
 // weakBlunderChance/blunderGapWindow/gapKnee/opening boost/pickWeakMove) is
-// mirrored in scripts/calibrate-weak.mjs — the calibration harness that
-// measured these constants. Keep the two in sync when tuning.
+// mirrored in scripts/lib/weak-model.mjs — shared by the calibration harness
+// (scripts/calibrate-weak.mjs) that measured these constants and the Elo-corpus
+// generator (scripts/gen-elo-corpus.mjs). Keep the two in sync when tuning.
 // TODO(P2): extract the pure pick model to src/main/engine/weakModel.ts and
 // import it from the harness via tsx so there is a single source of truth.
 
@@ -215,7 +216,7 @@ function softmaxPick(cands: WeakCandidate[], temperature: number, knee: number):
 
 /**
  * The full sub-floor pick model over sorted-best-first candidates. Pure —
- * mirrored verbatim in scripts/calibrate-weak.mjs.
+ * mirrored verbatim in scripts/lib/weak-model.mjs.
  *  1. Opening phase (fullmove small, position near-balanced): hotter softmax,
  *     no blunder roll — varied openings without instant self-destruction.
  *  2. Blunder roll at the band's target rate: uniform pick from candidates

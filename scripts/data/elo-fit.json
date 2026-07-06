@@ -1,0 +1,325 @@
+{
+  "fitDate": "2026-07-06",
+  "corpus": "scripts/data/elo-corpus.jsonl",
+  "corpusRows": 352,
+  "trainRows": 266,
+  "holdoutRows": 86,
+  "analysisDepth": 12,
+  "accKnots": [
+    {
+      "feat": 65.75,
+      "elo": 400
+    },
+    {
+      "feat": 75.462,
+      "elo": 600
+    },
+    {
+      "feat": 77.05,
+      "elo": 800
+    },
+    {
+      "feat": 80.3,
+      "elo": 1000
+    },
+    {
+      "feat": 82.114,
+      "elo": 1337
+    },
+    {
+      "feat": 84.233,
+      "elo": 1700
+    },
+    {
+      "feat": 86.938,
+      "elo": 2014
+    },
+    {
+      "feat": 89.061,
+      "elo": 2300
+    },
+    {
+      "feat": 91.225,
+      "elo": 2585
+    }
+  ],
+  "acplKnots": [
+    {
+      "feat": 4.765,
+      "elo": 400
+    },
+    {
+      "feat": 4.671,
+      "elo": 600
+    },
+    {
+      "feat": 4.421,
+      "elo": 800
+    },
+    {
+      "feat": 4.239,
+      "elo": 1000
+    },
+    {
+      "feat": 4.08,
+      "elo": 1263
+    },
+    {
+      "feat": 3.947,
+      "elo": 1500
+    },
+    {
+      "feat": 3.785,
+      "elo": 1700
+    },
+    {
+      "feat": 3.67,
+      "elo": 1900
+    },
+    {
+      "feat": 3.615,
+      "elo": 2100
+    },
+    {
+      "feat": 3.473,
+      "elo": 2300
+    },
+    {
+      "feat": 3.152,
+      "elo": 2500
+    },
+    {
+      "feat": 3.043,
+      "elo": 2700
+    }
+  ],
+  "coef": {
+    "a0": 7.5,
+    "a1": 0.1,
+    "c0": -58.7,
+    "bShrink": -0.32,
+    "gOpp": -0.1902
+  },
+  "shrink": {
+    "center": 1500,
+    "fullMoves": 30,
+    "minMoves": 6
+  },
+  "clamp": {
+    "floor": 250,
+    "ceil": 3000
+  },
+  "mae": {
+    "no opp (estimateElo)": {
+      "train": 280.4,
+      "holdout": 324.8
+    },
+    "with opp (Ex+oppElo)": {
+      "train": 236.8,
+      "holdout": 275
+    },
+    "acc only (no acpl)": {
+      "train": 428.2,
+      "holdout": 481.2
+    }
+  },
+  "perBand": [
+    {
+      "band": 400,
+      "nTrain": 20,
+      "biasTrain": 159,
+      "maeTrain": 159,
+      "nHold": 5,
+      "biasHold": 250,
+      "maeHold": 250
+    },
+    {
+      "band": 600,
+      "nTrain": 13,
+      "biasTrain": 36,
+      "maeTrain": 138,
+      "nHold": 12,
+      "biasHold": 107,
+      "maeHold": 192
+    },
+    {
+      "band": 800,
+      "nTrain": 24,
+      "biasTrain": 46,
+      "maeTrain": 166,
+      "nHold": 4,
+      "biasHold": 310,
+      "maeHold": 310
+    },
+    {
+      "band": 1000,
+      "nTrain": 20,
+      "biasTrain": 69,
+      "maeTrain": 183,
+      "nHold": 8,
+      "biasHold": 125,
+      "maeHold": 227
+    },
+    {
+      "band": 1200,
+      "nTrain": 23,
+      "biasTrain": 173,
+      "maeTrain": 332,
+      "nHold": 5,
+      "biasHold": 180,
+      "maeHold": 248
+    },
+    {
+      "band": 1320,
+      "nTrain": 25,
+      "biasTrain": -72,
+      "maeTrain": 363,
+      "nHold": 3,
+      "biasHold": -172,
+      "maeHold": 385
+    },
+    {
+      "band": 1500,
+      "nTrain": 22,
+      "biasTrain": -21,
+      "maeTrain": 290,
+      "nHold": 6,
+      "biasHold": -118,
+      "maeHold": 410
+    },
+    {
+      "band": 1700,
+      "nTrain": 24,
+      "biasTrain": -62,
+      "maeTrain": 281,
+      "nHold": 4,
+      "biasHold": 79,
+      "maeHold": 296
+    },
+    {
+      "band": 1900,
+      "nTrain": 16,
+      "biasTrain": 18,
+      "maeTrain": 287,
+      "nHold": 12,
+      "biasHold": 96,
+      "maeHold": 435
+    },
+    {
+      "band": 2100,
+      "nTrain": 21,
+      "biasTrain": -91,
+      "maeTrain": 284,
+      "nHold": 7,
+      "biasHold": -158,
+      "maeHold": 373
+    },
+    {
+      "band": 2300,
+      "nTrain": 18,
+      "biasTrain": -73,
+      "maeTrain": 173,
+      "nHold": 10,
+      "biasHold": -23,
+      "maeHold": 220
+    },
+    {
+      "band": 2500,
+      "nTrain": 23,
+      "biasTrain": -35,
+      "maeTrain": 186,
+      "nHold": 2,
+      "biasHold": -78,
+      "maeHold": 211
+    },
+    {
+      "band": 2700,
+      "nTrain": 17,
+      "biasTrain": -154,
+      "maeTrain": 154,
+      "nHold": 8,
+      "biasHold": -68,
+      "maeHold": 68
+    }
+  ],
+  "residStd": {
+    "noOpp": [
+      {
+        "label": "<15",
+        "mid": 10,
+        "n": 2,
+        "std": 541
+      },
+      {
+        "label": "15-24",
+        "mid": 20,
+        "n": 16,
+        "std": 452
+      },
+      {
+        "label": "25-39",
+        "mid": 32,
+        "n": 89,
+        "std": 456
+      },
+      {
+        "label": ">=40",
+        "mid": 48,
+        "n": 245,
+        "std": 349
+      }
+    ],
+    "withOpp": [
+      {
+        "label": "<15",
+        "mid": 10,
+        "n": 2,
+        "std": 394
+      },
+      {
+        "label": "15-24",
+        "mid": 20,
+        "n": 16,
+        "std": 354
+      },
+      {
+        "label": "25-39",
+        "mid": 32,
+        "n": 89,
+        "std": 382
+      },
+      {
+        "label": ">=40",
+        "mid": 48,
+        "n": 245,
+        "std": 295
+      }
+    ],
+    "accOnly": [
+      {
+        "label": "<15",
+        "mid": 10,
+        "n": 2,
+        "std": 390
+      },
+      {
+        "label": "15-24",
+        "mid": 20,
+        "n": 16,
+        "std": 667
+      },
+      {
+        "label": "25-39",
+        "mid": 32,
+        "n": 89,
+        "std": 649
+      },
+      {
+        "label": ">=40",
+        "mid": 48,
+        "n": 245,
+        "std": 541
+      }
+    ]
+  }
+}

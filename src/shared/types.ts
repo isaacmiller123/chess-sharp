@@ -1074,7 +1074,14 @@ export interface Api {
     save(input: SaveGameInput): Promise<{ gameId: number }>
     list(req?: { limit?: number; offset?: number }): Promise<{ games: GameRow[] }>
     get(gameId: number): Promise<{ game: GameRow | null }>
-    reportResult(req: { botElo: number; score: number }): Promise<{ ratingAfter: number; delta: number }>
+    /** Report a finished bot game for the vs-bot Glicko update. `botElo` is the
+     *  NOMINAL label (UI level / persona modernElo); main maps it through
+     *  shared/botStrength.measuredElo before rating. */
+    reportResult(req: {
+      botElo: number
+      score: number
+      opponentKind?: 'engine' | 'persona'
+    }): Promise<{ ratingAfter: number; delta: number }>
   }
   openings: {
     lookup(fen: string): Promise<{ opening: OpeningInfo | null }>
