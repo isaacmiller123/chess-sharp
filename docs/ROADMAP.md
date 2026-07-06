@@ -40,6 +40,25 @@
       QoL toggles: autoQueen/confirmResign/hints/engine-arrows/eval-bar/low-time/volume, per-scope
       progress reset with confirm).
 
+- [x] **Online multiplayer v3 hardening (2026-07-06, spec-driven).** Killed the four user bugs
+      (B1 nav-unmounts-the-game, B2 dead clocks, B3 "random resigns", B4 polish gaps) per the binding
+      `docs/MP-V3-SPEC.md` written from a 45-defect audit. Wire bumped to PROTOCOL_VERSION 3 (gameId +
+      ply on every in-game message, dedicated `flag`/`abort`/`gameOver`/`drawDecline`/`resumeReq`/
+      `resync`, timestamped ping/pong); the live game now lives in an app-lifetime `onlineStore`
+      singleton (OnlineTab is a pure view, navigating away no longer destroys the game); lichess
+      first-move grace (white move1 debits 0, no increment; abort watchdog replaces the pre-move flag);
+      flags ride their own message with insufficient-material draw adjudication; monotonic clocks,
+      lag compensation, heartbeat self-stall forgiveness, suspend/resume with speed-scaled reconnect
+      grace, symmetric rematch. **Test coverage (builder-tests):** `scripts/test-mp.mjs` — v3 session
+      suite, **215 assertions** over every §2 rule (mock-pair transport with peer re-join, injected
+      third peer, send-error + controllable delivery); `scripts/test-mp-store.mjs` — store against a
+      mocked mp (esbuild-aliased), **112 assertions** (optimistic-move rollback, K-vs-heavy
+      insufficient-material flag→draw, save-once, peerAway board-freeze, sole `mp.leave()` caller); and
+      the two-window Electron E2E harness (`scratchpad/mp-e2e-v3`) drives the REAL session over live
+      Nostr relays: first-move grace (no debit while idle), Fischer debit+increment with guest clock
+      acks, a real 15s flag delivered as `flag` (not resign) with the loser at 0, and the no-move
+      abort path — all PASS.
+
 ## ⏳ Deferred (needs a decision or owner action)
 - [ ] **Mac Stockfish engine — upload to the release.** ROOT CAUSE: the app uses a lean installer
       that fetches Stockfish at runtime from the `datasets-v1` GitHub release, but only the Windows

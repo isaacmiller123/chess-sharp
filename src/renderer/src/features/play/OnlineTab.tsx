@@ -2,64 +2,65 @@
 // over a direct, encrypted WebRTC peer-to-peer connection: one HOSTS (shares a
 // short join code = a random room key), the other JOINS (enters the code).
 // Signaling runs through public relays in the renderer — no account, no server,
-// no port forwarding. Everything below the setup cards is a self-contained live
-// game that reuses GameView.
+// no port forwarding.
 //
-// This file is standalone (it consumes ONLY the `mp` client + shared chess
-// helpers) but exposes a small seam to its host surface (SetupCard/PlayView):
-//   initialTimeControl — seeds the host card's picker from the shared Play
-//                        time control (when timed; Unlimited falls back to 10+0
-//                        since the wire refuses untimed games);
-//   onTimeControl      — reflects picker changes back into the shared control;
-//   onStage            — reports 'idle' | 'lobby' | 'game' so the host surface
-//                        can widen for a live game and lock the tab strip
-//                        (unmounting this tab tears the session down).
+// v3 (MP-V3-SPEC §5): this file is a PURE VIEW over the module-level `onlineStore`
+// (features/play/online/onlineStore.ts). The live game lives in that store for the
+// app's whole lifetime, so navigating away and back is SAFE — unmount does NOT
+// tear the session down (the L1/L2/MP-01 fix). All game state (phase, colors,
+// clocks, banner, offers, peer-away, errors) is read from the store snapshot via
+// useOnlineGame(); every action goes through the store singleton, which is the
+// ONLY caller of mp.leave().
 //
 // Fair-play rules for online games (contract): assist/hints and takebacks are
-// DISABLED. Clocks are HOST-AUTHORITATIVE — we render whatever clockMs the host
-// puts on each 'move' event and never run a local countdown of our own.
+// DISABLED. Clocks are HOST-AUTHORITATIVE; the store owns the snapshot and the
+// Clock component ticks it locally (B2/D5).
 
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import type { Role } from 'chessops/types'
 import type { Key } from 'chessground/types'
-import { Copy, Check, Globe, Radio, LogIn, Loader2, AlertTriangle, X } from 'lucide-react'
-import type { MpColor, MpEvent, MpGameConfig } from '@shared/types'
-import { mp } from './online/mpClient'
+import {
+  Copy,
+  Check,
+  Globe,
+  Radio,
+  LogIn,
+  Loader2,
+  AlertTriangle,
+  X,
+  Wifi,
+  WifiOff,
+  OctagonX,
+  Handshake,
+  Repeat
+} from 'lucide-react'
+import type { MpColor, MpGameConfig } from '@shared/types'
+import { onlineStore } from './online/onlineStore'
+import { useOnlineGame } from './online/useOnlineGame'
 import { useGameTree } from '../../state/gameTree'
 import { useSettings } from '../../state/settings'
-import { treeToPgn } from '../../state/pgn'
-import { useSound } from '../../sound'
 import {
   applyMove,
   checkColor,
   destsFor,
   isPromotion,
-  outcome,
   turnColor,
   uciToLastMove,
-  INITIAL_FEN,
-  type Color,
-  type GameResult
+  type Color
 } from '../../chess/chess'
 import { pieceSetClass } from '../../board/pieceSets'
-import { GameView, type GameViewBanner } from './GameView'
+import { useSound } from '../../sound/useSound'
+import { GameView } from './GameView'
 import { TimeControlPicker } from './TimeControlPicker'
 import { timeControlById, formatClock, type TimeControl } from './timeControl'
 import './online.css'
 
-const ROLE_FROM_CHAR: Record<string, Role> = { q: 'queen', r: 'rook', b: 'bishop', n: 'knight' }
-
 type ColorChoice = MpColor | 'random'
 
-// The tab's phase machine.
-//   menu       — host / join cards
-//   hosting    — server open, waiting for a guest (code shown)
-//   connecting — guest is dialing the host
-//   game       — a game is live (or finished, banner up)
-type Phase = 'menu' | 'hosting' | 'connecting' | 'game'
-
 /** What the host surface needs to know about this tab: nothing live ('idle'),
- *  a session is open but no game yet ('lobby'), or a game is live ('game'). */
+ *  a session is open but no game yet ('lobby'), or a game is live ('game'). Kept
+ *  for SetupCard's width handoff — it is NO LONGER a nav lock (the store survives
+ *  unmount, so switching tabs or views can never kill the session). */
 export type OnlineStage = 'idle' | 'lobby' | 'game'
 
 export interface OnlineTabProps {
@@ -68,38 +69,23 @@ export interface OnlineTabProps {
   initialTimeControl?: TimeControl
   /** Reflect host-card picker changes back into the shared Play control. */
   onTimeControl?: (tc: TimeControl) => void
-  /** Stage reports for the host surface (tab locking / game-width handoff). */
+  /** Stage reports for the host surface (game-width handoff only). */
   onStage?: (stage: OnlineStage) => void
 }
 
-/** Per-side clock, mirrored from host-authoritative 'move'.clockMs. */
-type Clocks = { white: number; black: number }
-
-function yyyymmdd(d: Date = new Date()): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}.${m}.${day}`
-}
-
-/** Guest-side staged status copy, driven by the session's 'net' events as we go
- *  from contacting relays → discovering the peer → the direct WebRTC handshake. */
-function guestStatusText(stage: 'relays' | 'searching' | 'connecting' | null): string {
-  switch (stage) {
-    case 'searching':
-      return 'Looking for your opponent…'
-    case 'connecting':
-      return 'Found them — connecting directly…'
-    case 'relays':
-    default:
-      return 'Contacting matchmaking relays…'
-  }
-}
-
-function outcomeForUser(result: GameResult, userColor: Color): 'win' | 'loss' | 'draw' {
-  if (result === '1/2-1/2') return 'draw'
-  const userWon = (result === '1-0' && userColor === 'white') || (result === '0-1' && userColor === 'black')
-  return userWon ? 'win' : 'loss'
+/** Live remaining ms for one side, computed from the store's authoritative clock
+ *  snapshot at render time. The store-owned Clock component does the smooth 100ms
+ *  ticking on top of this; this coarse value keeps GameView's ClockSide contract
+ *  intact and drives the active-side glow. */
+function liveMs(
+  clock: { snapshot: { white: number; black: number }; atMono: number; running: 'white' | 'black' | null } | null,
+  side: Color
+): number {
+  if (!clock) return 0
+  const base = clock.snapshot[side]
+  if (clock.running !== side) return Math.max(0, base)
+  const elapsed = performance.now() - clock.atMono
+  return Math.max(0, base - elapsed)
 }
 
 export default function OnlineTab({
@@ -108,19 +94,17 @@ export default function OnlineTab({
   onStage
 }: OnlineTabProps = {}): JSX.Element {
   const { settings } = useSettings()
-  const { play, playMove } = useSound()
+  const state = useOnlineGame()
 
-  // ---- setup form ----------------------------------------------------------
+  // ---- setup form (local, pre-session only) --------------------------------
   // Online games must be timed (the wire refuses initialMs < 1s): seed from the
-  // shared Play control when it carries a clock, else default to a friendly
-  // rapid control — and forbid Unlimited at Start either way.
+  // shared Play control when it carries a clock, else default to a friendly rapid
+  // control — and forbid Unlimited at Start either way.
   const [hostTc, setHostTcState] = useState<TimeControl>(() =>
     initialTimeControl && initialTimeControl.baseMs > 0
       ? initialTimeControl
       : timeControlById('10+0')
   )
-  // Picker changes also flow up into the shared Play control (one selection
-  // across the Local / Online / Grandmasters tabs). Ref keeps the setter stable.
   const onTimeControlRef = useRef(onTimeControl)
   onTimeControlRef.current = onTimeControl
   const setHostTc = useCallback((tc: TimeControl) => {
@@ -129,234 +113,108 @@ export default function OnlineTab({
   }, [])
   const [hostColorChoice, setHostColorChoice] = useState<ColorChoice>('white')
   const [joinCode, setJoinCode] = useState('')
-
-  // ---- connection state ----------------------------------------------------
-  const [phase, setPhase] = useState<Phase>('menu')
-  const [code, setCode] = useState<string | null>(null) // host's shareable code
   const [copied, setCopied] = useState(false)
-  const [busy, setBusy] = useState(false) // an async host()/join() is in flight
-  const [error, setError] = useState<string | null>(null)
-  // Our role, set the moment we host()/join(); used for rematch semantics + copy.
-  const roleRef = useRef<'host' | 'guest' | null>(null)
-  // Live signaling/transport status, driven by 'net' events. `stage` tracks the
-  // discovery phase (relays contacting → searching for peer → connecting direct);
-  // `relays` is the open/total relay socket count for a subtle presence line.
-  const [netStage, setNetStage] = useState<'relays' | 'searching' | 'connecting' | null>(null)
-  const [relays, setRelays] = useState<{ connected: number; total: number } | null>(null)
+  // Client-side form validation (empty code / unlimited TC) lives here so it's
+  // not confused with a session error from the store. Cleared on any resubmit.
+  const [formError, setFormError] = useState<string | null>(null)
+  // Two-step Leave confirm (L10): armed only while a live undecided game is up.
+  const [leaveArmed, setLeaveArmed] = useState(false)
 
-  // ---- live game state -----------------------------------------------------
+  // Lobby buttons disable while a join/host is dialing. The store owns the
+  // connection lifecycle, so "busy" is simply the connecting phase.
+  const busy = state.phase === 'connecting' && !state.error
+
+  // ---- display tree (fed from the store's move list) -----------------------
+  // The store is authoritative for the live position; this local tree mirrors
+  // state.moves so GameView's MoveList + history browsing keep working. It resets
+  // on every new gameId and appends any moves it hasn't applied yet.
   const tree = useGameTree()
-  const [config, setConfig] = useState<MpGameConfig | null>(null)
-  const [userColor, setUserColor] = useState<Color>('white')
-  const [orientation, setOrientation] = useState<Color>('white')
-  const [clocks, setClocks] = useState<Clocks>({ white: 0, black: 0 })
-  const [banner, setBanner] = useState<GameViewBanner | null>(null)
-  const [nonce, setNonce] = useState(0)
+  const syncedGameIdRef = useRef<number>(-1)
+  const syncedPlyRef = useRef(0)
+  useEffect(() => {
+    if (state.phase !== 'game') return
+    if (syncedGameIdRef.current !== state.gameId) {
+      tree.reset()
+      syncedGameIdRef.current = state.gameId
+      syncedPlyRef.current = 0
+    }
+    // Append any moves the tree hasn't seen. Apply against the live tip so a
+    // history selection never corrupts the mainline.
+    for (let i = syncedPlyRef.current; i < state.moves.length; i++) {
+      let tip = tree.root
+      while (tip.children[0]) tip = tip.children[0]
+      const uci = state.moves[i]
+      const promo = uci.length > 4 ? (ROLE_FROM_CHAR[uci[4]] as Role | undefined) : undefined
+      const m = applyMove(tip.fen, uci.slice(0, 2), uci.slice(2, 4), promo)
+      if (!m) break
+      tree.addMove(m)
+    }
+    syncedPlyRef.current = state.moves.length
+    // tree identity is stable across renders; keying on moves/gameId is enough.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.phase, state.gameId, state.moves.length])
+
+  // ---- promotion picker (local UI state) -----------------------------------
   const [pendingPromo, setPendingPromo] = useState<{ orig: string; dest: string } | null>(null)
-  // Incoming draw offer from the opponent (enables an Accept affordance).
-  const [drawOffered, setDrawOffered] = useState(false)
-  // We offered a draw / rematch and await the peer.
-  const [drawSent, setDrawSent] = useState(false)
-  const [rematchSent, setRematchSent] = useState(false)
-  const [rematchOffered, setRematchOffered] = useState(false) // peer wants a rematch
-  const [peerLeft, setPeerLeft] = useState(false)
+  const [nonce, setNonce] = useState(0)
+  // A fresh game/position clears any half-finished promotion.
+  useEffect(() => {
+    setPendingPromo(null)
+  }, [state.gameId, state.plyCount])
 
-  // save fires exactly once per finished game.
-  const savedRef = useRef(false)
-  // Latest values needed inside the (stable) event handler, via refs.
-  const userColorRef = useRef<Color>('white')
-  userColorRef.current = userColor
-  const configRef = useRef<MpGameConfig | null>(null)
-  configRef.current = config
+  // ---- stage report (width handoff; NOT a nav lock) ------------------------
+  const onStageRef = useRef(onStage)
+  onStageRef.current = onStage
+  const stage: OnlineStage =
+    state.phase === 'game' ? 'game' : state.phase === 'idle' ? 'idle' : 'lobby'
+  useEffect(() => {
+    onStageRef.current?.(stage)
+  }, [stage])
+  // Leaving THIS tab no longer tears anything down — but report 'idle' so the
+  // host surface stops widening while the tab isn't shown. The session persists.
+  useEffect(
+    () => () => {
+      onStageRef.current?.('idle')
+    },
+    []
+  )
 
+  // Disarm the Leave confirm whenever the game is no longer live-undecided.
+  const liveUndecided = state.phase === 'game' && state.banner === null && !state.peerLeft
+  useEffect(() => {
+    if (!liveUndecided) setLeaveArmed(false)
+  }, [liveUndecided])
+
+  // ---- derived board data --------------------------------------------------
   const fen = tree.currentFen
   const dests = useMemo(() => destsFor(fen), [fen])
   const turn = turnColor(fen)
   const check = checkColor(fen)
   const lastMove = tree.current.move ? uciToLastMove(tree.current.move.uci) : undefined
-  const over = banner !== null
   const atTip = tree.current.children.length === 0
+  const over = state.banner !== null
 
-  // ---- persist a finished game (opponentKind 'human') ----------------------
-  const saveFinished = useCallback(
-    (result: GameResult) => {
-      if (savedRef.current) return
-      savedRef.current = true
-      const uc = userColorRef.current
-      const oppName = 'Opponent'
-      const whiteName = uc === 'white' ? settings.username : oppName
-      const blackName = uc === 'white' ? oppName : settings.username
-      const headers: Record<string, string> = {
-        Event: 'Online game',
-        Site: 'Chess#',
-        Date: yyyymmdd(),
-        White: whiteName,
-        Black: blackName,
-        Result: result
-      }
-      const pgn = treeToPgn(tree.root, headers)
-      // Best-effort; never block the banner on a failed save.
-      void window.api?.games
-        .save({
-          pgn,
-          whiteName,
-          blackName,
-          userColor: uc,
-          result,
-          opponentKind: 'human',
-          opponentLabel: oppName,
-          source: 'online'
-        })
-        .catch(() => {})
-    },
-    [settings.username, tree.root]
-  )
-
-  /** End the game locally: raise the banner + persist. Reason drives copy. */
-  const endLocally = useCallback(
-    (result: GameResult, reason: string) => {
-      if (savedRef.current || banner) return
-      const uc = userColorRef.current
-      setBanner({ result, reason, outcomeForUser: outcomeForUser(result, uc) })
-      saveFinished(result)
-      play('gameEnd')
-    },
-    [banner, saveFinished, play]
-  )
-
-  // ---- start / reset a fresh game (both new games and rematches) ------------
-  const beginGame = useCallback(
-    (yourColor: MpColor, cfg: MpGameConfig) => {
-      savedRef.current = false
-      setConfig(cfg)
-      setUserColor(yourColor)
-      setOrientation(yourColor)
-      setClocks({ white: cfg.tc.initialMs, black: cfg.tc.initialMs })
-      setBanner(null)
-      setPendingPromo(null)
-      setDrawOffered(false)
-      setDrawSent(false)
-      setRematchSent(false)
-      setRematchOffered(false)
-      setPeerLeft(false)
-      tree.reset(INITIAL_FEN)
-      setPhase('game')
-      play('gameStart')
-    },
-    [tree, play]
-  )
-
-  // ---- the single event pump ----------------------------------------------
-  // Subscribed once on mount; everything the session reports flows through here.
-  // Uses refs for values that change so the subscription stays stable (no churn,
-  // no missed events on re-render).
-  const beginGameRef = useRef(beginGame)
-  beginGameRef.current = beginGame
-  const endLocallyRef = useRef(endLocally)
-  endLocallyRef.current = endLocally
-
-  useEffect(() => {
-    const off = mp.onEvent((ev: MpEvent) => {
-      switch (ev.type) {
-        case 'net':
-          // Signaling/transport progress: relay counts + discovery phase. Drives
-          // the host "Online — waiting" line and the guest staged status text.
-          setNetStage(ev.state)
-          if (ev.relays) setRelays(ev.relays)
-          break
-        case 'peer-joined':
-          // Host only — the guest connected; 'start' follows immediately.
-          break
-        case 'start':
-          beginGameRef.current(ev.yourColor, ev.config)
-          break
-        case 'move': {
-          // The REMOTE peer moved. Apply it to our board and adopt the host's
-          // authoritative clocks verbatim.
-          setClocks(ev.clockMs)
-          const uci = ev.uci
-          const promo = uci.length > 4 ? ROLE_FROM_CHAR[uci[4]] : undefined
-          // Apply against the live tip (functional: we may be mid-render).
-          setPendingPromo(null)
-          // Use a microtask-free direct apply via the tree helper below.
-          applyRemoteMoveRef.current(uci, promo)
-          break
-        }
-        case 'drawOffer':
-          setDrawOffered(true)
-          break
-        case 'drawAccept':
-          endLocallyRef.current('1/2-1/2', 'by agreement')
-          break
-        case 'resign':
-          // `by` is whoever resigned (or flagged). Winner is the other side.
-          endLocallyRef.current(ev.by === 'white' ? '0-1' : '1-0', 'resignation')
-          break
-        case 'rematchOffer':
-          setRematchOffered(true)
-          break
-        case 'rematchStart':
-          beginGameRef.current(ev.yourColor, configRef.current as MpGameConfig)
-          break
-        case 'peer-left':
-          setPeerLeft(true)
-          // If a game was live and undecided, treat it as over (no result saved —
-          // an abandoned game isn't a clean win/loss to record).
-          break
-        case 'error':
-          setError(ev.message)
-          setBusy(false)
-          // A pre-game error (bad handshake) drops us back to the menu.
-          setPhase((p) => (p === 'game' ? p : 'menu'))
-          break
-      }
-    })
-    return off
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Apply a remote move to the tree + sounds, kept in a ref so the stable event
-  // pump can call the freshest version (it closes over `fen`/`tree`).
-  const applyRemoteMove = useCallback(
-    (uci: string, promo?: Role) => {
-      // Always apply from the current live tip, not a displayed history node.
-      let tip = tree.root
-      while (tip.children[0]) tip = tip.children[0]
-      const m = applyMove(tip.fen, uci.slice(0, 2), uci.slice(2, 4), promo)
-      if (!m) return
-      tree.addMove(m)
-      playMove(m)
-      const out = outcome(m.fen)
-      if (out.over && out.result) endLocallyRef.current(out.result, out.reason ?? 'checkmate')
-    },
-    [tree, playMove]
-  )
-  const applyRemoteMoveRef = useRef(applyRemoteMove)
-  applyRemoteMoveRef.current = applyRemoteMove
-
-  // ---- local move → optimistic apply + send --------------------------------
+  // ---- local move → store (optimistic apply + rollback lives in the store) --
   const commit = useCallback(
     (orig: string, dest: string, promotion?: Role) => {
-      // Only the side to move at the live tip may move, and only when it's us.
-      if (over || !atTip || turn !== userColor) {
+      // Only the side to move at the live tip may move, and only when it's us and
+      // the game is live. peerAway/over are blocked by the store too, but we gate
+      // here for immediate feedback (fair-play: no history-position moves).
+      if (over || !atTip || state.peerAway || turn !== state.myColor) {
         setNonce((n) => n + 1)
         return
       }
+      const promoChar = promotion ? PROMO_CHAR[promotion] : ''
+      const uci = `${orig}${dest}${promoChar}`
+      // Validate locally so an illegal drag just snaps back (no store churn).
       const m = applyMove(fen, orig, dest, promotion)
       if (!m) {
         setNonce((n) => n + 1)
         return
       }
-      // Any pending draw exchange is answered by making a move.
-      setDrawOffered(false)
-      setDrawSent(false)
-      tree.addMove(m)
-      playMove(m)
-      void mp.sendMove(m.uci)
-      const out = outcome(m.fen)
-      if (out.over && out.result) endLocallyRef.current(out.result, out.reason ?? 'checkmate')
+      onlineStore.playMove(uci)
     },
-    [over, atTip, turn, userColor, fen, tree, playMove]
+    [over, atTip, state.peerAway, turn, state.myColor, fen]
   )
 
   const onMove = useCallback(
@@ -381,168 +239,80 @@ export default function OnlineTab({
   }, [])
 
   // ---- host / join actions -------------------------------------------------
-  const doHost = useCallback(async () => {
+  const doHost = useCallback(() => {
     if (hostTc.baseMs <= 0) {
-      setError('Online games need a clock — pick a time control (Unlimited is not supported online).')
+      setFormError('Online games need a clock — pick a time control (Unlimited is not supported online).')
       return
     }
-    setError(null)
-    setBusy(true)
-    roleRef.current = 'host'
+    setFormError(null)
     const cfg: MpGameConfig = {
       tc: { initialMs: hostTc.baseMs, incrementMs: hostTc.incMs },
       hostColor: hostColorChoice
     }
-    try {
-      const res = await mp.host(cfg)
-      setCode(res.code)
-      setPhase('hosting')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not start hosting.')
-      roleRef.current = null
-    } finally {
-      setBusy(false)
-    }
+    onlineStore.host(cfg)
   }, [hostTc, hostColorChoice])
 
-  const doJoin = useCallback(async () => {
+  const doJoin = useCallback(() => {
     const trimmed = joinCode.trim()
     if (trimmed.length < 5) {
-      setError('Enter the full join code your opponent shared.')
+      setFormError('Enter the full join code your opponent shared.')
       return
     }
-    setError(null)
-    setBusy(true)
-    roleRef.current = 'guest'
-    setPhase('connecting')
-    try {
-      const res = await mp.join(trimmed)
-      if (!res.ok) {
-        setError(res.error ?? 'Could not join that game.')
-        setPhase('menu')
-        roleRef.current = null
-      }
-      // On success we simply wait for the 'start' event to flip us into 'game'.
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not join that game.')
-      setPhase('menu')
-      roleRef.current = null
-    } finally {
-      setBusy(false)
-    }
+    setFormError(null)
+    onlineStore.join(trimmed)
   }, [joinCode])
 
   // ---- leave / teardown ----------------------------------------------------
-  const leave = useCallback(() => {
-    mp.leave()
-    roleRef.current = null
-    setCode(null)
-    setConfig(null)
-    setBanner(null)
-    setError(null)
-    setNetStage(null)
-    setRelays(null)
-    setPeerLeft(false)
-    setDrawOffered(false)
-    setDrawSent(false)
-    setRematchSent(false)
-    setRematchOffered(false)
-    setPhase('menu')
+  // The ONLY leave paths: an explicit user command. Post-banner it's immediate;
+  // mid-game (live + undecided) it goes through the two-step confirm (L10) whose
+  // "Resign & leave" resigns first so the opponent gets a clean result.
+  const requestLeave = useCallback(() => {
+    if (liveUndecided) setLeaveArmed(true)
+    else onlineStore.leave()
+  }, [liveUndecided])
+  const confirmResignLeave = useCallback(() => {
+    setLeaveArmed(false)
+    onlineStore.resign()
+    onlineStore.leave()
   }, [])
-
-  // Tear the session down if the tab unmounts mid-session.
-  useEffect(() => {
-    return () => {
-      mp.leave()
-    }
-  }, [])
-
-  // Report the stage to the host surface: 'game' widens the play area and locks
-  // the tab strip; any non-menu phase ('lobby') locks the strip so a hosted code
-  // or a dialing guest isn't silently killed by a tab switch. Ref-read callback
-  // keeps the effect keyed on phase alone; unmount resets to 'idle'.
-  const onStageRef = useRef(onStage)
-  onStageRef.current = onStage
-  useEffect(() => {
-    onStageRef.current?.(phase === 'game' ? 'game' : phase === 'menu' ? 'idle' : 'lobby')
-  }, [phase])
-  useEffect(
-    () => () => {
-      onStageRef.current?.('idle')
-    },
-    []
-  )
-
-  // ---- in-game control handlers -------------------------------------------
-  const onResign = useCallback(() => {
-    if (over) return
-    void mp.resign()
-    // The session echoes a 'resign' event back to us, which raises the banner.
-  }, [over])
-
-  const onOfferDraw = useCallback(() => {
-    if (over) return
-    if (drawOffered) {
-      void mp.acceptDraw()
-    } else {
-      setDrawSent(true)
-      void mp.offerDraw()
-    }
-  }, [over, drawOffered])
-
-  const onRematch = useCallback(() => {
-    setRematchSent(true)
-    void mp.offerRematch()
-  }, [])
-
-  const onFlip = useCallback(() => setOrientation((o) => (o === 'white' ? 'black' : 'white')), [])
+  const cancelLeave = useCallback(() => setLeaveArmed(false), [])
 
   const copyCode = useCallback(() => {
-    if (!code) return
-    void navigator.clipboard?.writeText(code).then(
+    if (!state.code) return
+    void navigator.clipboard?.writeText(state.code).then(
       () => {
         setCopied(true)
         setTimeout(() => setCopied(false), 1600)
       },
       () => {}
     )
-  }, [code])
+  }, [state.code])
 
   // ==========================================================================
   // RENDER
   // ==========================================================================
-  if (phase === 'game') {
+  if (state.phase === 'game') {
     return (
       <OnlineGame
+        state={state}
         fen={fen}
-        orientation={orientation}
         turn={turn}
-        userColor={userColor}
         dests={dests}
         lastMove={lastMove}
         check={check}
-        over={over}
         atTip={atTip}
+        over={over}
         pendingPromo={pendingPromo}
         nonce={nonce}
-        clocks={clocks}
-        config={config}
-        banner={banner}
-        drawOffered={drawOffered}
-        drawSent={drawSent}
-        rematchSent={rematchSent}
-        rematchOffered={rematchOffered}
-        peerLeft={peerLeft}
         settings={settings}
         tree={tree}
+        leaveArmed={leaveArmed}
         onMove={onMove}
         onPromo={onPromo}
         onPromoCancel={onPromoCancel}
-        onResign={onResign}
-        onOfferDraw={onOfferDraw}
-        onRematch={onRematch}
-        onFlip={onFlip}
-        onLeave={leave}
+        onLeaveRequest={requestLeave}
+        onConfirmResignLeave={confirmResignLeave}
+        onCancelLeave={cancelLeave}
       />
     )
   }
@@ -558,29 +328,36 @@ export default function OnlineTab({
         </p>
       </header>
 
-      {error && (
+      {(formError || state.error) && (
         <div className="online-error" role="alert">
           <AlertTriangle size={15} aria-hidden />
-          <span>{error}</span>
-          <button className="icon-btn online-error-x" onClick={() => setError(null)} aria-label="Dismiss">
+          <span>{formError || state.error}</span>
+          <button
+            className="icon-btn online-error-x"
+            onClick={() => {
+              setFormError(null)
+              onlineStore.dismissError()
+            }}
+            aria-label="Dismiss"
+          >
             <X size={14} />
           </button>
         </div>
       )}
 
-      {phase === 'hosting' && code ? (
+      {state.phase === 'hosting' && state.code ? (
         <HostWaiting
-          code={code}
+          code={state.code}
           copied={copied}
           onCopy={copyCode}
-          onCancel={leave}
-          relays={relays}
+          onCancel={() => onlineStore.leave()}
+          relays={state.relays}
         />
-      ) : phase === 'connecting' ? (
+      ) : state.phase === 'connecting' ? (
         <div className="online-card online-connecting">
           <Loader2 className="spin" size={22} aria-hidden />
-          <span>{guestStatusText(netStage)}</span>
-          <button className="btn ghost" onClick={leave}>
+          <span>{guestStatusText(state.netStage)}</span>
+          <button className="btn ghost" onClick={() => onlineStore.leave()}>
             Cancel
           </button>
         </div>
@@ -629,18 +406,10 @@ export default function OnlineTab({
             <button
               type="button"
               className="btn online-primary"
-              onClick={() => void doHost()}
+              onClick={doHost}
               disabled={busy || hostTc.baseMs <= 0}
             >
-              {busy && roleRef.current === 'host' ? (
-                <>
-                  <Loader2 className="spin" size={15} /> Opening…
-                </>
-              ) : (
-                <>
-                  <Radio size={15} /> Start &amp; get code
-                </>
-              )}
+              <Radio size={15} /> Start &amp; get code
             </button>
           </section>
 
@@ -667,7 +436,7 @@ export default function OnlineTab({
                 value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') void doJoin()
+                  if (e.key === 'Enter') doJoin()
                 }}
               />
               <p className="online-note">Codes look like <span className="num">A1B2C-D3E4F</span>.</p>
@@ -676,24 +445,40 @@ export default function OnlineTab({
             <button
               type="button"
               className="btn online-primary"
-              onClick={() => void doJoin()}
+              onClick={doJoin}
               disabled={busy || joinCode.trim().length < 5}
             >
-              {busy && roleRef.current === 'guest' ? (
-                <>
-                  <Loader2 className="spin" size={15} /> Connecting…
-                </>
-              ) : (
-                <>
-                  <LogIn size={15} /> Join game
-                </>
-              )}
+              <LogIn size={15} /> Join game
             </button>
           </section>
         </div>
       )}
     </div>
   )
+}
+
+const ROLE_FROM_CHAR: Record<string, Role> = { q: 'queen', r: 'rook', b: 'bishop', n: 'knight' }
+const PROMO_CHAR: Record<Role, string> = {
+  queen: 'q',
+  rook: 'r',
+  bishop: 'b',
+  knight: 'n',
+  king: '',
+  pawn: ''
+}
+
+/** Guest-side staged status copy, driven by the store's netStage as we go from
+ *  contacting relays → discovering the peer → the direct WebRTC handshake. */
+function guestStatusText(stage: 'relays' | 'searching' | 'connecting' | null): string {
+  switch (stage) {
+    case 'searching':
+      return 'Looking for your opponent…'
+    case 'connecting':
+      return 'Found them — connecting directly…'
+    case 'relays':
+    default:
+      return 'Contacting matchmaking relays…'
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -713,8 +498,6 @@ function HostWaiting({
   onCancel: () => void
   relays: { connected: number; total: number } | null
 }): JSX.Element {
-  // Until at least one relay is open we're still dialing the matchmaking network;
-  // after that we're online and simply waiting for the opponent to join.
   const online = (relays?.connected ?? 0) > 0
   const relayTitle = relays
     ? `${relays.connected} of ${relays.total} matchmaking relays connected`
@@ -762,115 +545,190 @@ function HostWaiting({
 }
 
 // ---------------------------------------------------------------------------
-// The live online game. Wraps GameView with online-specific chrome: a small
-// online status/actions strip (draw offer/accept, resign already in GameView),
-// host-authoritative clocks, and a rematch flow that survives peer-left.
+// The live online game. Wraps GameView with online-specific chrome, all driven
+// by the store snapshot: a status/actions strip (draw offer/accept/decline,
+// abort, resign-via-leave), a peer-away countdown strip, a symmetric rematch
+// strip, and a Leave confirm. Host-authoritative clocks come from the store.
 // ---------------------------------------------------------------------------
 interface OnlineGameProps {
+  state: ReturnType<typeof useOnlineGame>
   fen: string
-  orientation: Color
   turn: Color
-  userColor: Color
   dests: Map<Key, Key[]>
   lastMove?: [Key, Key]
   check?: Color
-  over: boolean
   atTip: boolean
+  over: boolean
   pendingPromo: { orig: string; dest: string } | null
   nonce: number
-  clocks: Clocks
-  config: MpGameConfig | null
-  banner: GameViewBanner | null
-  drawOffered: boolean
-  drawSent: boolean
-  rematchSent: boolean
-  rematchOffered: boolean
-  peerLeft: boolean
   settings: ReturnType<typeof useSettings>['settings']
   tree: ReturnType<typeof useGameTree>
+  leaveArmed: boolean
   onMove: (orig: Key, dest: Key) => void
   onPromo: (role: Role) => void
   onPromoCancel: () => void
-  onResign: () => void
-  onOfferDraw: () => void
-  onRematch: () => void
-  onFlip: () => void
-  onLeave: () => void
+  onLeaveRequest: () => void
+  onConfirmResignLeave: () => void
+  onCancelLeave: () => void
 }
 
-function OnlineGame(props: OnlineGameProps): JSX.Element {
-  const {
-    userColor,
-    clocks,
-    over,
-    atTip,
-    turn,
-    banner,
-    drawOffered,
-    drawSent,
-    rematchSent,
-    rematchOffered,
-    peerLeft,
-    settings,
-    onOfferDraw,
-    onRematch,
-    onLeave
-  } = props
-
+function OnlineGame({
+  state,
+  fen,
+  turn,
+  dests,
+  lastMove,
+  check,
+  atTip,
+  over,
+  pendingPromo,
+  nonce,
+  settings,
+  tree,
+  leaveArmed,
+  onMove,
+  onPromo,
+  onPromoCancel,
+  onLeaveRequest,
+  onConfirmResignLeave,
+  onCancelLeave
+}: OnlineGameProps): JSX.Element {
+  const userColor = state.myColor
   const opponentColor: Color = userColor === 'white' ? 'black' : 'white'
-  const timed = (props.config?.tc.initialMs ?? 0) > 0
-  const clockLive = timed && !over
-  const opponentClock = { ms: clocks[opponentColor], active: clockLive && turn === opponentColor && atTip }
-  const userClock = { ms: clocks[userColor], active: clockLive && turn === userColor && atTip }
+  const opponentName = state.opponentName || 'Opponent'
 
-  const opponentSub = timed ? formatClock(clocks[opponentColor]) : 'Online'
+  // One-shot low-time cue for OUR OWN clock (lichess behavior): the Clock's
+  // interp path fires it at the per-control emergency threshold; the live
+  // setting gates it here (mirrors PlayView's onLowTime).
+  const { play } = useSound()
+  const onLowTime = useCallback(() => {
+    if (settings.lowTimeWarning) play('lowTime')
+  }, [play, settings.lowTimeWarning])
+
+  const timed = (state.config?.tc.initialMs ?? 0) > 0
+  const baseMs = state.config?.tc.initialMs ?? 0
+  const clockLive = timed && !over && !state.peerAway
+  // Live remaining ms from the store snapshot; `interp` hands the Clock the
+  // authoritative snapshot so it self-ticks at 100ms (B2/D5/MP-02) — the coarse
+  // ms value keeps GameView's ClockSide contract and drives the active glow.
+  const opponentClock = {
+    ms: liveMs(state.clock, opponentColor),
+    active: clockLive && turn === opponentColor && atTip,
+    interp: state.clock ? { ...state.clock, side: opponentColor, baseMs } : undefined
+  }
+  const userClock = {
+    ms: liveMs(state.clock, userColor),
+    active: clockLive && turn === userColor && atTip,
+    interp: state.clock ? { ...state.clock, side: userColor, baseMs } : undefined,
+    onLowTime
+  }
+  const opponentSub = timed ? formatClock(opponentClock.ms) : 'Online'
+
+  // Input is disabled while the peer is away (fair-play + no moves into a frozen
+  // authority) and, obviously, once the game is over.
+  const inputFrozen = over || !!state.peerAway || state.peerLeft
+
+  // Draw cooldown: the store exposes drawBlockedUntilPly; a tooltip explains the
+  // disabled Offer-draw button. Offers before ply 2 are also blocked.
+  const drawCoolingDown = state.plyCount < state.drawBlockedUntilPly || state.plyCount < 2
+  const drawCooldownTip = drawCoolingDown
+    ? state.plyCount < 2
+      ? 'Draw offers open after the first moves.'
+      : 'Please wait before offering another draw.'
+    : undefined
 
   return (
     <div className="online-game">
-      {/* A slim status bar above the board carries the online-only affordances. */}
+      {/* Slim status strip above the board: online tag, a live status message
+          (in-game errors are surfaced here — never silent, L12), and the
+          in-game actions (draw offer/accept/decline, abort, leave). */}
       <div className="online-statusbar">
         <span className="online-statusbar-tag">
           <Globe size={13} aria-hidden /> Online
         </span>
-        {peerLeft ? (
-          <span className="online-statusbar-msg warn">Opponent disconnected.</span>
-        ) : drawOffered && !over ? (
-          <span className="online-statusbar-msg">Opponent offers a draw.</span>
-        ) : drawSent && !over ? (
+
+        {state.error ? (
+          <span className="online-statusbar-msg warn">{state.error}</span>
+        ) : state.drawOffered && !over ? (
+          <span className="online-statusbar-msg">{opponentName} offers a draw.</span>
+        ) : state.drawSent && !over ? (
           <span className="online-statusbar-msg muted">Draw offered — waiting…</span>
         ) : (
           <span className="online-statusbar-msg muted">Fair-play mode: hints &amp; takebacks are off.</span>
         )}
 
         <div className="online-statusbar-actions">
-          {!over && !peerLeft && (
+          {/* Incoming draw offer → Accept / Decline pair. */}
+          {!over && state.drawOffered && !state.peerLeft && (
+            <>
+              <button
+                className="btn ghost small is-accept"
+                onClick={() => onlineStore.acceptDraw()}
+              >
+                <Handshake size={14} /> Accept draw
+              </button>
+              <button className="btn ghost small" onClick={() => onlineStore.declineDraw()}>
+                Decline
+              </button>
+            </>
+          )}
+          {/* Offer draw (hidden while an incoming offer is pending). */}
+          {!over && !state.drawOffered && !state.peerLeft && (
             <button
-              className={`btn ghost small${drawOffered ? ' is-accept' : ''}`}
-              onClick={onOfferDraw}
-              disabled={drawSent && !drawOffered}
+              className="btn ghost small"
+              onClick={() => onlineStore.offerDraw()}
+              disabled={state.drawSent || drawCoolingDown}
+              title={drawCooldownTip}
             >
-              {drawOffered ? 'Accept draw' : drawSent ? 'Draw sent' : 'Offer draw'}
+              {state.drawSent ? 'Draw sent' : 'Offer draw'}
             </button>
           )}
-          <button className="btn ghost small" onClick={onLeave}>
+          {/* Abort while abortable (plyCount < 2): either side may abort. */}
+          {!over && state.canAbort && !state.peerLeft && (
+            <button className="btn ghost small" onClick={() => onlineStore.abort()} title="Abort — no result recorded">
+              <OctagonX size={14} /> Abort
+            </button>
+          )}
+          <button className="btn ghost small" onClick={onLeaveRequest}>
             Leave
           </button>
         </div>
       </div>
 
+      {/* Peer-away countdown strip (MP-06): live "Ns to reconnect", then Claim
+          victory / Abort once the grace expires. Reconnect swaps to peer-back. */}
+      {state.peerAway && !state.peerLeft && (
+        <PeerAwayStrip name={opponentName} deadlineMono={state.peerAway.deadlineMono} />
+      )}
+      {state.peerLeft && !over && (
+        <div className="online-away-strip is-expired" role="status">
+          <span className="online-away-msg">
+            <WifiOff size={14} aria-hidden /> {opponentName} left the game.
+          </span>
+          <div className="online-away-actions">
+            <button className="btn small" onClick={() => onlineStore.claimVictory()}>
+              Claim victory
+            </button>
+            <button className="btn ghost small" onClick={() => onlineStore.abort()}>
+              Abort game
+            </button>
+          </div>
+        </div>
+      )}
+
       <GameView
-        fen={props.fen}
-        orientation={props.orientation}
-        turn={props.turn}
+        fen={fen}
+        orientation={state.orientation}
+        turn={turn}
         userColor={userColor}
-        dests={props.dests}
-        lastMove={props.lastMove}
-        check={props.check}
+        dests={dests}
+        lastMove={lastMove}
+        check={check}
         thinking={false}
         over={over}
         atTip={atTip}
-        pendingPromo={props.pendingPromo}
-        nonce={props.nonce}
+        pendingPromo={pendingPromo}
+        nonce={nonce}
         boardTheme={settings.boardTheme}
         pieceSetClass={pieceSetClass(settings.pieceSet)}
         showLegal={settings.showLegal}
@@ -882,36 +740,128 @@ function OnlineGame(props: OnlineGameProps): JSX.Element {
         canTakeback={false}
         userName={settings.username}
         userAvatar={settings.avatar}
-        opponentName="Opponent"
+        opponentName={opponentName}
         opponentSub={opponentSub}
         opponentPhoto={null}
         clockActive={timed}
         opponentClock={opponentClock}
         userClock={userClock}
         confirmResign={settings.confirmResign}
-        tree={props.tree}
-        banner={banner}
-        onMove={props.onMove}
-        onPromo={props.onPromo}
-        onPromoCancel={props.onPromoCancel}
-        onResign={props.onResign}
-        // "New game" from the banner leaves the session (host/join again).
-        onNewGame={onLeave}
-        onFlip={props.onFlip}
-        // Rematch is online-aware: offer/accept over the wire. When the peer has
-        // left, hide it (handled by disabling below through onRematch no-op UI).
-        onRematch={peerLeft ? undefined : onRematch}
+        tree={tree}
+        banner={state.banner}
+        onMove={onMove}
+        onPromo={onPromo}
+        onPromoCancel={onPromoCancel}
+        onResign={() => onlineStore.resign()}
+        // Online seams: no local-play "New game" mid-game (Leave is the exit,
+        // with its own confirm); input frozen while the peer is away/left.
+        onlineLive
+        inputFrozen={inputFrozen}
+        // Board input is disabled while the peer is away (fair-play + frozen clock).
+        // Post-banner the banner's New game / Rematch drive the store.
+        onNewGame={() => onlineStore.leave()}
+        onFlip={() => onlineStore.flip()}
+        // Rematch is a symmetric offer; the banner button just sends the offer.
+        onRematch={state.peerLeft ? undefined : () => onlineStore.offerRematch()}
       />
 
-      {/* Post-game rematch status (the banner's Rematch button triggers onRematch;
-          these lines report the negotiation the banner can't). */}
-      {over && !peerLeft && (rematchSent || rematchOffered) && (
-        <div className="online-rematch-note" role="status">
-          {rematchOffered
-            ? 'Opponent wants a rematch — press Rematch to accept.'
-            : 'Rematch offered — waiting for your opponent…'}
+      {/* Symmetric rematch strip (MP-07): sent → "waiting" + Cancel; incoming →
+          Accept / Decline. Only after the game is over and the peer is present. */}
+      {over && !state.peerLeft && (
+        <RematchStrip
+          name={opponentName}
+          sent={state.rematchSent}
+          offered={state.rematchOffered}
+        />
+      )}
+
+      {/* Leave confirm (L10) — only reachable while a live undecided game is up. */}
+      {leaveArmed && (
+        <div className="online-leave-confirm" role="alertdialog" aria-label="Leave the game?">
+          <div className="online-leave-card">
+            <h3>Leave the game?</h3>
+            <p className="muted">Leaving forfeits the game — your opponent wins by resignation.</p>
+            <div className="online-leave-actions">
+              <button className="btn danger" onClick={onConfirmResignLeave}>
+                Resign &amp; leave
+              </button>
+              <button className="btn ghost" onClick={onCancelLeave}>
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
   )
+}
+
+// ---------------------------------------------------------------------------
+// Peer-away countdown: a self-ticking "Ns to reconnect" line. On expiry the
+// store flips peerLeft (the parent then renders the Claim victory / Abort row),
+// so this component only owns the pre-expiry countdown display.
+// ---------------------------------------------------------------------------
+function PeerAwayStrip({ name, deadlineMono }: { name: string; deadlineMono: number }): JSX.Element {
+  const [remaining, setRemaining] = useState(() => Math.max(0, deadlineMono - performance.now()))
+  useEffect(() => {
+    const tick = (): void => setRemaining(Math.max(0, deadlineMono - performance.now()))
+    tick()
+    const id = window.setInterval(tick, 250)
+    return () => window.clearInterval(id)
+  }, [deadlineMono])
+  const secs = Math.ceil(remaining / 1000)
+  return (
+    <div className="online-away-strip" role="status">
+      <span className="online-away-msg">
+        <Wifi size={14} className="online-away-spin" aria-hidden /> {name} disconnected — {secs}s to
+        reconnect…
+      </span>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Symmetric rematch strip. The banner's Rematch button sends the offer; this
+// strip reports the negotiation the banner can't: sent → waiting + Cancel,
+// incoming → Accept / Decline.
+// ---------------------------------------------------------------------------
+function RematchStrip({
+  name,
+  sent,
+  offered
+}: {
+  name: string
+  sent: boolean
+  offered: boolean
+}): JSX.Element | null {
+  if (offered) {
+    return (
+      <div className="online-rematch-strip" role="status">
+        <span className="online-rematch-msg">
+          <Repeat size={14} aria-hidden /> {name} wants a rematch.
+        </span>
+        <div className="online-rematch-actions">
+          <button className="btn small" onClick={() => onlineStore.offerRematch()}>
+            Accept
+          </button>
+          <button className="btn ghost small" onClick={() => onlineStore.declineRematch()}>
+            Decline
+          </button>
+        </div>
+      </div>
+    )
+  }
+  if (sent) {
+    return (
+      <div className="online-rematch-strip" role="status">
+        <span className="online-rematch-msg muted">Rematch offered — waiting for {name}…</span>
+        <div className="online-rematch-actions">
+          <button className="btn ghost small" onClick={() => onlineStore.declineRematch()}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    )
+  }
+  return null
 }

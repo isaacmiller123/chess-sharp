@@ -12,8 +12,9 @@ import { joinRoom, getRelaySockets } from 'trystero'
 import { normalizeRoomCode } from '@shared/mp/wire'
 import type { MpTransport, MpTransportFactory, MpTransportListeners } from './mpSession'
 
-/** A unique app namespace so only Chess# builds discover each other. */
-const APP_ID = 'chess-sharp-mp-v2'
+/** A unique app namespace so only Chess# builds discover each other. Bumped to v3
+ *  alongside the wire protocol so a v2 build never even shares a room with v3. */
+const APP_ID = 'chess-sharp-mp-v3'
 
 /** How often we sample relay socket state for the "contacting relays" UI (ms). */
 const RELAY_POLL_MS = 2_000
@@ -85,31 +86,50 @@ export const createRtcTransport: MpTransportFactory = (
     }
     listeners.onRelayStatus(connected, total)
   }
+  const stopRelayPoll = (): void => {
+    if (relayTimer) {
+      clearInterval(relayTimer)
+      relayTimer = null
+    }
+  }
   if (listeners.onRelayStatus) {
     relayTimer = setInterval(pollRelays, RELAY_POLL_MS)
     // Fire once promptly so the UI doesn't sit blank for the first interval.
     pollRelays()
   }
 
+  // A same-code rejoin (host→leave→host, or a reconnect) must not race a room
+  // that's still tearing down; expose the leave() settle as `closed` so the
+  // session can await it before re-creating the transport (T7).
+  let resolveClosed: () => void = () => {}
+  const closed = new Promise<void>((res) => {
+    resolveClosed = res
+  })
+
   return {
     send(text: string, toPeer?: string): void {
       try {
-        // Target one peer when given; otherwise broadcast to the whole room.
-        if (toPeer) void msg.send(text, { target: toPeer })
-        else void msg.send(text)
-      } catch {
-        /* a closed/absent channel surfaces via onPeerLeave; drop the send */
+        // Target one peer when given; otherwise broadcast to the whole room. The
+        // send is async: surface a rejected promise to the session (T6) instead of
+        // an unhandled rejection — it treats a dead channel like heartbeat trouble.
+        const p = toPeer ? msg.send(text, { target: toPeer }) : msg.send(text)
+        void Promise.resolve(p).catch((err) => listeners.onSendError?.(err))
+      } catch (err) {
+        // Synchronous throw (closed/absent channel): same path.
+        listeners.onSendError?.(err)
       }
     },
+    stopRelayPoll,
+    closed,
     close(): void {
-      if (relayTimer) {
-        clearInterval(relayTimer)
-        relayTimer = null
-      }
+      stopRelayPoll()
+      // room.leave() may be async; swallow its rejection and settle `closed`.
       try {
-        void room.leave()
+        void Promise.resolve(room.leave())
+          .catch(() => {})
+          .finally(resolveClosed)
       } catch {
-        /* ignore */
+        resolveClosed()
       }
     }
   }

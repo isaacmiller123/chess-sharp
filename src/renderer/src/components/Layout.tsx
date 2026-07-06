@@ -39,12 +39,16 @@ export function Layout({
   onNavigate,
   title,
   topRight,
+  playPulse = false,
   children
 }: {
   active: ViewKey
   onNavigate: (v: ViewKey) => void
   title: string
   topRight?: ReactNode
+  /** Pulse a dot on the Play rail item — a live online game is running while
+   *  the Play view isn't the one showing. */
+  playPulse?: boolean
   children: ReactNode
 }) {
   const { settings } = useSettings()
@@ -60,16 +64,21 @@ export function Layout({
         <div className="rail-nav">
           {NAV.map(({ key, label, Icon }) => {
             const isActive = active === key
+            const pulse = key === 'play' && playPulse
             return (
               <button
                 key={key}
                 type="button"
-                className={`rail-item${isActive ? ' is-active' : ''}`}
+                className={`rail-item${isActive ? ' is-active' : ''}${pulse ? ' has-pulse' : ''}`}
                 aria-current={isActive ? 'page' : undefined}
                 onClick={() => onNavigate(key)}
               >
-                <Icon className="rail-icon" size={20} aria-hidden />
+                <span className="rail-icon-wrap">
+                  <Icon className="rail-icon" size={20} aria-hidden />
+                  {pulse && <span className="rail-live-dot" aria-hidden />}
+                </span>
                 <span>{label}</span>
+                {pulse && <span className="visually-hidden"> (online game in progress)</span>}
               </button>
             )
           })}

@@ -399,3 +399,196 @@
   color: var(--text-secondary);
   padding: var(--space-2);
 }
+
+/* Namespaced danger button (no global .btn.danger exists) — the Leave confirm's
+   "Resign & leave". */
+.online-leave-card .btn.danger,
+.online-away-strip .btn.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+.online-leave-card .btn.danger:hover,
+.online-away-strip .btn.danger:hover {
+  background: color-mix(in srgb, var(--danger) 88%, #000 12%);
+}
+
+/* ---- Peer-away / peer-left strip (MP-06) ---------------------------------- */
+.online-away-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--warning-soft, color-mix(in srgb, var(--warning) 14%, transparent));
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+  border-radius: var(--radius-md);
+}
+.online-away-strip.is-expired {
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+}
+.online-away-msg {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+}
+.online-away-actions {
+  margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+/* Gentle spin on the reconnect icon while we wait. */
+.online-away-spin {
+  animation: online-spin 1.4s linear infinite;
+  color: var(--warning);
+}
+@media (prefers-reduced-motion: reduce) {
+  .online-away-spin {
+    animation: none;
+  }
+}
+
+/* ---- Symmetric rematch strip (MP-07) -------------------------------------- */
+.online-rematch-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+.online-rematch-msg {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+}
+.online-rematch-msg.muted {
+  color: var(--text-muted);
+}
+.online-rematch-actions {
+  margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ---- Leave confirm (L10) — a small centered modal over the game ----------- */
+.online-leave-confirm {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.42);
+  animation: online-fade var(--dur-fast) var(--ease-out) both;
+}
+.online-leave-card {
+  width: min(92vw, 400px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  animation: online-pop var(--dur-base) var(--ease-out) both;
+}
+.online-leave-card h3 {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+}
+.online-leave-card p {
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+.online-leave-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+@keyframes online-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes online-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---- Floating "return to your online game" chip (§5) ---------------------- */
+.online-return-chip {
+  position: fixed;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  z-index: var(--z-toast);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  font: inherit;
+  font-weight: var(--fw-medium);
+  animation: online-pop var(--dur-base) var(--ease-out) both;
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.online-return-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18);
+}
+.online-return-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--success);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 55%, transparent);
+  animation: online-net-pulse 1.8s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .online-return-dot {
+    animation: none;
+  }
+}
+.online-return-clock {
+  min-width: 5ch;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.online-return-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-inline-start: var(--space-3);
+  margin-inline-start: var(--space-1, 2px);
+  border-inline-start: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--accent);
+}

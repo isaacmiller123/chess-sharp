@@ -164,6 +164,52 @@ summary:focus-visible,
   }
 }
 
+/* Live-online pulsing dot on the Play rail item (a game is running while the
+   Play view isn't the one showing). Lives here in the always-loaded shell CSS so
+   the dot never waits on a lazy stylesheet. */
+.rail-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+.rail-live-dot {
+  position: absolute;
+  top: -2px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--success);
+  box-shadow: 0 0 0 2px var(--bg-page);
+}
+.rail-live-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--success);
+  animation: rail-live-pulse 1.8s var(--ease-out) infinite;
+}
+@keyframes rail-live-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  70% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rail-live-dot::after {
+    animation: none;
+  }
+}
+
 .main {
   display: flex;
   flex-direction: column;

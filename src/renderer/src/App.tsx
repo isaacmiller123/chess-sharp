@@ -6,6 +6,8 @@ import HomeView from './features/home/HomeView'
 import { CommandPalette } from './components/CommandPalette'
 import { ShortcutsHelp } from './components/ShortcutsHelp'
 import { Onboarding } from './components/Onboarding'
+import { OnlineReturnChip } from './features/play/OnlineReturnChip'
+import { useOnlineGame } from './features/play/online/useOnlineGame'
 import './components/shell-overlays.css'
 
 // Home stays eager (first paint); every other view is code-split so the initial
@@ -96,6 +98,11 @@ function isMacPlatform(): boolean {
  */
 function AppShell(): JSX.Element {
   const { settings } = useSettings()
+  // Live online session (survives across all views — the store is app-lifetime).
+  // Drives the Play-rail pulsing dot and a floating "return to game" chip when
+  // the Play view isn't the one showing.
+  const online = useOnlineGame()
+  const onlineLive = online.phase === 'game' || online.phase === 'hosting'
   const [view, setView] = useState<ViewKey>('home')
   const [pendingGameId, setPendingGameId] = useState<number | null>(null)
   const [pendingFamousId, setPendingFamousId] = useState<string | null>(null)
@@ -192,7 +199,12 @@ function AppShell(): JSX.Element {
 
   return (
     <>
-      <Layout active={view} onNavigate={navigate} title={TITLES[view]}>
+      <Layout
+        active={view}
+        onNavigate={navigate}
+        title={TITLES[view]}
+        playPulse={onlineLive && view !== 'play'}
+      >
         <Suspense fallback={<ViewFallback />}>
           <CurrentView
             view={view}
@@ -204,6 +216,11 @@ function AppShell(): JSX.Element {
           />
         </Suspense>
       </Layout>
+      {/* Floating return chip: only when a session is live and the Play view
+          isn't showing (lichess free-navigation model). Click → back to Play. */}
+      {onlineLive && view !== 'play' && (
+        <OnlineReturnChip state={online} onReturn={() => navigate('play')} />
+      )}
       {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} onNavigate={navigate} />}
       {shortcutsOpen && <ShortcutsHelp onClose={() => setShortcutsOpen(false)} isMac={isMac} />}
       {onboardingOpen && (

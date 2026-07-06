@@ -877,15 +877,22 @@ export interface DatasetImportResult {
   error?: string
 }
 
-// ---- Internet multiplayer (mp) -----------------------------------------------
+// ---- Internet multiplayer (mp) — protocol v3 ---------------------------------
 // Two copies of Chess#, anywhere on the internet, play each other over WebRTC data
 // channels established in the RENDERER (Chromium's native RTCPeerConnection).
 // Signaling runs through public relays (trystero/Nostr) — no user-run server and no
 // port forwarding. The join code is a random ROOM KEY (not an address): the host
 // generates one, the guest enters it, and both land in the same room. All game
 // flows through the renderer's MpNetSession; the UI consumes everything as MpEvent.
-// Ownership: shared contract (this file) = tech lead; wire protocol + session
-// authority + rtc transport = builder-core; renderer OnlineTab = builder-ui.
+//
+// v3 hardening (docs/MP-V3-SPEC.md): the host owns per-session monotonic gameIds
+// and a monotonic clock; first-move grace + abort watchdogs replace the old
+// clock-starts-at-handshake bug; flags are their own event (not resign); draw
+// decline + symmetric rematch + reconnect grace (peer-away/back/left) are modeled
+// here. The renderer's online store owns display/save/adjudication; the session
+// owns wire authority. Ownership: shared contract (this file) = tech lead; wire
+// protocol + session authority + rtc transport = builder-core; store = builder-store;
+// renderer OnlineTab = builder-ui.
 
 export interface MpTimeControl {
   /** Starting clock per side, ms. */
@@ -902,31 +909,68 @@ export interface MpGameConfig {
 
 export type MpColor = 'white' | 'black'
 
-/** Everything the renderer session emits to the UI. Discriminated on `type`.
- *  Perspective is ALWAYS the receiving player's: `yourColor` is this client's
- *  color, `resign.by` is who resigned. */
+/** Per-side remaining time, ms. Host-authoritative; rides on move/clock/flag/
+ *  resync events. Its own exported alias so stores can name the snapshot. */
+export interface MpClocks {
+  white: number
+  black: number
+}
+
+/** Everything the renderer session emits to the UI (protocol v3). Discriminated
+ *  on `type`. Perspective is ALWAYS the receiving player's: `yourColor` is this
+ *  client's color, `resign.by`/`flag.by` is the color that resigned/flagged.
+ *
+ *  In-game events carry the host-owned `gameId` (monotonic per session, starts
+ *  1, bumped on each rematch) so a store can drop stale traffic from a prior
+ *  game; `move` also carries a 0-based `ply`. The session already drops
+ *  wrong-gameId / wrong-ply wire messages, so these ids are informational for
+ *  the store but authoritative on the wire. */
 export type MpEvent =
   /** Connection lifecycle before the game starts: 'relays' = contacting signaling
    *  relays (with counts), 'searching' = waiting to discover the peer,
    *  'connecting' = peer found and the WebRTC/hello handshake is in flight. */
   | { type: 'net'; state: 'relays' | 'searching' | 'connecting'; relays?: { connected: number; total: number } }
-  /** Host only: a guest connected (game starts right after). */
+  /** Host only: a guest connected (the 'start' event follows immediately). */
   | { type: 'peer-joined' }
-  /** The game is on. Fired on BOTH sides once colors are resolved. */
-  | { type: 'start'; yourColor: MpColor; config: MpGameConfig }
-  /** A move played by the REMOTE peer, plus the authoritative clocks after it. */
-  | { type: 'move'; uci: string; clockMs: { white: number; black: number } }
+  /** The game is on. Fired on BOTH sides once colors are resolved. `opponentName`
+   *  is the peer's trimmed display name when they sent one. */
+  | { type: 'start'; gameId: number; yourColor: MpColor; config: MpGameConfig; opponentName?: string }
+  /** A move played by the REMOTE peer, plus the authoritative clocks after it.
+   *  `ply` is the 0-based half-move index this move occupies. */
+  | { type: 'move'; gameId: number; ply: number; uci: string; clockMs: MpClocks }
+  /** Host→guest clock ack/resync (after committing a guest move, and periodically
+   *  while a clock runs). `toMove` is whose clock is now ticking. */
+  | { type: 'clock'; gameId: number; clockMs: MpClocks; toMove: MpColor }
+  /** A side flagged (ran out of time). `clockMs` has the loser at 0; the store
+   *  adjudicates the lichess insufficient-material rule to pick win/draw. */
+  | { type: 'flag'; gameId: number; by: MpColor; clockMs: MpClocks }
+  /** The game was aborted before it really began — no result is recorded or
+   *  saved. 'no-first-move' = an abort watchdog fired; 'manual' = a player aborted. */
+  | { type: 'abort'; gameId: number; reason: 'no-first-move' | 'manual' }
+  /** A board-terminal ending (checkmate/stalemate/insufficient/…) confirmed on
+   *  both sides. `reason` is a human string for the banner. */
+  | { type: 'gameOver'; gameId: number; result: '1-0' | '0-1' | '1/2-1/2'; reason: string }
   /** The remote peer offers a draw. */
   | { type: 'drawOffer' }
+  /** The remote peer declined our draw offer. */
+  | { type: 'drawDecline' }
   /** The remote peer accepted our draw offer — game over, draw. */
   | { type: 'drawAccept' }
   /** A player resigned (either side; check `by` against your color). */
   | { type: 'resign'; by: MpColor }
   /** The remote peer offers a rematch. */
   | { type: 'rematchOffer' }
-  /** Rematch accepted: new game starts with (usually swapped) colors. */
-  | { type: 'rematchStart'; yourColor: MpColor }
-  /** The remote peer disconnected/left; the session is over. */
+  /** The remote peer declined the rematch — both sides' offers are cleared. */
+  | { type: 'rematchDecline' }
+  /** Rematch accepted: a new game starts with (usually swapped) colors. */
+  | { type: 'rematchStart'; gameId: number; yourColor: MpColor }
+  /** The peer went silent mid-game; the clock is paused. `graceMs` is how long
+   *  they have to reconnect before the game is claimable/abortable. */
+  | { type: 'peer-away'; graceMs: number }
+  /** The peer reconnected inside the grace window; play resumes. */
+  | { type: 'peer-back' }
+  /** The grace window expired (or the peer left outright). The UI offers Claim
+   *  victory / Abort. */
   | { type: 'peer-left' }
   /** Anything went wrong (bad code, version mismatch, socket error, ...). */
   | { type: 'error'; message: string }

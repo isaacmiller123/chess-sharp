@@ -1,7 +1,7 @@
 import { UserAvatar, EngineAvatar } from '../../components/Avatar'
 import type { Color } from '../../chess/chess'
 import { PieceIcon } from '../../board/PieceIcon'
-import { Clock } from './Clock'
+import { Clock, type ClockInterp } from './Clock'
 
 /* ---------------------------------------------------------------------------
    Captured-material model — pure helpers, derived from the current FEN alone
@@ -78,6 +78,10 @@ export interface ChipClock {
   ms: number
   active: boolean
   over: boolean
+  /** ONLINE path: authoritative snapshot the Clock self-ticks from (Clock.tsx). */
+  interp?: ClockInterp
+  /** ONLINE path: one-shot low-time hook, forwarded to the Clock. */
+  onLowTime?: () => void
 }
 
 export interface PlayerChipProps {
@@ -182,7 +186,16 @@ export function PlayerChip({
           </div>
         )}
       </div>
-      {clock && <Clock ms={clock.ms} active={clock.active} over={clock.over} label={name} />}
+      {clock && (
+        <Clock
+          ms={clock.ms}
+          active={clock.active}
+          over={clock.over}
+          label={name}
+          interp={clock.interp}
+          onLowTime={clock.onLowTime}
+        />
+      )}
     </div>
   )
 }

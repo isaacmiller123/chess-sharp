@@ -17,7 +17,13 @@ export function createWindow(): BrowserWindow {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      webSecurity: true
+      webSecurity: true,
+      // Keep renderer timers running when the window is hidden/occluded (MP-V3 §6,
+      // L4): online-multiplayer liveness (heartbeat), the host's authoritative flag
+      // watchdog, and the lobby/hosting phase all run on renderer timers. WebRTC
+      // exempts us once a data channel is up, but this also protects the pre-game
+      // lobby, which holds no WebRTC connection yet.
+      backgroundThrottling: false
     }
   })
 

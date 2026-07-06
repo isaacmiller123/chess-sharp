@@ -1,8 +1,22 @@
-// Internet-multiplayer wire protocol (v2): message schemas, the version hello,
+// Internet-multiplayer wire protocol (v3): message schemas, the version hello,
 // wire-level heartbeat, and the room-code codec. ISOMORPHIC by design — ZERO node
 // imports (no 'node:os', no Buffer) so this module bundles into the renderer AND
 // runs unchanged under bare node for tests. The transport lives in the renderer
 // (WebRTC via trystero); this file only knows how to (de)serialize and validate.
+//
+// v3 (docs/MP-V3-SPEC.md §1) over v2:
+//   - hello carries `role` (host|guest) — a guest that hears hello{role:'guest'}
+//     knows nobody is hosting and fails fast (kills the guest×guest deadlock) —
+//     and an optional `name` (the player's display name).
+//   - ALL in-game messages carry the host-owned `gameId` (monotonic per session,
+//     starts 1). Receivers DROP any in-game message whose gameId ≠ the current
+//     game, so late/duplicate traffic from a prior game can't corrupt state.
+//   - `move` also carries a 0-based `ply` (receivers drop out-of-order/dupes).
+//   - flags are their own `flag` message (no longer smuggled as a resign), the
+//     first-move grace is enforced by `abort`, board-terminal endings ride a
+//     `gameOver`, draws gain a `drawDecline`, rematch gains a `rematchDecline`,
+//     and reconnect adds `resumeReq`/`resync`. ping/pong carry a timestamp for
+//     RTT-based lag compensation.
 
 import { z } from 'zod'
 import type { MpGameConfig } from '@shared/types'
@@ -12,22 +26,53 @@ import type { MpGameConfig } from '@shared/types'
 // whose `v` doesn't match PROTOCOL_VERSION is refused with a wire 'error' and the
 // session is torn down. Bump this on ANY wire-incompatible change below.
 
-export const PROTOCOL_VERSION = 2
+export const PROTOCOL_VERSION = 3
+
+const roleSchema = z.enum(['host', 'guest'])
 
 export const helloMsgSchema = z
   .object({
     t: z.literal('hello'),
     /** Protocol version — must equal PROTOCOL_VERSION on both sides. */
     v: z.number().int(),
+    /** Sender's role. A guest hearing hello{role:'guest'} fails fast: that code
+     *  has no host (kills the guest×guest deadlock, MP-V3 §1/T5). */
+    role: roleSchema,
+    /** Sender's trimmed display name (≤24 chars, control chars stripped). */
+    name: z.string().optional(),
     /** App version string, informational only (never gates compatibility). */
     app: z.string().optional()
   })
   .strict()
 export type HelloMsg = z.infer<typeof helloMsgSchema>
 
-/** The hello THIS build sends. */
-export function makeHello(appVersion?: string): HelloMsg {
-  return { t: 'hello', v: PROTOCOL_VERSION, ...(appVersion ? { app: appVersion } : {}) }
+/** Longest display name we put on the wire; longer names are truncated. */
+export const MAX_NAME_LEN = 24
+
+/** Sanitize a raw display name for the wire: strip control chars, collapse
+ *  whitespace, trim, clamp to MAX_NAME_LEN. Returns undefined when nothing
+ *  usable remains (so hello omits `name` rather than sending ''). */
+export function sanitizeName(raw: string | null | undefined): string | undefined {
+  if (typeof raw !== 'string') return undefined
+  // eslint-disable-next-line no-control-regex
+  const cleaned = raw
+    .replace(/[\x00-\x1f\x7f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, MAX_NAME_LEN)
+  return cleaned.length > 0 ? cleaned : undefined
+}
+
+/** The hello THIS build sends, carrying our role + optional display name. */
+export function makeHello(role: 'host' | 'guest', name?: string, appVersion?: string): HelloMsg {
+  const clean = sanitizeName(name)
+  return {
+    t: 'hello',
+    v: PROTOCOL_VERSION,
+    role,
+    ...(clean ? { name: clean } : {}),
+    ...(appVersion ? { app: appVersion } : {})
+  }
 }
 
 // ---- Game config / message schemas --------------------------------------------
@@ -54,35 +99,97 @@ const _assertMpGameConfig: _AssertMpGameConfig = true
 void _assertMpGameConfig
 
 const colorSchema = z.enum(['white', 'black'])
+const clocksSchema = z.object({ white: z.number(), black: z.number() }).strict()
 
 /** UCI move like 'e2e4' / 'e7e8q'. */
 export const uciSchema = z.string().regex(/^[a-h][1-8][a-h][1-8][qrbn]?$/)
 
 export const wireMsgSchema = z.discriminatedUnion('t', [
   helloMsgSchema,
-  // host -> guest: colors resolved, game on. `yourColor` is the GUEST's color.
-  z.object({ t: z.literal('start'), yourColor: colorSchema, config: mpGameConfigSchema }).strict(),
-  // either direction: the sender's move + the sender's clocks after it.
+  // host -> guest: colors resolved, game on. `yourColor` is the GUEST's color;
+  // `gameId` opens this game (1, then +1 per rematch); `name` is the host's.
+  z
+    .object({
+      t: z.literal('start'),
+      gameId: z.number().int(),
+      yourColor: colorSchema,
+      config: mpGameConfigSchema,
+      name: z.string().optional()
+    })
+    .strict(),
+  // either direction: the sender's move (uci) at a given 0-based ply + the
+  // sender's clocks after it. clockMs is authoritative only host -> guest.
   z
     .object({
       t: z.literal('move'),
+      gameId: z.number().int(),
+      ply: z.number().int().min(0),
       uci: uciSchema,
-      clockMs: z.object({ white: z.number(), black: z.number() }).strict()
+      clockMs: clocksSchema
     })
     .strict(),
-  z.object({ t: z.literal('drawOffer') }).strict(),
-  z.object({ t: z.literal('drawAccept') }).strict(),
-  z.object({ t: z.literal('resign'), by: colorSchema }).strict(),
+  // host -> guest: authoritative clock ack after committing a guest move, and a
+  // periodic re-sync while a clock runs. toMove = whose clock is now ticking.
+  z
+    .object({
+      t: z.literal('clock'),
+      gameId: z.number().int(),
+      clockMs: clocksSchema,
+      toMove: colorSchema
+    })
+    .strict(),
+  // time-out. REPLACES resign-for-flag. clockMs has the loser (`by`) at 0.
+  z
+    .object({ t: z.literal('flag'), gameId: z.number().int(), by: colorSchema, clockMs: clocksSchema })
+    .strict(),
+  // first-move grace expired or a player aborted; no result is recorded.
+  z
+    .object({
+      t: z.literal('abort'),
+      gameId: z.number().int(),
+      reason: z.enum(['no-first-move', 'manual'])
+    })
+    .strict(),
+  // board-terminal ending (checkmate/stalemate/insufficient/…), confirmed both sides.
+  z
+    .object({
+      t: z.literal('gameOver'),
+      gameId: z.number().int(),
+      result: z.enum(['1-0', '0-1', '1/2-1/2']),
+      reason: z.string()
+    })
+    .strict(),
+  // genuine resignation only.
+  z.object({ t: z.literal('resign'), gameId: z.number().int(), by: colorSchema }).strict(),
+  z.object({ t: z.literal('drawOffer'), gameId: z.number().int() }).strict(),
+  z.object({ t: z.literal('drawDecline'), gameId: z.number().int() }).strict(),
+  z.object({ t: z.literal('drawAccept'), gameId: z.number().int() }).strict(),
+  // rematch is symmetric: either side offers; the host starts on mutual offers.
   z.object({ t: z.literal('rematchOffer') }).strict(),
-  // host -> guest on rematch accept; `yourColor` is again the GUEST's color.
-  z.object({ t: z.literal('rematchStart'), yourColor: colorSchema }).strict(),
+  z.object({ t: z.literal('rematchDecline') }).strict(),
+  // host -> guest on mutual rematch; `yourColor` is again the GUEST's (swapped) color.
+  z.object({ t: z.literal('rematchStart'), gameId: z.number().int(), yourColor: colorSchema }).strict(),
+  // reconnect: a rejoining peer asks the host to resume from the ply it has.
+  z.object({ t: z.literal('resumeReq'), gameId: z.number().int(), havePly: z.number().int().min(0) }).strict(),
+  // host -> peer: full authoritative snapshot to rebuild the live game after a rebond.
+  z
+    .object({
+      t: z.literal('resync'),
+      gameId: z.number().int(),
+      moves: z.array(uciSchema),
+      clockMs: clocksSchema,
+      toMove: colorSchema,
+      yourColor: colorSchema
+    })
+    .strict(),
   // graceful goodbye before leaving the room.
   z.object({ t: z.literal('bye') }).strict(),
   z.object({ t: z.literal('error'), message: z.string() }).strict(),
-  // wire-level heartbeat (v2): the old ws protocol-level ping/pong is gone, so
-  // liveness rides on these. Sent every few seconds once handshaken.
-  z.object({ t: z.literal('ping') }).strict(),
-  z.object({ t: z.literal('pong') }).strict()
+  // wire-level heartbeat: liveness rides on these, sent every few seconds once
+  // handshaked. `t` echoes the sender's monotonic clock (ms) so a pong lets the
+  // sender measure RTT for lag compensation (D11). Field is a plain number.
+  z.object({ t: z.literal('ping'), ts: z.number() }).strict(),
+  z.object({ t: z.literal('pong'), ts: z.number() }).strict()
 ])
 export type WireMsg = z.infer<typeof wireMsgSchema>
 

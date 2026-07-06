@@ -12,6 +12,7 @@ import type { Color, GameResult } from '../../chess/chess'
 import { useOpeningTrace } from '../../chess/openingTrace'
 import { SCHOOL_BRUSHES } from '../school/annotations'
 import { AssistPanel, useAssist } from './Assist'
+import type { ClockInterp } from './Clock'
 import { PlayerChip } from './PlayerChip'
 import { ResultBanner } from './ResultBanner'
 
@@ -19,6 +20,11 @@ import { ResultBanner } from './ResultBanner'
 export interface ClockSide {
   ms: number
   active: boolean
+  /** ONLINE path: authoritative snapshot the Clock self-ticks from at 100ms
+   *  (Clock.tsx `interp`). Absent = local play, where `ms` is already live. */
+  interp?: ClockInterp
+  /** ONLINE path: one-shot low-time hook, forwarded to the Clock. */
+  onLowTime?: () => void
 }
 
 export interface GameViewBanner {
@@ -89,6 +95,15 @@ export interface GameViewProps {
   /** Master switch for play assistance (settings.hintsEnabled). Off hides the
    *  Assistance panel and all of its board shapes entirely. */
   hintsEnabled: boolean
+  /** Online live game: the "New game" control is a local-play affordance that
+   *  would abandon the session, so it is hidden while the game is undecided
+   *  (Leave — with its own confirm — is the exit). Post-banner is unaffected
+   *  (the banner owns New game / Rematch). Defaults to false (local play). */
+  onlineLive?: boolean
+  /** Freeze board input regardless of turn (online: peer away / left). The
+   *  board becomes view-only but history browsing and controls still work.
+   *  Defaults to false. */
+  inputFrozen?: boolean
   tree: GameTree
   banner: GameViewBanner | null
   onMove: (orig: Key, dest: Key) => void
@@ -137,6 +152,8 @@ export function GameView({
   canTakeback = false,
   onTakeback,
   hintsEnabled,
+  onlineLive = false,
+  inputFrozen = false,
   tree,
   banner,
   onMove,
@@ -223,7 +240,7 @@ export function GameView({
           fen={fen}
           color={opponentColor}
           active={opponentTurn}
-          clock={clockActive ? { ms: opponentClock.ms, active: opponentClock.active, over } : null}
+          clock={clockActive ? { ...opponentClock, over } : null}
         />
 
         <div className="board-stage">
@@ -238,7 +255,7 @@ export function GameView({
               // OTB: whichever side is to move may move (pass-and-play). vs
               // engine/persona: only the user's own color is movable.
               movableColor={otb ? turn : userColor}
-              viewOnly={thinking || over || !atTip}
+              viewOnly={thinking || over || !atTip || inputFrozen}
               showDests={showLegal}
               coordinates={coordinates}
               animation={animation}
@@ -264,7 +281,7 @@ export function GameView({
           fen={fen}
           color={userColor}
           active={userTurn}
-          clock={clockActive ? { ms: userClock.ms, active: userClock.active, over } : null}
+          clock={clockActive ? { ...userClock, over } : null}
         />
 
         {banner ? (
@@ -323,9 +340,14 @@ export function GameView({
                   >
                     <Flag size={14} /> Resign
                   </button>
-                  <button className="btn ghost play-newgame" onClick={onNewGame} title="New game">
-                    <RotateCcw size={14} /> New game
-                  </button>
+                  {/* Online live game: no in-game "New game" (it would abandon the
+                      session with no result — the online Leave path handles exit
+                      with a confirm). Local play keeps it. */}
+                  {!onlineLive && (
+                    <button className="btn ghost play-newgame" onClick={onNewGame} title="New game">
+                      <RotateCcw size={14} /> New game
+                    </button>
+                  )}
                 </>
               )}
             </div>

@@ -27,6 +27,15 @@ export function checkColor(fen: string): Color | undefined {
   return pos.isCheck() ? pos.turn : undefined
 }
 
+/**
+ * Whether `color` has insufficient material to force mate in this position
+ * (chessops FIDE rule). Used by online timeout adjudication: a flag falls to a
+ * DRAW rather than a loss when the side still on the board can never mate.
+ */
+export function hasInsufficientMaterial(fen: string, color: Color): boolean {
+  return position(fen).hasInsufficientMaterial(color)
+}
+
 export function isPromotion(fen: string, orig: string, dest: string): boolean {
   const pos = position(fen)
   const from = parseSquare(orig)

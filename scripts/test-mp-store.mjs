@@ -1,0 +1,599 @@
+// Headless test for the online store (src/renderer/src/features/play/online/
+// onlineStore.ts — the app-lifetime home of a live internet game, the B1 fix).
+//
+//   node scripts/test-mp-store.mjs
+//
+// The store is a PLAIN module singleton with NO React imports, so it runs
+// unchanged in bare node. Its only runtime coupling to the session is
+//   import { mp } from './mpClient'
+// which pulls the real trystero-backed singleton. For this test we esbuild-bundle
+// onlineStore.ts with that ONE import redirected — via an esbuild resolve plugin —
+// to a MOCK mpClient we write here. The mock's `mp` records every action call and
+// lets the test PUSH any §8 MpEvent into the store's event pump, so we can drive
+// every event→state transition deterministically and assert the resulting
+// snapshot (getState()) without a network or a session.
+//
+// The store's other runtime imports (chess helpers via chessops, treeToPgn) bundle
+// straight through; the type-only imports (SoundName, TreeNode, GameViewBanner) are
+// erased by esbuild. window.api is absent in bare node — the store guards its
+// save() call, so persistence is a no-op we OBSERVE via the mock instead: we stub
+// globalThis.window.api.games.save to record saved games and assert save-once /
+// no-save-on-abort semantics.
+//
+// Final line: 'ALL GREEN — N assertions'. Exit 0 = all green; any failure prints
+// and exits 1. Clean exit (no leaked handles).
+
+import { build } from 'esbuild'
+import { fileURLToPath } from 'node:url'
+import { dirname, resolve } from 'node:path'
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const ROOT = resolve(__dirname, '..')
+
+// ---- tiny assert kit --------------------------------------------------------
+let passed = 0
+function ok(cond, msg) {
+  if (!cond) throw new Error(`ASSERT FAILED: ${msg}`)
+  passed++
+  console.log(`  ✓ ${msg}`)
+}
+function eq(a, b, msg) {
+  ok(a === b, `${msg} (got ${JSON.stringify(a)}, want ${JSON.stringify(b)})`)
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+/** Let the store's async actions (which await mocked promises) settle. */
+const settle = () => sleep(0)
+
+// ---- the mock mpClient source (written to disk, aliased into the bundle) -----
+//
+// It mirrors the mp API surface the store calls: onEvent(cb) (the store subscribes
+// ONCE at construction — we capture that cb), and the action methods. Each action
+// records its call and returns a result the test can control (default ok:true).
+// A global __MP_MOCK__ handle lets the test push events and read/tune calls.
+const MOCK_MPCLIENT = `
+const state = {
+  cb: null,            // the store's single onEvent subscriber
+  calls: [],           // [{ name, args }]
+  sendMoveOk: true,    // controls sendMove result (D6 rollback test)
+  hostCode: 'ABCDE-FGHJK'
+}
+function record(name, args) { state.calls.push({ name, args }) }
+export const mp = {
+  onEvent(cb) { state.cb = cb; return () => { if (state.cb === cb) state.cb = null } },
+  async host(cfg) { record('host', [cfg]); return { code: state.hostCode } },
+  async join(code) { record('join', [code]); return { ok: true } },
+  async sendMove(uci) { record('sendMove', [uci]); return { ok: state.sendMoveOk } },
+  async resign() { record('resign', []); return { ok: true } },
+  async offerDraw() { record('offerDraw', []); return { ok: true } },
+  async acceptDraw() { record('acceptDraw', []); return { ok: true } },
+  async declineDraw() { record('declineDraw', []); return { ok: true } },
+  async offerRematch() { record('offerRematch', []); return { ok: true } },
+  async declineRematch() { record('declineRematch', []); return { ok: true } },
+  async abort() { record('abort', []); return { ok: true } },
+  async claimVictory() { record('claimVictory', []); return { ok: true } },
+  async gameEnded(result, reason) { record('gameEnded', [result, reason]); return { ok: true } },
+  leave() { record('leave', []) }
+}
+// Test handle.
+globalThis.__MP_MOCK__ = {
+  emit(ev) { if (state.cb) state.cb(ev) },
+  calls: () => state.calls,
+  clearCalls: () => { state.calls.length = 0 },
+  countCalls: (name) => state.calls.filter((c) => c.name === name).length,
+  lastCall: (name) => [...state.calls].reverse().find((c) => c.name === name),
+  set sendMoveOk(v) { state.sendMoveOk = v },
+  get sendMoveOk() { return state.sendMoveOk }
+}
+`
+
+// ---- chessops FEN helpers we need locally (to build test positions/UCIs) -----
+// The store derives fen incrementally; to assert its board state we compare against
+// the same chessops the store uses. We bundle a tiny helper module for that.
+const CHESS_HELPERS = `
+export { applyMove, turnColor, INITIAL_FEN, outcome } from '${resolve(ROOT, 'src/renderer/src/chess/chess.ts').replace(/\\\\/g, '/')}'
+`
+
+async function bundle(entry, outfile, extraPlugins = []) {
+  await build({
+    entryPoints: [entry],
+    outfile,
+    bundle: true,
+    format: 'esm',
+    platform: 'neutral',
+    mainFields: ['module', 'main'],
+    conditions: ['import', 'module', 'default'],
+    alias: { '@shared': resolve(ROOT, 'src/shared') },
+    absWorkingDir: ROOT,
+    logLevel: 'warning',
+    plugins: extraPlugins
+  })
+}
+
+async function main() {
+  const cacheRoot = resolve(ROOT, 'node_modules/.cache/mp-test')
+  mkdirSync(cacheRoot, { recursive: true })
+  const outdir = mkdtempSync(resolve(cacheRoot, 'store-'))
+
+  // Write the mock mpClient + a chess-helper entry to the scratch dir.
+  const mockPath = resolve(outdir, 'mockMpClient.mjs')
+  writeFileSync(mockPath, MOCK_MPCLIENT)
+  const helperEntry = resolve(outdir, 'helpers.entry.ts')
+  writeFileSync(helperEntry, CHESS_HELPERS)
+
+  // Bundle onlineStore.ts, redirecting its `./mpClient` import to our mock via a
+  // resolve plugin (the import specifier is relative, so match on the basename).
+  console.log('· bundling onlineStore.ts with a mocked mpClient …')
+  const storeOut = resolve(outdir, 'onlineStore.mjs')
+  const swapMpClient = {
+    name: 'swap-mpclient',
+    setup(b) {
+      b.onResolve({ filter: /(^|\/)mpClient$/ }, () => ({ path: mockPath }))
+    }
+  }
+  await bundle(resolve(ROOT, 'src/renderer/src/features/play/online/onlineStore.ts'), storeOut, [swapMpClient])
+
+  // Bundle the chess helpers so we can construct UCIs / verify fens like the store.
+  const helpersOut = resolve(outdir, 'helpers.mjs')
+  await bundle(helperEntry, helpersOut)
+
+  // Observe saves: the store calls window.api.games.save(...) best-effort. Stub it
+  // BEFORE importing the store module (its constructor runs on import).
+  const saved = []
+  globalThis.window = {
+    api: { games: { save: async (g) => { saved.push(g); return { ok: true } } } }
+  }
+  // A performance.now the store uses for clock timestamps.
+  if (typeof globalThis.performance === 'undefined') {
+    globalThis.performance = { now: () => Date.now() }
+  }
+
+  const { onlineStore } = await import(storeOut)
+  const helpers = await import(helpersOut)
+  const { applyMove, turnColor, INITIAL_FEN } = helpers
+
+  const MOCK = globalThis.__MP_MOCK__
+  ok(typeof onlineStore === 'object', 'onlineStore singleton constructed')
+  ok(typeof MOCK === 'object', 'mock mpClient wired in (store subscribed at construction)')
+
+  // ---- helpers --------------------------------------------------------------
+  const S = () => onlineStore.getState()
+  const emit = (ev) => MOCK.emit(ev)
+  const CFG = (initialMs = 60_000, incrementMs = 0, hostColor = 'white') => ({
+    tc: { initialMs, incrementMs },
+    hostColor
+  })
+  /** UCI for a legal move from a fen (first legal we care about is explicit). */
+  const reset = () => { onlineStore.leave(); MOCK.clearCalls(); saved.length = 0 }
+
+  // Track subscriber notifications to confirm the store notifies on mutation.
+  let notifyCount = 0
+  const unsub = onlineStore.subscribe(() => { notifyCount++ })
+
+  // ==========================================================================
+  // 1. host / join actions drive phase + call the session once.
+  // ==========================================================================
+  console.log('\n· host()/join() phase + session calls …')
+  {
+    reset()
+    await onlineStore.host(CFG())
+    await settle()
+    eq(S().phase, 'hosting', 'host() → phase hosting')
+    eq(S().code, 'ABCDE-FGHJK', 'host() adopts the code from the session')
+    eq(MOCK.countCalls('host'), 1, 'host() calls mp.host exactly once')
+  }
+  {
+    reset()
+    await onlineStore.join('ABCDE-FGHJK')
+    await settle()
+    eq(S().phase, 'connecting', 'join() → phase connecting (awaits start)')
+    eq(MOCK.countCalls('join'), 1, 'join() calls mp.join exactly once')
+  }
+
+  // ==========================================================================
+  // 2. 'net' → netStage/relays; 'start' → game phase with colors + clocks idle.
+  // ==========================================================================
+  console.log('\n· net + start transitions …')
+  {
+    reset()
+    emit({ type: 'net', state: 'relays', relays: { connected: 1, total: 3 } })
+    eq(S().netStage, 'relays', 'net event sets netStage')
+    eq(S().relays.connected, 1, 'net event sets relays.connected')
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(60_000, 1_000), opponentName: 'Bob' })
+    eq(S().phase, 'game', 'start → phase game')
+    eq(S().gameId, 1, 'start adopts gameId')
+    eq(S().myColor, 'white', 'start adopts myColor')
+    eq(S().orientation, 'white', 'start orients to myColor')
+    eq(S().opponentName, 'Bob', 'start adopts opponentName')
+    eq(S().plyCount, 0, 'start resets plyCount to 0')
+    eq(S().fen, INITIAL_FEN, 'start resets fen to initial')
+    eq(S().canAbort, true, 'start: canAbort true (ply 0 < 2, live)')
+    ok(S().clock !== null && S().clock.running === null, 'start: clock present but idle (running null)')
+    eq(S().clock.snapshot.white, 60_000, 'start: clock snapshot at initialMs')
+  }
+
+  // ==========================================================================
+  // 3. playMove optimistic apply + clock flip; remote move applies.
+  // ==========================================================================
+  console.log('\n· playMove optimistic apply + remote move …')
+  {
+    reset()
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(60_000, 0), opponentName: 'Bob' })
+    // Our move (white to move). Optimistic: fen/plyCount advance immediately.
+    await onlineStore.playMove('e2e4')
+    await settle()
+    eq(S().plyCount, 1, 'playMove: plyCount advances optimistically')
+    eq(S().moves[0], 'e2e4', 'playMove: uci recorded')
+    eq(turnColor(S().fen), 'black', 'playMove: fen now black to move')
+    eq(MOCK.countCalls('sendMove'), 1, 'playMove calls mp.sendMove once')
+    eq(S().clock.running, 'black', 'playMove: display clock flips to the side now on move (black)')
+    eq(S().canAbort, true, 'playMove: still abortable at ply 1')
+    // A remote move (black replies). Host relays it with authoritative clocks.
+    emit({ type: 'move', gameId: 1, ply: 1, uci: 'e7e5', clockMs: { white: 60_000, black: 59_000 } })
+    eq(S().plyCount, 2, 'remote move: plyCount advances')
+    eq(S().moves[1], 'e7e5', 'remote move: uci recorded')
+    eq(turnColor(S().fen), 'white', 'remote move: back to white to move')
+    eq(S().clock.snapshot.black, 59_000, 'remote move: adopts authoritative clock snapshot')
+    eq(S().clock.running, 'white', 'remote move: white now running')
+    eq(S().canAbort, false, 'remote move: no longer abortable at ply 2')
+  }
+
+  // ==========================================================================
+  // 4. playMove ROLLS BACK on ok:false (D6).
+  // ==========================================================================
+  console.log('\n· playMove rollback on ok:false (D6) …')
+  {
+    reset()
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(60_000, 0) })
+    MOCK.sendMoveOk = false
+    const beforeFen = S().fen
+    await onlineStore.playMove('e2e4')
+    await settle()
+    eq(S().plyCount, 0, 'rollback: plyCount restored to 0')
+    eq(S().moves.length, 0, 'rollback: moves restored to empty')
+    eq(S().fen, beforeFen, 'rollback: fen restored to pre-move')
+    MOCK.sendMoveOk = true
+  }
+
+  // ==========================================================================
+  // 5. Move BLOCKED while peerAway (board frozen) — and wrong-turn / dead states.
+  // ==========================================================================
+  console.log('\n· move blocked while peerAway / not my turn / over …')
+  {
+    reset()
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(60_000, 0) })
+    emit({ type: 'peer-away', graceMs: 30_000 })
+    ok(S().peerAway !== null, 'peer-away sets peerAway state')
+    await onlineStore.playMove('e2e4')
+    await settle()
+    eq(MOCK.countCalls('sendMove'), 0, 'playMove blocked while peerAway (no sendMove)')
+    eq(S().plyCount, 0, 'playMove blocked while peerAway (no optimistic apply)')
+    // peer-back clears it.
+    emit({ type: 'peer-back' })
+    eq(S().peerAway, null, 'peer-back clears peerAway')
+  }
+  {
+    reset()
+    emit({ type: 'start', gameId: 1, yourColor: 'black', config: CFG(60_000, 0) })
+    // It's white to move but we are black → our move is blocked.
+    await onlineStore.playMove('e7e5')
+    await settle()
+    eq(MOCK.countCalls('sendMove'), 0, 'playMove blocked when it is not our turn')
+  }
+
+  // ==========================================================================
+  // 6. clock event updates the snapshot (host ack after our move; D5).
+  // ==========================================================================
+  console.log('\n· clock event updates snapshot …')
+  {
+    reset()
+    emit({ type: 'start', gameId: 1, yourColor: 'black', config: CFG(60_000, 0) })
+    // White (opponent) opens; we (black) get the move + a clock ack.
+    emit({ type: 'move', gameId: 1, ply: 0, uci: 'e2e4', clockMs: { white: 60_000, black: 60_000 } })
+    emit({ type: 'clock', gameId: 1, clockMs: { white: 59_500, black: 60_000 }, toMove: 'black' })
+    eq(S().clock.snapshot.white, 59_500, 'clock event updates white snapshot')
+    eq(S().clock.running, 'black', 'clock event sets running side to toMove')
+    // A stale-gameId clock is ignored.
+    emit({ type: 'clock', gameId: 99, clockMs: { white: 1, black: 1 }, toMove: 'white' })
+    eq(S().clock.snapshot.white, 59_500, 'stale-gameId clock ignored')
+  }
+
+  // ==========================================================================
+  // 7. resign / drawAccept / gameOver / abort banners + save gating.
+  // ==========================================================================
+  console.log('\n· resign banner (won/lost) + save-once …')
+  {
+    reset()
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(60_000, 0) })
+    emit({ type: 'move', gameId: 1, ply: 0, uci: 'e2e4', clockMs: { white: 60_000, black: 60_000 } })
+    emit({ type: 'move', gameId: 1, ply: 1, uci: 'e7e5', clockMs: { white: 60_000, black: 60_000 } })
+    // Opponent (black) resigns → white (us) wins.
+    emit({ type: 'resign', by: 'black' })
+    ok(S().banner !== null, 'resign raises a banner')
+    eq(S().banner.result, '1-0', 'resign by black → result 1-0')
+    eq(S().banner.reason, 'by resignation', 'resign banner reason')
+    eq(S().banner.outcomeForUser, 'win', 'resign banner: we (white) won')
+    eq(saved.length, 1, 'resign (≥2 plies) saves the game exactly once')
+    eq(saved[0].result, '1-0', 'saved game carries result')
+    // A second terminal event must not double-save.
+    emit({ type: 'gameOver', gameId: 1, result: '1-0', reason: 'checkmate' })
+    eq(saved.length, 1, 'no double-save after banner already set')
+  }
+  console.log('\n· draw agreement banner …')
+  {
+    reset()
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(60_000, 0) })
+    emit({ type: 'move', gameId: 1, ply: 0, uci: 'e2e4', clockMs: { white: 60_000, black: 60_000 } })
+    emit({ type: 'move', gameId: 1, ply: 1, uci: 'e7e5', clockMs: { white: 60_000, black: 60_000 } })
+    emit({ type: 'drawAccept' })
+    eq(S().banner.result, '1/2-1/2', 'drawAccept → draw result')
+    eq(S().banner.reason, 'by agreement', 'drawAccept reason by agreement')
+    eq(saved.length, 1, 'drawn game saved')
+  }
+  console.log('\n· abort: neutral banner, NOT saved …')
+  {
+    reset()
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(60_000, 0) })
+    // Abort at ply 0 (no moves): neutral banner, no result recorded, NOT saved.
+    emit({ type: 'abort', gameId: 1, reason: 'no-first-move' })
+    ok(S().banner !== null, 'abort raises a (neutral) banner')
+    eq(S().banner.title, 'Game aborted — no first move', 'abort banner titled for no-first-move')
+    eq(saved.length, 0, 'aborted game is NOT saved')
+  }
+  console.log('\n· gameOver (board terminal) banner + save …')
+  {
+    reset()
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(60_000, 0) })
+    emit({ type: 'move', gameId: 1, ply: 0, uci: 'e2e4', clockMs: { white: 60_000, black: 60_000 } })
+    emit({ type: 'move', gameId: 1, ply: 1, uci: 'e7e5', clockMs: { white: 60_000, black: 60_000 } })
+    emit({ type: 'gameOver', gameId: 1, result: '0-1', reason: 'checkmate' })
+    eq(S().banner.result, '0-1', 'gameOver adopts result')
+    eq(S().banner.reason, 'checkmate', 'gameOver adopts reason')
+    eq(S().banner.outcomeForUser, 'loss', 'gameOver 0-1 as white → loss')
+    eq(saved.length, 1, 'terminal gameOver saved')
+    // A stale-gameId gameOver is ignored.
+    reset()
+    emit({ type: 'start', gameId: 2, yourColor: 'white', config: CFG(60_000, 0) })
+    emit({ type: 'gameOver', gameId: 1, result: '1-0', reason: 'x' })
+    eq(S().banner, null, 'stale-gameId gameOver ignored (no banner)')
+  }
+
+  // ==========================================================================
+  // 8. NO save on <2 plies (not a real game).
+  // ==========================================================================
+  console.log('\n· short game (<2 plies) not saved …')
+  {
+    reset()
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(60_000, 0) })
+    emit({ type: 'move', gameId: 1, ply: 0, uci: 'e2e4', clockMs: { white: 60_000, black: 60_000 } })
+    // Opponent resigns after a single ply → banner but NOT saved (< 2 plies).
+    emit({ type: 'resign', by: 'black' })
+    ok(S().banner !== null, 'single-ply resign still raises a banner')
+    eq(saved.length, 0, 'single-ply game not saved (< 2 plies)')
+  }
+
+  // ==========================================================================
+  // 9. Flag adjudication: on-time win vs insufficient-material draw.
+  // ==========================================================================
+  console.log('\n· flag → win on time (sufficient material) …')
+  {
+    reset()
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(15_000, 0) })
+    emit({ type: 'move', gameId: 1, ply: 0, uci: 'e2e4', clockMs: { white: 15_000, black: 15_000 } })
+    emit({ type: 'move', gameId: 1, ply: 1, uci: 'e7e5', clockMs: { white: 15_000, black: 15_000 } })
+    // Black flags; white (us) has full material → win on time.
+    emit({ type: 'flag', gameId: 1, by: 'black', clockMs: { white: 15_000, black: 0 } })
+    eq(S().banner.result, '1-0', 'flag by black, white full material → 1-0')
+    eq(S().banner.reason, 'on time', 'flag win reason "on time"')
+    eq(S().clock.snapshot.black, 0, 'flagged side clock displayed at 0')
+  }
+  console.log('\n· flag → insufficient-material DRAW (winner = bare king) …')
+  {
+    // The store adjudicates a flag against state.fen: if the NON-flagged (winning)
+    // side has insufficient mating material, the timeout is a DRAW, not a win
+    // (lichess rule). We drive the store's board — by replaying a real, fully-legal
+    // 52-ply game (verified: no intermediate terminal position) — to a position
+    // where WHITE (us) is reduced to a LONE KING while BLACK still holds heavy
+    // material (K + Q + R + B + Ns). Final FEN:
+    //   2b1k3/1pppn2r/2n5/r4p2/2p5/4q3/2p3p1/6K1 w - - 0 27
+    // Now BLACK flags → the winner would be WHITE, but white can never mate, so the
+    // store must record a DRAW "time out — insufficient material".
+    const LINE = ['h2h4','a7a5','d2d4','a8a7','e2e3','a5a4','a2a3','g7g6','c2c4','e7e6','g2g4','f8a3','b2b3','a3c1','h4h5','g6h5','g1e2','a4b3','d4d5','c1e3','d1c2','h5g4','e2g1','e6d5','a1a5','b3c2','g1e2','d5c4','a5h5','e3f2','e1f2','b8c6','h1h3','g4h3','h5h7','h8h7','f2g1','d8h4','f1g2','h3g2','b1d2','g8e7','d2b1','f7f5','e2g3','h4g3','b1d2','g3c3','d2f1','a7a5','f1e3','c3e3']
+    reset()
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(15_000, 0) })
+    // Feed every ply as a remote move (the store applies by ply order regardless of
+    // side); this walks its fen to the bare-king endgame without ending the game.
+    for (let i = 0; i < LINE.length; i++) {
+      emit({ type: 'move', gameId: 1, ply: i, uci: LINE[i], clockMs: { white: 15_000, black: 15_000 } })
+    }
+    eq(S().plyCount, LINE.length, 'insufficient line: all 52 plies applied to the store board')
+    eq(S().banner, null, 'insufficient line: no mid-game terminal banner')
+    // Black flags: winner = white, but white is a bare king → DRAW.
+    emit({ type: 'flag', gameId: 1, by: 'black', clockMs: { white: 15_000, black: 0 } })
+    ok(S().banner !== null, 'flag raises a banner in the insufficient-material case')
+    eq(S().banner.result, '1/2-1/2', 'flag with an insufficient-material winner → DRAW')
+    eq(S().banner.reason, 'time out — insufficient material', 'draw reason names insufficient material')
+    eq(saved.length, 1, 'insufficient-material draw is saved')
+  }
+
+  // ==========================================================================
+  // 10. peerAway → peerLeft → claimVictory; and claim records a win + saves.
+  // ==========================================================================
+  console.log('\n· peer-left → claimVictory records a win …')
+  {
+    reset()
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(60_000, 0) })
+    emit({ type: 'move', gameId: 1, ply: 0, uci: 'e2e4', clockMs: { white: 60_000, black: 60_000 } })
+    emit({ type: 'move', gameId: 1, ply: 1, uci: 'e7e5', clockMs: { white: 60_000, black: 60_000 } })
+    emit({ type: 'peer-away', graceMs: 30_000 })
+    emit({ type: 'peer-left' })
+    eq(S().peerLeft, true, 'peer-left sets peerLeft')
+    eq(S().peerAway, null, 'peer-left clears peerAway')
+    await onlineStore.claimVictory()
+    await settle()
+    eq(MOCK.countCalls('claimVictory'), 1, 'claimVictory calls mp.claimVictory')
+    eq(S().banner.result, '1-0', 'claimVictory records a win for white (us)')
+    eq(S().banner.reason, 'opponent left the game', 'claimVictory banner reason')
+    eq(saved.length, 1, 'claimed victory saved')
+  }
+  console.log('\n· peer-left without claim: NOT saved (abandoned) …')
+  {
+    reset()
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(60_000, 0) })
+    emit({ type: 'move', gameId: 1, ply: 0, uci: 'e2e4', clockMs: { white: 60_000, black: 60_000 } })
+    emit({ type: 'move', gameId: 1, ply: 1, uci: 'e7e5', clockMs: { white: 60_000, black: 60_000 } })
+    emit({ type: 'peer-away', graceMs: 30_000 })
+    emit({ type: 'peer-left' })
+    // The user just leaves without claiming.
+    eq(saved.length, 0, 'abandoned game (no claim) is NOT saved')
+  }
+
+  // ==========================================================================
+  // 11. Draw / rematch offer flags (incoming/outgoing) + decline clears.
+  // ==========================================================================
+  console.log('\n· draw + rematch offer flags …')
+  {
+    reset()
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(60_000, 0) })
+    emit({ type: 'move', gameId: 1, ply: 0, uci: 'e2e4', clockMs: { white: 60_000, black: 60_000 } })
+    emit({ type: 'move', gameId: 1, ply: 1, uci: 'e7e5', clockMs: { white: 60_000, black: 60_000 } })
+    emit({ type: 'drawOffer' })
+    eq(S().drawOffered, true, 'incoming drawOffer sets drawOffered')
+    // We decline → clears + calls mp.declineDraw.
+    await onlineStore.declineDraw()
+    await settle()
+    eq(S().drawOffered, false, 'declineDraw clears drawOffered')
+    eq(MOCK.countCalls('declineDraw'), 1, 'declineDraw calls the session')
+    // We offer a draw → drawSent + cooldown; session called.
+    await onlineStore.offerDraw()
+    await settle()
+    eq(S().drawSent, true, 'offerDraw sets drawSent')
+    eq(MOCK.countCalls('offerDraw'), 1, 'offerDraw calls the session')
+    // Opponent declines our offer.
+    emit({ type: 'drawDecline' })
+    eq(S().drawSent, false, 'incoming drawDecline clears drawSent')
+  }
+  console.log('\n· rematch offer flags (post-game) …')
+  {
+    reset()
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(60_000, 0) })
+    emit({ type: 'move', gameId: 1, ply: 0, uci: 'e2e4', clockMs: { white: 60_000, black: 60_000 } })
+    emit({ type: 'move', gameId: 1, ply: 1, uci: 'e7e5', clockMs: { white: 60_000, black: 60_000 } })
+    emit({ type: 'resign', by: 'black' }) // game over → rematch meaningful
+    emit({ type: 'rematchOffer' })
+    eq(S().rematchOffered, true, 'incoming rematchOffer (post-game) sets rematchOffered')
+    await onlineStore.offerRematch()
+    await settle()
+    eq(S().rematchSent, true, 'offerRematch sets rematchSent')
+    eq(MOCK.countCalls('offerRematch'), 1, 'offerRematch calls the session')
+    // rematchStart resets to a fresh game (swapped colors, gameId+1).
+    emit({ type: 'rematchStart', gameId: 2, yourColor: 'black' })
+    eq(S().phase, 'game', 'rematchStart → back to game phase')
+    eq(S().gameId, 2, 'rematchStart adopts new gameId')
+    eq(S().myColor, 'black', 'rematchStart swaps our color')
+    eq(S().banner, null, 'rematchStart clears the banner')
+    eq(S().plyCount, 0, 'rematchStart resets the board')
+  }
+
+  // ==========================================================================
+  // 12. gameOver from board-terminal reached by playMove → mp.gameEnded called.
+  // ==========================================================================
+  console.log('\n· board-terminal via playMove calls mp.gameEnded …')
+  {
+    reset()
+    // Fool's mate: 1.f3 e5 2.g4 Qh4# — we are white and DELIVER the losing position
+    // to ourselves by playing into it; the mate is detected after black's Qh4#.
+    // Simpler: drive white into a self-checkmate is impossible in 1 move; instead
+    // verify gameEnded fires on a REMOTE move that checkmates us. Play the fool's
+    // mate with us as WHITE receiving the final black move.
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(60_000, 0) })
+    await onlineStore.playMove('f2f3'); await settle()
+    emit({ type: 'move', gameId: 1, ply: 1, uci: 'e7e5', clockMs: { white: 60_000, black: 60_000 } })
+    await onlineStore.playMove('g2g4'); await settle()
+    // Black plays Qh4# — mate on white. The store detects terminal → mp.gameEnded.
+    emit({ type: 'move', gameId: 1, ply: 3, uci: 'd8h4', clockMs: { white: 60_000, black: 60_000 } })
+    ok(S().banner !== null, 'checkmate raises a banner')
+    eq(S().banner.result, '0-1', 'fool\'s mate: black wins (0-1)')
+    eq(S().banner.outcomeForUser, 'loss', 'we (white) are mated → loss')
+    ok(MOCK.countCalls('gameEnded') >= 1, 'board-terminal calls mp.gameEnded')
+    const gc = MOCK.lastCall('gameEnded')
+    eq(gc.args[0], '0-1', 'gameEnded relayed the 0-1 result')
+    eq(saved.length, 1, 'checkmated game saved')
+  }
+
+  // ==========================================================================
+  // 13. leave() is the SOLE caller of mp.leave() and resets the store.
+  // ==========================================================================
+  console.log('\n· leave() sole mp.leave() caller + full reset …')
+  {
+    reset() // reset itself calls leave once; clear after
+    MOCK.clearCalls()
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(60_000, 0) })
+    onlineStore.leave()
+    eq(MOCK.countCalls('leave'), 1, 'leave() calls mp.leave exactly once')
+    eq(S().phase, 'idle', 'leave() resets phase to idle')
+    eq(S().gameId, 0, 'leave() resets gameId')
+    eq(S().banner, null, 'leave() clears banner')
+    // Confirm NO other action method calls mp.leave under the hood.
+    MOCK.clearCalls()
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(60_000, 0) })
+    emit({ type: 'move', gameId: 1, ply: 0, uci: 'e2e4', clockMs: { white: 60_000, black: 60_000 } })
+    emit({ type: 'move', gameId: 1, ply: 1, uci: 'e7e5', clockMs: { white: 60_000, black: 60_000 } })
+    await onlineStore.resign(); await settle()
+    await onlineStore.abort(); await settle()
+    await onlineStore.offerDraw(); await settle()
+    emit({ type: 'resign', by: 'black' })
+    await onlineStore.offerRematch(); await settle()
+    eq(MOCK.countCalls('leave'), 0, 'no other action calls mp.leave() implicitly')
+  }
+
+  // ==========================================================================
+  // 14. error event surfaces in state; dismissError clears.
+  // ==========================================================================
+  console.log('\n· error event + dismissError …')
+  {
+    reset()
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(60_000, 0) })
+    emit({ type: 'error', message: 'malformed message from peer' })
+    eq(S().error, 'malformed message from peer', 'in-game error surfaces in state')
+    eq(S().phase, 'game', 'in-game error keeps the game phase (status strip)')
+    onlineStore.dismissError()
+    eq(S().error, null, 'dismissError clears the error')
+    // A pre-game (lobby) error drops toward idle.
+    reset()
+    await onlineStore.host(CFG()); await settle()
+    emit({ type: 'error', message: 'nobody hosting' })
+    eq(S().phase, 'idle', 'lobby error drops phase to idle')
+    eq(S().error, 'nobody hosting', 'lobby error surfaces its message')
+  }
+
+  // ==========================================================================
+  // 15. flip() toggles orientation only.
+  // ==========================================================================
+  console.log('\n· flip() toggles orientation …')
+  {
+    reset()
+    emit({ type: 'start', gameId: 1, yourColor: 'white', config: CFG(60_000, 0) })
+    eq(S().orientation, 'white', 'orientation starts at myColor')
+    onlineStore.flip()
+    eq(S().orientation, 'black', 'flip() toggles orientation')
+    onlineStore.flip()
+    eq(S().orientation, 'white', 'flip() toggles back')
+  }
+
+  // subscriber sanity: mutations notified.
+  ok(notifyCount > 0, `store notified subscribers on mutation (${notifyCount} times)`)
+  unsub()
+
+  reset()
+  rmSync(outdir, { recursive: true, force: true })
+  console.log(`\nALL GREEN — ${passed} assertions`)
+}
+
+main().then(
+  () => setTimeout(() => process.exit(0), 30).unref(),
+  (err) => {
+    console.error(`\n❌ ${err.stack || err}`)
+    process.exit(1)
+  }
+)

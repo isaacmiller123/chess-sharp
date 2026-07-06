@@ -48,6 +48,8 @@ import {
   type PlayTab
 } from './SetupCard'
 import type { OnlineStage } from './OnlineTab'
+import { onlineStore } from './online/onlineStore'
+import { useOnlineGame } from './online/useOnlineGame'
 import { GameView, type GameViewBanner } from './GameView'
 import { pieceSetClass } from '../../board/pieceSets'
 import { useSound } from '../../sound'
@@ -125,7 +127,13 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
 
   // Setup form.
   const [phase, setPhase] = useState<Phase>('setup')
-  const [tab, setTab] = useState<PlayTab>('local')
+  // Open on the Online tab when a live online session already exists (the user
+  // clicked the floating return chip / rail dot from another view — the store
+  // survives across views, so land them straight on the game). Otherwise Local.
+  const [tab, setTab] = useState<PlayTab>(() => {
+    const p = onlineStore.getState().phase
+    return p === 'game' || p === 'hosting' || p === 'connecting' ? 'online' : 'local'
+  })
   const [localMode, setLocalMode] = useState<LocalMode>('engine')
   const [elo, setElo] = useState(1500)
   const [colorChoice, setColorChoice] = useState<ColorChoice>('white')
@@ -138,10 +146,18 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
     blackName: 'Player 2',
     autoFlip: true
   })
-  // Online (internet) session stage, reported by OnlineTab. The online game itself
-  // is fully self-contained in that tab; PlayView only needs the stage so
-  // SetupCard can lock the tab strip mid-session and widen for a live game.
-  const [onlineStage, setOnlineStage] = useState<OnlineStage>('idle')
+  // Online (internet) session stage, derived DIRECTLY from the app-lifetime
+  // online store (MP-V3-SPEC §4/§5 — the session no longer lives in OnlineTab's
+  // component state, so PlayView reads it straight from the store). SetupCard
+  // uses this only to widen for a live game; it is no longer a data-loss guard
+  // (the store survives any unmount), so the onStage callback is a courtesy.
+  const online = useOnlineGame()
+  const onlineStage: OnlineStage =
+    online.phase === 'game' ? 'game' : online.phase === 'idle' ? 'idle' : 'lobby'
+  const setOnlineStage = useCallback((_stage: OnlineStage) => {
+    // OnlineTab still reports its stage, but the store is the source of truth;
+    // this no-op keeps the existing prop wiring without a second state copy.
+  }, [])
 
   // Persona gallery. selectedPersonaId doubles as "which detail pane is open" —
   // null shows the gallery. famousGames holds famous-game metadata by id so the
