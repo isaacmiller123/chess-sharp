@@ -125,6 +125,30 @@ export interface EngineStatus {
   lc0Ready: boolean
   /** Fairy-Stockfish binary present (imported or bundled) — variant bots can play. */
   fairyReady: boolean
+  /** KataGo engine + at least one standard net present — Go bots can play. */
+  katagoReady: boolean
+  /** The optional Human-SL go net is installed — Go bot levels play human-like. */
+  katagoHumanReady: boolean
+}
+
+// ---- Go bots (engine:playGo → KataGo over GTP) -------------------------------
+
+/** One Go bot move request. The full move list (not a position) is sent because
+ *  GTP replays games move-by-move; vertices use the go codec ('d4', 'i' skipped,
+ *  rank 1 = bottom) which is exactly GTP's own convention. BLACK moves first. */
+export interface PlayGoRequest {
+  size: 9 | 13 | 19
+  komi: number
+  /** Codec moves in play order: 'd4'-style vertices + 'pass'. */
+  moves: string[]
+  /** Bot strength 1..5 (games/bots.ts row; main maps it to net+visits+temp,
+   *  or to a Human-SL rank profile when the human net is installed). */
+  level: number
+}
+
+export interface PlayGoResult {
+  /** The engine's reply: a codec vertex or 'pass' (never 'resign'). */
+  move: string
 }
 
 export type Unsubscribe = () => void
@@ -884,26 +908,39 @@ export interface Persona {
 
 // ---- Datasets (runtime import of the large redistributable datasets) --------
 
+/** One importable dataset group (a Settings → Datasets row). */
+export type DatasetKey = 'engine' | 'puzzles' | 'maia' | 'katago'
+
 export interface DatasetStatus {
   /** Stockfish engine binary present (imported or bundled). */
   engine: boolean
   /** Lichess puzzle DB present (imported or bundled). */
   puzzles: boolean
-  /** Both present — every feature is fully available. */
+  /** Maia "Human" chess style fully present: lc0 + all five maia nets. */
+  maia: boolean
+  /** KataGo Go bots fully present: engine + both standard nets. */
+  katago: boolean
+  /** The OPTIONAL 94.5 MB Human-SL go net (human-like go levels) is installed.
+   *  Never gates `complete` — it is an opt-in extra. */
+  katagoHuman: boolean
+  /** Every non-optional group present — every feature is fully available. */
   complete: boolean
 }
 
 export interface DatasetItemMeta {
-  key: 'engine' | 'puzzles'
+  key: DatasetKey
   label: string
   /** Download size in bytes (compressed, for the puzzle DB). */
   bytes: number
   /** On-disk size after install in bytes. */
   installedBytes: number
+  /** Optional add-on rendered as an opt-in checkbox under the row (katago's
+   *  Human-SL net). Its bytes are IN ADDITION to `bytes`. */
+  optIn?: { label: string; bytes: number; installed: boolean }
 }
 
 export interface DatasetProgress {
-  key: 'engine' | 'puzzles' | 'all'
+  key: DatasetKey | 'all'
   phase: 'download' | 'verify' | 'done' | 'error' | 'cancelled'
   received: number
   total: number
@@ -1066,6 +1103,9 @@ export interface Api {
     play(req: PlayRequest): Promise<BestMove>
     /** Variant bot move via Fairy-Stockfish (games platform, spec §Bots). */
     playVariant(req: PlayVariantRequest): Promise<BestMove>
+    /** Go bot move via KataGo over GTP (games platform, spec §Bots). Rejects
+     *  with a "not installed" error until the katago dataset group imports. */
+    playGo(req: PlayGoRequest): Promise<PlayGoResult>
     status(): Promise<EngineStatus>
     newGame(instance: 'analysis' | 'play'): Promise<OkResult>
     onLine(cb: (line: EngineLine) => void): Unsubscribe
@@ -1140,7 +1180,7 @@ export interface Api {
     reportResult(req: {
       botElo: number
       score: number
-      opponentKind?: 'engine' | 'persona'
+      opponentKind?: 'engine' | 'persona' | 'maia'
     }): Promise<{ ratingAfter: number; delta: number }>
   }
   openings: {
@@ -1236,7 +1276,9 @@ export interface Api {
   datasets: {
     status(): Promise<DatasetStatus>
     items(): Promise<{ items: DatasetItemMeta[] }>
-    import(): Promise<DatasetImportResult>
+    /** Import every missing group. `includeHuman` also fetches the optional
+     *  94.5 MB Human-SL go net (the katago row's opt-in checkbox). */
+    import(req?: { includeHuman?: boolean }): Promise<DatasetImportResult>
     cancel(): Promise<OkResult>
     onProgress(cb: (p: DatasetProgress) => void): Unsubscribe
   }

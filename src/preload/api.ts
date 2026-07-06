@@ -24,6 +24,7 @@ export const api: Api = {
     stop: (handleId) => ipcRenderer.invoke('engine:stop', { handleId }),
     play: (req) => ipcRenderer.invoke('engine:play', req),
     playVariant: (req) => ipcRenderer.invoke('engine:playVariant', req),
+    playGo: (req) => ipcRenderer.invoke('engine:playGo', req),
     status: () => ipcRenderer.invoke('engine:status', {}),
     newGame: (instance) => ipcRenderer.invoke('engine:newGame', { instance }),
     onLine: (cb) => {
@@ -122,7 +123,7 @@ export const api: Api = {
   datasets: {
     status: () => ipcRenderer.invoke('datasets:status', {}),
     items: () => ipcRenderer.invoke('datasets:items', {}),
-    import: () => ipcRenderer.invoke('datasets:import', {}),
+    import: (req) => ipcRenderer.invoke('datasets:import', req ?? {}),
     cancel: () => ipcRenderer.invoke('datasets:cancel', {}),
     onProgress: (cb) => {
       const listener = (_e: IpcRendererEvent, data: DatasetProgress) => cb(data)

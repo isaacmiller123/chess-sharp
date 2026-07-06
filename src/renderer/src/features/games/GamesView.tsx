@@ -23,7 +23,12 @@ const EditorView = lazy(() => import('./editor/EditorView'))
  * bottom opens the custom-variant editor ('custom-editor' catalog card's
  * real home).
  */
-export default function GamesView(): JSX.Element {
+export default function GamesView({
+  onOpenSettings
+}: {
+  /** Deep link to the Settings view (bot engine install prompts). */
+  onOpenSettings?: () => void
+}): JSX.Element {
   const { settings } = useSettings()
   const [selected, setSelected] = useState<CatalogEntry | null>(null)
   const [labOpen, setLabOpen] = useState(false)
@@ -43,7 +48,7 @@ export default function GamesView(): JSX.Element {
   }
 
   if (selected) {
-    return <GamePage entry={selected} onBack={() => setSelected(null)} />
+    return <GamePage entry={selected} onBack={() => setSelected(null)} onOpenSettings={onOpenSettings} />
   }
 
   const boardCls = `board-wrap board-${settings.boardTheme} ${pieceSetClass(settings.pieceSet)}`

@@ -28,9 +28,10 @@ import { ENGINE_ELO_FLOOR } from './types'
 
 /** The opponent kinds that move the vs-bot Glicko ladder. */
 export interface RatedBotConfig {
-  kind: 'engine' | 'persona'
+  kind: 'engine' | 'persona' | 'maia'
   /** The config's nominal Elo: the UI-selected level for engines, the persona's
-   *  modernElo ?? peakElo for personas. */
+   *  modernElo ?? peakElo for personas, the net's training band for maia
+   *  (maia-1500 ⇒ 1500). */
   elo: number
 }
 
@@ -74,17 +75,21 @@ function interpolate(elo: number): number {
  *  - engine below the floor: the calibration curve above (rounded to 10s).
  *  - persona: modernElo/peakElo is already an honest strength estimate —
  *    passthrough (persona moves are produced by selectMove capped near that).
+ *  - maia: the net's NOMINAL training band IS the measurement — each maia-<elo>
+ *    net was trained to predict moves of players at that lichess rating and
+ *    plays within a few dozen Elo of it at nodes=1 (CSSLab's published
+ *    move-match evals) — passthrough, never the sub-floor weak curve.
  */
 export function measuredElo(config: RatedBotConfig): number {
-  if (config.kind === 'persona') return Math.round(config.elo)
+  if (config.kind === 'persona' || config.kind === 'maia') return Math.round(config.elo)
   if (config.elo >= ENGINE_ELO_FLOOR) return Math.round(config.elo)
   return Math.round(interpolate(config.elo) / 10) * 10
 }
 
-/** True when the strength figure is an estimate (sub-floor engine or persona),
- *  i.e. the UI must render it '~1470'-style, never as a bare point value. */
+/** True when the strength figure is an estimate (sub-floor engine, persona or
+ *  maia), i.e. the UI must render it '~1470'-style, never as a bare point value. */
 export function isApproxElo(config: RatedBotConfig): boolean {
-  return config.kind === 'persona' || config.elo < ENGINE_ELO_FLOOR
+  return config.kind !== 'engine' || config.elo < ENGINE_ELO_FLOOR
 }
 
 /** Display label for a bot's strength: '1500' for native engine levels,

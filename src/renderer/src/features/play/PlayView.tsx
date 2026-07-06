@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Role } from 'chessops/types'
 import type { Key } from 'chessground/types'
-import type { FamousGameMeta, Persona } from '../../../../shared/types'
+import type { FamousGameMeta, MaiaLevel, Persona } from '../../../../shared/types'
 import { useGameTree } from '../../state/gameTree'
 import { useSettings } from '../../state/settings'
 import { treeToPgn } from '../../state/pgn'
@@ -17,7 +17,7 @@ import {
   type Color,
   type GameResult
 } from '../../chess/chess'
-import { chooseBotMove, ENGINE_ELO_FLOOR } from '../../chess/botStrength'
+import { chooseBotMove, randomLegalUci, ENGINE_ELO_FLOOR } from '../../chess/botStrength'
 import { measuredElo } from '@shared/botStrength'
 import {
   DEEP_THINK_MS,
@@ -43,6 +43,7 @@ import {
 } from './botTime'
 import {
   SetupCard,
+  type BotStyle,
   type ColorChoice,
   type LocalMode,
   type OtbConfig,
@@ -68,10 +69,13 @@ type Phase = 'setup' | 'game'
 // Persona games carry their DISPLAY/rating elo (modernElo when known, else
 // peakElo): the in-game chrome, saved game and rating report all use it. The
 // move strength itself is resolved in main (personas:move caps near peakElo).
+// 'maia' is the "Human" style: the maia-<level> lc0 net at nodes=1 (engine:play
+// level.maia); elo = the net's nominal band, which measuredElo passes through.
 // 'human' is Over-the-board: two people on one machine, no engine loop — both
 // player names + the auto-flip preference are frozen at start.
 type Opponent =
   | { kind: 'engine'; elo: number }
+  | { kind: 'maia'; level: MaiaLevel; elo: number }
   | { kind: 'persona'; persona: Persona; elo: number }
   | { kind: 'human'; whiteName: string; blackName: string; autoFlip: boolean }
 
@@ -106,6 +110,7 @@ function outcomeForUser(result: GameResult, userColor: Color): 'win' | 'loss' | 
 function opponentName(o: Opponent): string {
   if (o.kind === 'persona') return o.persona.name
   if (o.kind === 'human') return o.blackName // unused for OTB chrome (computed per-side below)
+  if (o.kind === 'maia') return `Maia ${o.level}`
   return 'Stockfish'
 }
 
@@ -137,6 +142,11 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
   })
   const [localMode, setLocalMode] = useState<LocalMode>('engine')
   const [elo, setElo] = useState(1500)
+  // Bot style: Classic (Stockfish, any Elo) vs Human (a maia net at nodes=1).
+  // The toggle only renders once engine:status confirms lc0 + weights on disk.
+  const [botStyle, setBotStyle] = useState<BotStyle>('classic')
+  const [maiaLevel, setMaiaLevel] = useState<MaiaLevel>(1500)
+  const [maiaReady, setMaiaReady] = useState(false)
   const [colorChoice, setColorChoice] = useState<ColorChoice>('white')
   // The shared selected time control (engine, OTB, and the Grandmasters row all
   // read/write this one value via TimeControlPicker / the persona segmented row).
@@ -217,6 +227,21 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
   // mount; on failure PersonaGallery shows its empty state.
   // Late setState after unmount is a safe no-op in React 19, so no cancel flag —
   // a result arriving after a mode toggle is simply kept for the next visit.
+  // ---- Maia ("Human" style) availability: lc0 + at least one weight on disk.
+  // One probe per mount; the toggle simply doesn't render until it confirms.
+  useEffect(() => {
+    let cancelled = false
+    window.api?.engine
+      .status()
+      .then((s) => {
+        if (!cancelled) setMaiaReady(s.lc0Ready)
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const personasAttempted = useRef(false)
   useEffect(() => {
     if (tab !== 'grandmasters' || personasAttempted.current) return
@@ -279,7 +304,9 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
     () =>
       opponent.kind === 'persona'
         ? TIME_PERSONALITIES[timeStyleForPersona(opponent.persona)]
-        : personalityForElo(opponent.kind === 'engine' ? opponent.elo : 1500),
+        : personalityForElo(
+            opponent.kind === 'engine' || opponent.kind === 'maia' ? opponent.elo : 1500
+          ),
     [opponent]
   )
 
@@ -310,7 +337,9 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
         ? 'Over the board'
         : isPersona
           ? `Play vs ${oppName} style`
-          : 'Play vs Stockfish'
+          : opponent.kind === 'maia'
+            ? 'Play vs Maia'
+            : 'Play vs Stockfish'
       const headers: Record<string, string> = {
         Event: event,
         Site: 'Chess#',
@@ -345,7 +374,7 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
                 blackName,
                 userColor,
                 result,
-                opponentKind: isPersona ? 'persona' : 'engine',
+                opponentKind: isPersona ? 'persona' : opponent.kind === 'maia' ? 'maia' : 'engine',
                 opponentLabel: oppName,
                 opponentElo: oppElo,
                 source: 'play'
@@ -361,10 +390,11 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
         try {
           rep = await window.api?.games.reportResult({
             // The NOMINAL label — main maps it through measuredElo (sub-floor
-            // engine levels play stronger than their labels) before rating.
+            // engine levels play stronger than their labels; maia nets rate at
+            // their nominal training band) before rating.
             botElo: oppElo,
             score: userScore(result, userColor),
-            opponentKind: isPersona ? 'persona' : 'engine'
+            opponentKind: isPersona ? 'persona' : opponent.kind === 'maia' ? 'maia' : 'engine'
           })
         } catch {
           rep = undefined // rating unchanged; banner shows no delta
@@ -549,6 +579,15 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
           movetimeMs: Math.max(50, Math.min(engineMs, 10_000))
         })
         bestmove = res?.bestmove
+      } else if (opponent.kind === 'maia') {
+        // "Human" style: the maia net's policy head at nodes=1 IS the player —
+        // the engine slice is irrelevant (a single NN eval answers in ~ms); the
+        // time manager's plan still paces the REPLY below, so a Maia opponent
+        // spends clock like a person instead of premoving everything.
+        const res = await window.api?.engine
+          .play({ fen, level: { maia: opponent.level }, limit: { kind: 'nodes', value: 1 } })
+          .catch(() => null)
+        bestmove = res?.bestmove ?? randomLegalUci(fen) ?? undefined
       } else {
         bestmove =
           (await chooseBotMove(
@@ -674,6 +713,10 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
         blackName: otbConfig.blackName.trim() || 'Black',
         autoFlip: otbConfig.autoFlip
       }
+    } else if (botStyle === 'human' && maiaReady) {
+      // Human style: the selected maia net; its nominal band doubles as the
+      // rating/display elo (measuredElo passes 'maia' through untouched).
+      resolved = { kind: 'maia', level: maiaLevel, elo: maiaLevel }
     } else {
       resolved = { kind: 'engine', elo }
     }
@@ -710,7 +753,7 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
     play('gameStart')
     // vs engine/persona: the fen effect fires; if the user is Black, the
     // opponent replies as White. OTB: the effect early-returns (no bot).
-  }, [tab, localMode, personas, selectedPersonaId, elo, colorChoice, setupTc, otbConfig, tree, play])
+  }, [tab, localMode, personas, selectedPersonaId, elo, botStyle, maiaLevel, maiaReady, colorChoice, setupTc, otbConfig, tree, play])
 
   const onResign = useCallback(() => {
     if (over) return
@@ -784,6 +827,9 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
           tab={tab}
           localMode={localMode}
           elo={elo}
+          botStyle={botStyle}
+          maiaLevel={maiaLevel}
+          maiaReady={maiaReady}
           colorChoice={colorChoice}
           timeControl={setupTc}
           otb={otbConfig}
@@ -795,6 +841,8 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
           onTab={setTab}
           onLocalMode={setLocalMode}
           onElo={setElo}
+          onBotStyle={setBotStyle}
+          onMaiaLevel={setMaiaLevel}
           onColor={setColorChoice}
           onTimeControl={setSetupTc}
           onOtb={(patch) => setOtbConfig((c) => ({ ...c, ...patch }))}
@@ -850,9 +898,11 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
       : 'Black'
     : opponent.kind === 'persona'
       ? `~${oppElo} Elo · modern strength`
-      : opponent.elo < ENGINE_ELO_FLOOR
-        ? `Level ${opponent.elo} · plays ~${measuredElo({ kind: 'engine', elo: opponent.elo })} Elo`
-        : `${oppElo} Elo`
+      : opponent.kind === 'maia'
+        ? `plays like a ~${oppElo} human`
+        : opponent.elo < ENGINE_ELO_FLOOR
+          ? `Level ${opponent.elo} · plays ~${measuredElo({ kind: 'engine', elo: opponent.elo })} Elo`
+          : `${oppElo} Elo`
   const opponentStyleLine = opponent.kind === 'persona' ? `in the style of ${opponent.persona.name}` : undefined
 
   const clockLive = clock.active && !over

@@ -165,6 +165,20 @@ export function maiaAvailable(): boolean {
   return lc0Installed() && MAIA_LEVELS.some((l) => maiaWeightInstalled(l))
 }
 
+/** True when the WHOLE group is present (the Settings row's "Installed"):
+ *  lc0 + every level's weights. */
+export function maiaGroupInstalled(): boolean {
+  return lc0Installed() && MAIA_LEVELS.every((l) => maiaWeightInstalled(l))
+}
+
+/** Full download size of the group on this platform (lc0 + all five nets). */
+export function maiaGroupBytes(): number {
+  const lc0 = LC0_ARTIFACTS[`${process.platform}-${process.arch}`] ?? []
+  return (
+    lc0.reduce((sum, f) => sum + f.bytes, 0) + MAIA_WEIGHTS.reduce((sum, w) => sum + w.bytes, 0)
+  )
+}
+
 // ---- Import -------------------------------------------------------------------
 
 export interface MaiaImportProgress {
@@ -213,9 +227,8 @@ function missingItems(): Array<DownloadSpec & { dest: string; fallbackUrl?: stri
 /**
  * Download whatever is missing from the maia group (idempotent; retries resume
  * remaining items). Reuses the verified-streaming download from
- * datasets.service, including its cancellation flag.
- * TODO(P2): surface this via datasets.ipc + the datasets UI (a third row in the
- * importer next to engine/puzzles) and fold maia into DatasetStatus.
+ * datasets.service, including its cancellation flag. Surfaced via
+ * datasets:import (runImport orchestrates all groups) + the Settings UI row.
  */
 export async function importMaia(
   onProgress: (p: MaiaImportProgress) => void

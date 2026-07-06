@@ -414,6 +414,8 @@
 }
 .votb-turn-dot.is-black {
   background: #26282c;
+  /* stays visible on dark app themes — the dark disc needs a light ring */
+  border-color: rgba(255, 255, 255, 0.4);
 }
 .votb-movecount {
   margin-left: auto;
@@ -562,10 +564,30 @@
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, var(--surface));
 }
+.vbot-colors.is-three {
+  grid-template-columns: repeat(3, 1fr);
+}
 .vbot-start {
   align-self: stretch;
   padding: var(--space-4);
   font-size: var(--fs-md);
+}
+/* Inline engine-install prompt (go: KataGo not downloaded yet) — replaces the
+   Start button with an actionable card instead of a dead toast. */
+.vbot-install {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.vbot-install p {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.45;
 }
 .vbot-opponent {
   display: flex;

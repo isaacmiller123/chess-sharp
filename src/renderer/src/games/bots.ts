@@ -134,20 +134,77 @@ function fairyProvider(kind: FairyVariantKind): BotProvider {
 }
 
 // ---------------------------------------------------------------------------
-// Go — stub until the KataGo dataset group ships (binary + nets download flow
-// is its own quest; src/main/engine/gtp.ts is ready for the binary).
+// Go — KataGo over GTP via engine:playGo (main-process KatagoPool). Two level
+// ladders, chosen in MAIN by what's installed: standard nets (visits +
+// move-choice temperature) or, when the optional Human-SL net is present, the
+// flagship human rank profiles. describe() mirrors that choice — the human
+// hints below match KatagoPool's HUMAN_PROFILES ranks 1:1 (keep in sync).
 
-const KATAGO_HINTS = ['relaxed', 'steady', 'solid', 'strong', 'relentless'] as const
+const KATAGO_HINTS = [
+  'relaxed — powered by KataGo',
+  'steady — powered by KataGo',
+  'solid — powered by KataGo',
+  'strong — powered by KataGo',
+  'relentless — powered by KataGo'
+] as const
+
+const KATAGO_HUMAN_HINTS = [
+  'plays like a ~15-kyu human',
+  'plays like a ~9-kyu human',
+  'plays like a ~4-kyu human',
+  'plays like a ~1-kyu human',
+  'plays like a ~3-dan human'
+] as const
+
+const KATAGO_UNAVAILABLE_MSG =
+  'KataGo is not installed — download the Go engine in Settings → Datasets.'
+
+// Whether go levels currently play the Human-SL ladder. Refreshed via
+// engine:status fire-and-forget (describe() must stay sync); until the first
+// answer lands the standard hints show, which is the safe default.
+let katagoHumanStyle = false
+function refreshKatagoStyle(): void {
+  if (typeof window === 'undefined' || !window.api) return
+  void window.api.engine
+    .status()
+    .then((s) => {
+      katagoHumanStyle = s.katagoHumanReady
+    })
+    .catch(() => undefined)
+}
+
+/** Minimal slice of games/go.ts GoState the provider reads. */
+interface GoStateSlice {
+  size: 9 | 13 | 19
+  komi: number
+  moves: readonly string[]
+}
 
 const katagoProvider: BotProvider = {
   levels: 5,
   describe(level: number): string {
-    return `${KATAGO_HINTS[clampLevel(level) - 1]} — powered by KataGo`
+    const l = clampLevel(level)
+    return katagoHumanStyle ? KATAGO_HUMAN_HINTS[l - 1] : KATAGO_HINTS[l - 1]
   },
-  async move(): Promise<string> {
-    throw new BotUnavailableError(
-      'KataGo arrives in the next update — Go bots install with the datasets pack.'
-    )
+  async move(state: unknown, level: number): Promise<string> {
+    const api = typeof window !== 'undefined' ? window.api : undefined
+    if (!api) throw new BotUnavailableError(KATAGO_UNAVAILABLE_MSG)
+    const s = state as GoStateSlice
+    try {
+      const { move } = await api.engine.playGo({
+        size: s.size,
+        komi: s.komi,
+        moves: [...s.moves],
+        level: clampLevel(level)
+      })
+      return move
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      // Main rejects with a clear not-installed line until the katago dataset
+      // group imports — surface it as the actionable BotUnavailableError.
+      if (/not installed/i.test(msg)) throw new BotUnavailableError(KATAGO_UNAVAILABLE_MSG)
+      throw err instanceof Error ? err : new Error(msg)
+    }
   }
 }
 
@@ -355,14 +412,22 @@ const cache = new Map<GameKind, BotProvider>()
 /** The bot backend for a registered game kind (throws on unknown kind). */
 export function resolveBotProvider(kind: GameKind): BotProvider {
   const cached = cache.get(kind)
-  if (cached) return cached
+  if (cached) {
+    // Every (re-)resolution refreshes the go ladder choice, so installing the
+    // Human-SL net mid-session flips describe() on the next setup screen.
+    if (cached === katagoProvider) refreshKatagoStyle()
+    return cached
+  }
   const entry = getGame(kind)
   if (!entry) throw new Error(`resolveBotProvider: unregistered game kind '${kind}'`)
   const id = entry.botProviderId
   let provider: BotProvider
   if (id === 'stockfish') provider = stockfishProvider
   else if (id === 'fairy-stockfish') provider = fairyProvider(kind as FairyVariantKind)
-  else if (id === 'katago') provider = katagoProvider
+  else if (id === 'katago') {
+    provider = katagoProvider
+    refreshKatagoStyle() // async: describe() flips to the human hints when the Human-SL net is installed
+  }
   else if (id === 'rapid-draughts') provider = americanProvider
   else if (id === 'worker:checkers-intl') provider = intlProvider
   else if (id.startsWith('worker:')) provider = smallProvider(kind)

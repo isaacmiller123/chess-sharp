@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react'
-import { Check, Download, X, Database, Cpu, AlertCircle } from 'lucide-react'
+import { Check, Download, X, Database, Cpu, AlertCircle, Brain, CircleDot } from 'lucide-react'
 import type { DatasetImportResult, DatasetItemMeta, DatasetProgress, DatasetStatus } from '@shared/types'
 
 function fmtBytes(n: number): string {
@@ -11,14 +11,18 @@ function fmtBytes(n: number): string {
 
 const ICONS: Record<string, JSX.Element> = {
   engine: <Cpu size={16} aria-hidden />,
-  puzzles: <Database size={16} aria-hidden />
+  puzzles: <Database size={16} aria-hidden />,
+  maia: <Brain size={16} aria-hidden />,
+  katago: <CircleDot size={16} aria-hidden />
 }
 
 /**
  * Settings → Datasets. Imports the large redistributable datasets (Stockfish
- * engine, Lichess puzzle DB) from the project's public GitHub release into the
- * per-user datasets folder, with live progress. Kept out of the repo/installer
- * so distribution stays lean.
+ * engine, Lichess puzzle DB, Maia human-style chess nets, the KataGo Go
+ * engine) from the project's public GitHub release into the per-user datasets
+ * folder, with live progress. The KataGo row carries an opt-in checkbox for
+ * the 94 MB Human-SL net (human-like go bot levels). Kept out of the
+ * repo/installer so distribution stays lean.
  */
 export default function DatasetsPanel(): JSX.Element {
   const api = typeof window !== 'undefined' ? window.api?.datasets : undefined
@@ -29,6 +33,8 @@ export default function DatasetsPanel(): JSX.Element {
   const [progress, setProgress] = useState<DatasetProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  // Opt-in extras (today: the katago row's Human-SL net checkbox).
+  const [includeHuman, setIncludeHuman] = useState(false)
 
   const refresh = useCallback(() => {
     api
@@ -55,7 +61,7 @@ export default function DatasetsPanel(): JSX.Element {
     setDone(false)
     setProgress(null)
     api
-      .import()
+      .import({ includeHuman })
       .then((res: DatasetImportResult) => {
         setStatus(res.status)
         if (res.ok) setDone(true)
@@ -67,7 +73,7 @@ export default function DatasetsPanel(): JSX.Element {
         setProgress(null)
         refresh()
       })
-  }, [api, refresh])
+  }, [api, refresh, includeHuman])
 
   const onCancel = useCallback(() => {
     api?.cancel().catch(() => undefined)
@@ -101,14 +107,15 @@ export default function DatasetsPanel(): JSX.Element {
     <section className="card settings-card">
       <h2>Datasets</h2>
       <p className="muted small dataset-intro">
-        The Stockfish engine and the Lichess puzzle database are downloaded on demand to keep the app lean.
-        They are fetched once from the project&apos;s public release and stored locally — everything stays
-        offline afterwards.
+        The engines (Stockfish, Maia, KataGo) and the Lichess puzzle database are downloaded on demand to
+        keep the app lean. They are fetched once from the project&apos;s public release and stored locally —
+        everything stays offline afterwards.
       </p>
 
       <ul className="dataset-list">
         {items.map((it) => {
           const installed = status ? status[it.key] : false
+          const humanInstalled = it.optIn?.installed ?? status?.katagoHuman ?? false
           return (
             <li key={it.key} className="dataset-item">
               <span className="dataset-item-icon">{ICONS[it.key]}</span>
@@ -118,6 +125,24 @@ export default function DatasetsPanel(): JSX.Element {
                   {fmtBytes(it.bytes)} download
                   {it.installedBytes !== it.bytes ? ` · ${fmtBytes(it.installedBytes)} on disk` : ''}
                 </span>
+                {it.optIn && (
+                  <label className="dataset-optin small">
+                    <input
+                      type="checkbox"
+                      checked={humanInstalled || includeHuman}
+                      disabled={humanInstalled || importing}
+                      onChange={(e) => setIncludeHuman(e.target.checked)}
+                    />
+                    <span>
+                      {it.optIn.label}
+                      <span className="muted">
+                        {' '}
+                        — {fmtBytes(it.optIn.bytes)}, human-like go bots
+                        {humanInstalled ? ' (installed)' : ''}
+                      </span>
+                    </span>
+                  </label>
+                )}
               </span>
               <span className={`dataset-item-state${installed ? ' is-installed' : ''}`}>
                 {installed ? (
@@ -138,7 +163,8 @@ export default function DatasetsPanel(): JSX.Element {
           <div className="dataset-progress-head">
             <span>
               {phaseLabel}
-              {activeItem ? ` ${activeItem.label}` : '…'}
+              {/* Group importers name the exact artifact (e.g. 'Maia 1500 weights'). */}
+              {progress?.message ? ` ${progress.message}` : activeItem ? ` ${activeItem.label}` : '…'}
               {progress && progress.itemCount > 1 ? ` (${progress.itemIndex + 1}/${progress.itemCount})` : ''}
             </span>
             <span className="num">
@@ -170,7 +196,9 @@ export default function DatasetsPanel(): JSX.Element {
           <button type="button" className="btn ghost" onClick={onCancel}>
             <X size={15} aria-hidden /> Cancel
           </button>
-        ) : status?.complete ? (
+        ) : status?.complete && !(includeHuman && !status.katagoHuman) ? (
+          // `complete` ignores the opt-in Human-SL net: ticking its checkbox
+          // re-arms the import button even when everything else is installed.
           <button type="button" className="btn ghost" disabled>
             <Check size={15} aria-hidden /> All datasets installed
           </button>

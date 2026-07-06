@@ -142,6 +142,18 @@ export function resolveKatagoPath(): string {
   return imported
 }
 
+/** The GTP config to launch with: the imported default_gtp.cfg, with a dev-only
+ *  Homebrew fallback matching resolveKatagoPath's binary fallback. */
+export function resolveKatagoConfigPath(): string {
+  const imported = katagoConfigPath()
+  if (fs.existsSync(imported)) return imported
+  if (!app.isPackaged && process.platform === 'darwin') {
+    const brew = '/opt/homebrew/share/katago/configs/gtp_example.cfg'
+    if (fs.existsSync(brew)) return brew
+  }
+  return imported
+}
+
 export function katagoInstalled(): boolean {
   return fs.existsSync(resolveKatagoPath())
 }
@@ -153,6 +165,27 @@ export function katagoNetInstalled(id: KatagoNetId): boolean {
 /** True when a Go bot can actually play: engine + at least one non-human net. */
 export function katagoAvailable(): boolean {
   return katagoInstalled() && (katagoNetInstalled('b6c96') || katagoNetInstalled('b10c128'))
+}
+
+/** True when the WHOLE standard group is present (the Settings row's
+ *  "Installed"): engine + both standard nets. The Human-SL net is opt-in and
+ *  never gates this. */
+export function katagoGroupInstalled(): boolean {
+  return katagoInstalled() && KATAGO_NETS.filter((n) => !n.optional).every((n) => katagoNetInstalled(n.id))
+}
+
+/** Full download size of the standard group on this platform (archive + nets). */
+export function katagoGroupBytes(): number {
+  const bin = KATAGO_BINARIES[`${process.platform}-${process.arch}`]
+  return (
+    (bin?.bytes ?? 0) +
+    KATAGO_NETS.filter((n) => !n.optional).reduce((sum, n) => sum + n.bytes, 0)
+  )
+}
+
+/** Download size of the optional Human-SL net (the opt-in checkbox). */
+export function katagoHumanNetBytes(): number {
+  return KATAGO_NETS.find((n) => n.id === 'b18-human')?.bytes ?? 0
 }
 
 // ---- Import -------------------------------------------------------------------
@@ -226,8 +259,8 @@ function missingItems(includeHuman: boolean): KatagoItem[] {
  * resume remaining items). Reuses the verified-streaming download from
  * datasets.service, including its cancellation flag. Pass `includeHuman` to
  * also fetch the 94.5 MB Human-SL net (the human-like flagship levels).
- * NOTE: IPC/UI wiring is owned by the bots workstream — this module only
- * defines the group (mirror URLs, checksums, layout, import).
+ * Surfaced via datasets:import (runImport orchestrates all groups) + the
+ * Settings UI row with its opt-in Human-SL checkbox.
  */
 export async function importKatago(
   onProgress: (p: KatagoImportProgress) => void,

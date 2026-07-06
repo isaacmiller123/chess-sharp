@@ -4,6 +4,7 @@ import crypto from 'node:crypto'
 import zlib from 'node:zlib'
 import { Readable, Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
+import type { DatasetItemMeta, DatasetProgress, DatasetStatus } from '../../shared/types'
 import {
   datasetsDir,
   importedEnginePath,
@@ -11,6 +12,17 @@ import {
   engineInstalled,
   puzzlesInstalled
 } from './paths'
+// Group importers (circular-safe: both sides only reference each other inside
+// functions — maia/katago/fairy pull downloadVerified from this module).
+import { importMaia, maiaGroupBytes, maiaGroupInstalled } from './maia'
+import {
+  importKatago,
+  katagoGroupBytes,
+  katagoGroupInstalled,
+  katagoHumanNetBytes,
+  katagoNetInstalled
+} from './katago'
+import { fairyImportNeeded, importFairyStockfish } from './fairyStockfish'
 
 // Runtime dataset importer. Downloads the heavy, redistributable datasets that
 // are kept out of the repo/installer, straight from the project's public GitHub
@@ -93,26 +105,57 @@ export const DATASET_ITEMS: DatasetItem[] = [engineItem(), PUZZLES_ITEM].filter(
   (x): x is DatasetItem => x !== null
 )
 
-export interface DatasetStatus {
-  engine: boolean
-  puzzles: boolean
-  complete: boolean
-}
+export type { DatasetItemMeta, DatasetProgress, DatasetStatus }
 
 export function datasetStatus(): DatasetStatus {
   const engine = engineInstalled()
   const puzzles = puzzlesInstalled()
-  return { engine, puzzles, complete: engine && puzzles }
+  const maia = maiaGroupInstalled()
+  const katago = katagoGroupInstalled()
+  return {
+    engine,
+    puzzles,
+    maia,
+    katago,
+    katagoHuman: katagoNetInstalled('b18-human'),
+    // The optional Human-SL net never gates completeness.
+    complete: engine && puzzles && maia && katago
+  }
 }
 
-export interface DatasetProgress {
-  key: 'engine' | 'puzzles' | 'all'
-  phase: 'download' | 'verify' | 'done' | 'error' | 'cancelled'
-  received: number
-  total: number
-  itemIndex: number
-  itemCount: number
-  message?: string
+/** The Settings → Datasets rows: one meta per importable group, with the
+ *  Human-SL go net surfaced as the katago row's opt-in extra. */
+export function datasetItems(): DatasetItemMeta[] {
+  const items: DatasetItemMeta[] = DATASET_ITEMS.map((it) => ({
+    key: it.key,
+    label: it.label,
+    bytes: it.bytes,
+    installedBytes: it.installedBytes
+  }))
+  const maiaBytes = maiaGroupBytes()
+  if (maiaBytes > 0) {
+    items.push({
+      key: 'maia',
+      label: 'Maia human-style chess (lc0 + 5 nets)',
+      bytes: maiaBytes,
+      installedBytes: maiaBytes
+    })
+  }
+  const katagoBytes = katagoGroupBytes()
+  if (katagoBytes > 0) {
+    items.push({
+      key: 'katago',
+      label: 'KataGo Go engine (2 nets)',
+      bytes: katagoBytes,
+      installedBytes: katagoBytes,
+      optIn: {
+        label: 'Human-style Go net',
+        bytes: katagoHumanNetBytes(),
+        installed: katagoNetInstalled('b18-human')
+      }
+    })
+  }
+  return items
 }
 
 export type ProgressFn = (p: DatasetProgress) => void
@@ -216,12 +259,21 @@ async function downloadItem(
   onProgress({ key: it.key, phase: 'verify', received: it.bytes, total: it.bytes, itemIndex, itemCount })
 }
 
+export interface RunImportOptions {
+  /** Also fetch the optional 94.5 MB Human-SL go net (the katago opt-in). */
+  includeHuman?: boolean
+}
+
 export async function runImport(
-  onProgress: ProgressFn
+  onProgress: ProgressFn,
+  opts: RunImportOptions = {}
 ): Promise<{ ok: boolean; status: DatasetStatus; error?: string }> {
   if (importing) throw new Error('datasets: an import is already running')
   importing = true
   cancelFlag = false
+  const assertNotCancelled = (): void => {
+    if (cancelFlag) throw new Error('cancelled')
+  }
   try {
     fs.mkdirSync(datasetsDir(), { recursive: true })
     // Only fetch what's missing, so a retry resumes the remaining items.
@@ -229,18 +281,60 @@ export async function runImport(
       it.key === 'engine' ? !engineInstalled() : !puzzlesInstalled()
     )
     for (let i = 0; i < items.length; i++) {
-      if (cancelFlag) {
-        onProgress({
-          key: 'all',
-          phase: 'cancelled',
-          received: 0,
-          total: 0,
-          itemIndex: i,
-          itemCount: items.length
-        })
-        return { ok: false, status: datasetStatus(), error: 'cancelled' }
-      }
+      assertNotCancelled()
       await downloadItem(items[i], i, items.length, onProgress)
+    }
+    // Fairy-Stockfish rides the 'engine' key: a runtime import on platforms
+    // where it isn't bundled (win-x64), a no-op elsewhere.
+    assertNotCancelled()
+    if (fairyImportNeeded()) {
+      const r = await importFairyStockfish(({ label, received, total }) =>
+        onProgress({
+          key: 'engine',
+          phase: 'download',
+          received,
+          total,
+          itemIndex: 0,
+          itemCount: 1,
+          message: label
+        })
+      )
+      if (!r.ok) throw new Error(r.error ?? 'Fairy-Stockfish import failed')
+    }
+    // Group importers reuse downloadVerified (same cancel flag); their per-item
+    // progress maps onto the group's row key with the item name as `message`.
+    assertNotCancelled()
+    if (!maiaGroupInstalled()) {
+      const r = await importMaia((p) =>
+        onProgress({
+          key: 'maia',
+          phase: 'download',
+          received: p.received,
+          total: p.total,
+          itemIndex: p.itemIndex,
+          itemCount: p.itemCount,
+          message: p.label
+        })
+      )
+      if (!r.ok) throw new Error(r.error ?? 'maia import failed')
+    }
+    assertNotCancelled()
+    const wantHuman = opts.includeHuman === true
+    if (!katagoGroupInstalled() || (wantHuman && !katagoNetInstalled('b18-human'))) {
+      const r = await importKatago(
+        (p) =>
+          onProgress({
+            key: 'katago',
+            phase: 'download',
+            received: p.received,
+            total: p.total,
+            itemIndex: p.itemIndex,
+            itemCount: p.itemCount,
+            message: p.label
+          }),
+        { includeHuman: wantHuman }
+      )
+      if (!r.ok) throw new Error(r.error ?? 'katago import failed')
     }
     onProgress({
       key: 'all',
@@ -253,16 +347,17 @@ export async function runImport(
     return { ok: true, status: datasetStatus() }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
+    const cancelled = cancelFlag || message === 'cancelled'
     onProgress({
       key: 'all',
-      phase: cancelFlag ? 'cancelled' : 'error',
+      phase: cancelled ? 'cancelled' : 'error',
       received: 0,
       total: 0,
       itemIndex: 0,
       itemCount: 0,
       message
     })
-    return { ok: false, status: datasetStatus(), error: message }
+    return { ok: false, status: datasetStatus(), error: cancelled ? 'cancelled' : message }
   } finally {
     importing = false
   }

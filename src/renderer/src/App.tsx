@@ -71,7 +71,7 @@ function CurrentView({
     case 'play':
       return <PlayView onAnalyzeGame={onOpenGame} onOpenFamousGame={onOpenFamousGame} />
     case 'games':
-      return <GamesView />
+      return <GamesView onOpenSettings={() => onNavigate('settings')} />
     case 'puzzles':
       return <PuzzlesView />
     case 'openings':

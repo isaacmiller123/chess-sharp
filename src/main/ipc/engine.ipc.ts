@@ -6,13 +6,16 @@ import { ENGINE_ELO_FLOOR, FAIRY_VARIANT_KINDS } from '../../shared/types'
 import { StockfishPool } from '../engine/StockfishPool'
 import { MaiaPool } from '../engine/MaiaPool'
 import { FairyStockfishPool } from '../engine/FairyPool'
+import { KatagoPool } from '../engine/KatagoPool'
 import { maiaAvailable } from '../datasets/maia'
 import { fairyEngineInstalled } from '../datasets/fairyStockfish'
+import { katagoAvailable, katagoNetInstalled } from '../datasets/katago'
 import type { BestMove, InfoLine, UciEngine } from '../engine/UciEngine'
 
 const pool = new StockfishPool()
 const maiaPool = new MaiaPool()
 const fairyPool = new FairyStockfishPool()
+const katagoPool = new KatagoPool()
 
 // Parse + re-serialize any FEN before it reaches the engine, so a malicious
 // renderer payload can't smuggle newlines/extra UCI commands into stdin.
@@ -116,6 +119,25 @@ const playVariantSchema = z
     fen: z.string().regex(VARIANT_FEN_RE),
     level: z.number().int().min(1).max(5),
     movetimeMs: z.number().int().min(20).max(10000).optional()
+  })
+  .strict()
+
+// ---- Go bots (games platform, spec §Bots: go → KataGo GTP ipc) ---------------
+//
+// The request carries the whole game (GTP replays move-by-move), in the go
+// codec that doubles as GTP's own vertex convention ('d4', 'i' skipped, rank 1
+// at the bottom, plus 'pass'); black moves first. The vertex regex is the
+// anti-smuggling guard — no free-form strings ever reach the engine's stdin.
+const GO_VERTEX_RE = /^(?:pass|[a-hj-t](?:1[0-9]|[1-9]))$/
+
+const playGoSchema = z
+  .object({
+    size: z.union([z.literal(9), z.literal(13), z.literal(19)]),
+    // Full float komi range seen in practice; the value is number-validated so
+    // interpolation into the GTP command line is injection-safe.
+    komi: z.number().min(-361).max(361),
+    moves: z.array(z.string().regex(GO_VERTEX_RE)).max(1000),
+    level: z.number().int().min(1).max(5)
   })
   .strict()
 
@@ -423,6 +445,18 @@ function serializeFairy<T>(fn: () => Promise<T>): Promise<T> {
   return run
 }
 
+// engine:playGo replays whole games onto stateful GTP processes — serialize so
+// two concurrent requests can never interleave their replays on one engine.
+let goChain: Promise<unknown> = Promise.resolve()
+function serializeGo<T>(fn: () => Promise<T>): Promise<T> {
+  const run = goChain.then(fn, fn)
+  goChain = run.then(
+    () => undefined,
+    () => undefined
+  )
+  return run
+}
+
 export function registerEngine(): void {
   handle('engine:status', z.object({}).strict(), () => ({
     analysisReady: pool.hasAnalysis(),
@@ -430,7 +464,11 @@ export function registerEngine(): void {
     // "Can the Human style play right now": lc0 binary + >=1 maia weight on disk.
     lc0Ready: maiaAvailable(),
     // Variant bots: Fairy-Stockfish on disk (bundled on mac, imported on win).
-    fairyReady: fairyEngineInstalled()
+    fairyReady: fairyEngineInstalled(),
+    // Go bots: KataGo + at least one standard net on disk.
+    katagoReady: katagoAvailable(),
+    // The optional Human-SL net: go levels play the human rank ladder.
+    katagoHumanReady: katagoNetInstalled('b18-human')
   }))
 
   handle(
@@ -543,10 +581,20 @@ export function registerEngine(): void {
     })
   )
 
+  handle('engine:playGo', playGoSchema, (req) =>
+    serializeGo(async () => {
+      if (!katagoAvailable()) {
+        throw new Error('KataGo is not installed — download the Go engine in Settings → Datasets.')
+      }
+      return { move: await katagoPool.play(req) }
+    })
+  )
+
   // Windows-safe lifecycle: kill all engine children when the app quits.
   app.on('will-quit', () => {
     pool.killAll()
     maiaPool.killAll()
     fairyPool.killAll()
+    katagoPool.killAll()
   })
 }

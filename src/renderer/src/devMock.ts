@@ -171,7 +171,14 @@ const lineSubs = new Set<(l: EngineLine) => void>()
 
 // Datasets: start "not installed" so the import flow is exercisable in preview.
 const datasetSubs = new Set<(p: DatasetProgress) => void>()
-let mockDatasets = { engine: false, puzzles: false, complete: false }
+let mockDatasets = {
+  engine: false,
+  puzzles: false,
+  maia: false,
+  katago: false,
+  katagoHuman: false,
+  complete: false
+}
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
 function emitLines(fen: string, handleId: number, multipv: number): void {
@@ -225,7 +232,21 @@ export function installMock(): void {
       playVariant: async () => {
         throw new Error('Fairy-Stockfish is unavailable in the browser dev mock.')
       },
-      status: async () => ({ analysisReady: true, playReady: true, lc0Ready: false, fairyReady: false }),
+      // Go bots: the not-installed message drives KernelBot's inline prompt.
+      playGo: async () => {
+        throw new Error('KataGo is not installed — download the Go engine in Settings → Datasets.')
+      },
+      status: async () => ({
+        analysisReady: true,
+        playReady: true,
+        // lc0Ready true so the Classic/Human style toggle is previewable in the
+        // browser harness (engine.play ignores level.maia here — first legal move).
+        lc0Ready: true,
+        fairyReady: false,
+        // katagoReady false so the go vs-Bot INLINE INSTALL PROMPT is previewable.
+        katagoReady: false,
+        katagoHumanReady: false
+      }),
       newGame: async () => ok,
       onLine: (cb) => {
         lineSubs.add(cb)
@@ -373,14 +394,29 @@ export function installMock(): void {
             label: 'Lichess puzzle database',
             bytes: 705175215,
             installedBytes: 2148864000
+          },
+          {
+            key: 'maia',
+            label: 'Maia human-style chess (lc0 + 5 nets)',
+            bytes: 8240517,
+            installedBytes: 8240517
+          },
+          {
+            key: 'katago',
+            label: 'KataGo Go engine (2 nets)',
+            bytes: 19416780,
+            installedBytes: 19416780,
+            optIn: { label: 'Human-style Go net', bytes: 99066230, installed: false }
           }
         ]
       }),
-      import: async () => {
+      import: async (req) => {
         const emit = (p: DatasetProgress): void => datasetSubs.forEach((cb) => cb(p))
-        const items: { key: 'engine' | 'puzzles'; total: number }[] = [
+        const items: { key: 'engine' | 'puzzles' | 'maia' | 'katago'; total: number }[] = [
           { key: 'engine', total: 114007552 },
-          { key: 'puzzles', total: 705175215 }
+          { key: 'puzzles', total: 705175215 },
+          { key: 'maia', total: 8240517 },
+          { key: 'katago', total: 19416780 + (req?.includeHuman ? 99066230 : 0) }
         ]
         for (let i = 0; i < items.length; i++) {
           const it = items[i]
@@ -397,8 +433,15 @@ export function installMock(): void {
           }
           emit({ key: it.key, phase: 'verify', received: it.total, total: it.total, itemIndex: i, itemCount: items.length })
         }
-        mockDatasets = { engine: true, puzzles: true, complete: true }
-        emit({ key: 'all', phase: 'done', received: 0, total: 0, itemIndex: 2, itemCount: 2 })
+        mockDatasets = {
+          engine: true,
+          puzzles: true,
+          maia: true,
+          katago: true,
+          katagoHuman: req?.includeHuman === true,
+          complete: true
+        }
+        emit({ key: 'all', phase: 'done', received: 0, total: 0, itemIndex: 4, itemCount: 4 })
         return { ok: true, status: mockDatasets }
       },
       cancel: async () => ok,

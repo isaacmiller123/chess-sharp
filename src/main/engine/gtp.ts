@@ -42,7 +42,10 @@ export class GtpClient {
 
   constructor(
     private readonly exePath: string,
-    private readonly args: readonly string[] = []
+    private readonly args: readonly string[] = [],
+    /** Working directory for the engine process — KataGo resolves its config's
+     *  relative logDir against it, so callers pass the dataset dir. */
+    private readonly cwd?: string
   ) {}
 
   /** Spawn the engine and verify it speaks GTP (protocol_version). */
@@ -50,7 +53,8 @@ export class GtpClient {
     if (this.proc) throw new Error('gtp: already started')
     const proc = spawn(this.exePath, [...this.args], {
       stdio: ['pipe', 'pipe', 'pipe'],
-      shell: false
+      shell: false,
+      cwd: this.cwd
     })
     this.proc = proc
     proc.stdout.setEncoding('utf-8')

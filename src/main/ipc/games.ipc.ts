@@ -45,7 +45,7 @@ export function registerGames(): void {
         // The renderer reports the NOMINAL label (UI-selected level / persona
         // modernElo) plus the kind; MAIN owns the nominal→measured mapping so a
         // stale renderer can never rate against an uncorrected label again.
-        opponentKind: z.enum(['engine', 'persona']).optional()
+        opponentKind: z.enum(['engine', 'persona', 'maia']).optional()
       })
       .strict(),
     ({ botElo, score, opponentKind }) => {

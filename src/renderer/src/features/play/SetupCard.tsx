@@ -10,7 +10,13 @@
 
 import type { CSSProperties } from 'react'
 import { Crown, Cpu, Users, Swords, Wifi } from 'lucide-react'
-import { ENGINE_ELO_FLOOR, type FamousGameMeta, type Persona } from '@shared/types'
+import {
+  ENGINE_ELO_FLOOR,
+  MAIA_LEVELS,
+  type FamousGameMeta,
+  type MaiaLevel,
+  type Persona
+} from '@shared/types'
 import { measuredElo } from '@shared/botStrength'
 import { EngineAvatar } from '../../components/Avatar'
 import { TimeControlPicker } from './TimeControlPicker'
@@ -27,6 +33,9 @@ export type OpponentMode = 'engine' | 'persona'
 export type PlayTab = 'local' | 'online' | 'grandmasters'
 /** Which Local sub-mode is active. */
 export type LocalMode = 'engine' | 'otb'
+/** vs-Computer engine style: Classic Stockfish (any Elo) or Human (Maia nets —
+ *  only offered once the maia dataset group is installed). */
+export type BotStyle = 'classic' | 'human'
 
 export interface OtbConfig {
   whiteName: string
@@ -40,6 +49,13 @@ export interface SetupCardProps {
   /** Active Local sub-mode (vs computer / over the board). */
   localMode: LocalMode
   elo: number
+  /** vs-Computer style toggle state (Classic Stockfish / Human Maia). */
+  botStyle: BotStyle
+  /** Selected Human level — one lc0 net per band (maia-1100..1900). */
+  maiaLevel: MaiaLevel
+  /** True when the maia dataset group is installed (lc0 + >=1 weight): the
+   *  style toggle only renders then. */
+  maiaReady: boolean
   colorChoice: ColorChoice
   /** The selected time control (shared across engine, OTB and Grandmasters). */
   timeControl: TimeControl
@@ -57,6 +73,8 @@ export interface SetupCardProps {
   onTab: (t: PlayTab) => void
   onLocalMode: (m: LocalMode) => void
   onElo: (v: number) => void
+  onBotStyle: (s: BotStyle) => void
+  onMaiaLevel: (l: MaiaLevel) => void
   onColor: (c: ColorChoice) => void
   onTimeControl: (tc: TimeControl) => void
   onOtb: (patch: Partial<OtbConfig>) => void
@@ -177,84 +195,159 @@ function ColorDisc({ choice }: { choice: ColorChoice }) {
   )
 }
 
-/** The vs-Stockfish configurator (Local → vs Computer). */
+/** The vs-Computer configurator (Local → vs Computer): Classic Stockfish at
+ *  any Elo, or — once the maia dataset is installed — the Human style, five
+ *  Maia nets that play the moves people actually play at each band. */
 function EngineSetup({
   elo,
+  botStyle,
+  maiaLevel,
+  maiaReady,
   colorChoice,
   timeControl,
   onElo,
+  onBotStyle,
+  onMaiaLevel,
   onColor,
   onTimeControl,
   onStart
 }: {
   elo: number
+  botStyle: BotStyle
+  maiaLevel: MaiaLevel
+  maiaReady: boolean
   colorChoice: ColorChoice
   timeControl: TimeControl
   onElo: (v: number) => void
+  onBotStyle: (s: BotStyle) => void
+  onMaiaLevel: (l: MaiaLevel) => void
   onColor: (c: ColorChoice) => void
   onTimeControl: (tc: TimeControl) => void
   onStart: () => void
 }) {
   const tier = tierFor(elo)
   const fillPct = ((elo - ELO_MIN) / (ELO_MAX - ELO_MIN)) * 100
+  const human = maiaReady && botStyle === 'human'
   return (
-    <section className="psetup-panel qm" aria-label="Play vs Stockfish setup">
+    <section className="psetup-panel qm" aria-label="Play vs Computer setup">
       <header className="qm-head">
         <EngineAvatar size={44} />
         <div className="qm-head-meta">
-          <h2>Stockfish</h2>
+          <h2>{human ? `Maia ${maiaLevel}` : 'Stockfish'}</h2>
           <span className="muted small">
-            The classic engine opponent — dial it from first-timer to world-beater.
+            {human
+              ? 'A neural net trained on millions of real games — human moves, human mistakes.'
+              : 'The classic engine opponent — dial it from first-timer to world-beater.'}
           </span>
         </div>
       </header>
 
-      <div className="psetup-field">
-        <div className="qm-strength-row">
-          <span className="psetup-label" id="qm-strength-label">
-            Strength
-          </span>
-          <span className="qm-readout">
-            <span className="qm-readout-elo num">{elo}</span>
-            <span className="qm-readout-tier">{tier.name}</span>
-          </span>
+      {maiaReady && (
+        <div className="qm-styles" role="radiogroup" aria-label="Engine style">
+          <button
+            type="button"
+            role="radio"
+            aria-checked={botStyle === 'classic'}
+            className={`qm-style${botStyle === 'classic' ? ' on' : ''}`}
+            onClick={() => onBotStyle('classic')}
+          >
+            <span className="qm-style-name">Classic</span>
+            <span className="qm-style-hint muted">Stockfish · any strength</span>
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={botStyle === 'human'}
+            className={`qm-style${botStyle === 'human' ? ' on' : ''}`}
+            onClick={() => onBotStyle('human')}
+          >
+            <span className="qm-style-name">Human</span>
+            <span className="qm-style-hint muted">Maia · plays like people do</span>
+          </button>
         </div>
-        <input
-          className="qm-range"
-          type="range"
-          min={ELO_MIN}
-          max={ELO_MAX}
-          step={10}
-          value={elo}
-          aria-labelledby="qm-strength-label"
-          aria-valuetext={`${elo} Elo — ${tier.name}`}
-          style={{ '--fill': `${fillPct}%` } as CSSProperties}
-          onChange={(e) => onElo(Number(e.target.value))}
-        />
-        <div className="qm-tiers" role="group" aria-label="Strength presets">
-          {TIERS.map((t) => (
-            <button
-              key={t.name}
-              type="button"
-              className={`qm-tier${t === tier ? ' on' : ''}`}
-              title={`${t.name} · ~${t.jump} Elo`}
-              onClick={() => onElo(t.jump)}
-            >
-              {t.name}
-            </button>
-          ))}
-        </div>
-        <p className="qm-blurb" aria-live="polite">
-          <strong>{tier.name}</strong> — {tier.blurb}
-        </p>
-        {elo < ENGINE_ELO_FLOOR && (
-          <p className="qm-floor-note muted">
-            Below {ENGINE_ELO_FLOOR} the engine is softened artificially — this level is measured
-            to play at roughly ~{measuredElo({ kind: 'engine', elo })} strength, and your rating
-            is updated against that measured number.
+      )}
+
+      {human ? (
+        <div className="psetup-field">
+          <div className="qm-strength-row">
+            <span className="psetup-label" id="qm-maia-label">
+              Strength
+            </span>
+            <span className="qm-readout">
+              <span className="qm-readout-elo num">~{maiaLevel}</span>
+              <span className="qm-readout-tier">Human</span>
+            </span>
+          </div>
+          <div className="qm-maia-levels" role="radiogroup" aria-labelledby="qm-maia-label">
+            {MAIA_LEVELS.map((l) => (
+              <button
+                key={l}
+                type="button"
+                role="radio"
+                aria-checked={maiaLevel === l}
+                className={`qm-maia-level${maiaLevel === l ? ' on' : ''}`}
+                onClick={() => onMaiaLevel(l)}
+              >
+                <span className="num">{l}</span>
+              </button>
+            ))}
+          </div>
+          <p className="qm-blurb" aria-live="polite">
+            <strong>Maia {maiaLevel}</strong> — plays like a ~{maiaLevel} human: the openings,
+            plans and typical mistakes of real players at that rating.
           </p>
-        )}
-      </div>
+          <p className="qm-floor-note muted">
+            Human levels are estimates — your rating is updated against ~{maiaLevel}.
+          </p>
+        </div>
+      ) : (
+        <div className="psetup-field">
+          <div className="qm-strength-row">
+            <span className="psetup-label" id="qm-strength-label">
+              Strength
+            </span>
+            <span className="qm-readout">
+              <span className="qm-readout-elo num">{elo}</span>
+              <span className="qm-readout-tier">{tier.name}</span>
+            </span>
+          </div>
+          <input
+            className="qm-range"
+            type="range"
+            min={ELO_MIN}
+            max={ELO_MAX}
+            step={10}
+            value={elo}
+            aria-labelledby="qm-strength-label"
+            aria-valuetext={`${elo} Elo — ${tier.name}`}
+            style={{ '--fill': `${fillPct}%` } as CSSProperties}
+            onChange={(e) => onElo(Number(e.target.value))}
+          />
+          <div className="qm-tiers" role="group" aria-label="Strength presets">
+            {TIERS.map((t) => (
+              <button
+                key={t.name}
+                type="button"
+                className={`qm-tier${t === tier ? ' on' : ''}`}
+                title={`${t.name} · ~${t.jump} Elo`}
+                onClick={() => onElo(t.jump)}
+              >
+                {t.name}
+              </button>
+            ))}
+          </div>
+          <p className="qm-blurb" aria-live="polite">
+            <strong>{tier.name}</strong> — {tier.blurb}
+          </p>
+          {elo < ENGINE_ELO_FLOOR && (
+            <p className="qm-floor-note muted">
+              Below {ENGINE_ELO_FLOOR} the engine is softened artificially — this level is measured
+              to play at roughly ~{measuredElo({ kind: 'engine', elo })} strength, and your rating
+              is updated against that measured number.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="psetup-field">
         <span className="psetup-label">Play as</span>
@@ -283,7 +376,7 @@ function EngineSetup({
       <button type="button" className="btn psetup-start" onClick={onStart}>
         <span className="psetup-start-main">Start game</span>
         <span className="psetup-start-sub num">
-          vs Stockfish · {tier.name} · {elo} Elo
+          {human ? `vs Maia ${maiaLevel} · Human style` : `vs Stockfish · ${tier.name} · ${elo} Elo`}
         </span>
       </button>
     </section>
@@ -294,6 +387,9 @@ export function SetupCard({
   tab,
   localMode,
   elo,
+  botStyle,
+  maiaLevel,
+  maiaReady,
   colorChoice,
   timeControl,
   otb,
@@ -305,6 +401,8 @@ export function SetupCard({
   onTab,
   onLocalMode,
   onElo,
+  onBotStyle,
+  onMaiaLevel,
   onColor,
   onTimeControl,
   onOtb,
@@ -384,9 +482,14 @@ export function SetupCard({
           {localMode === 'engine' ? (
             <EngineSetup
               elo={elo}
+              botStyle={botStyle}
+              maiaLevel={maiaLevel}
+              maiaReady={maiaReady}
               colorChoice={colorChoice}
               timeControl={timeControl}
               onElo={onElo}
+              onBotStyle={onBotStyle}
+              onMaiaLevel={onMaiaLevel}
               onColor={onColor}
               onTimeControl={onTimeControl}
               onStart={onStart}

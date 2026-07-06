@@ -8,6 +8,7 @@ import { isRegisteredGame } from '../../games/registry'
 import OnlineTab from '../play/OnlineTab'
 import type { CatalogEntry } from './catalog'
 import { ArtThumb } from './ArtThumb'
+import { KernelBot } from './KernelBot'
 import { KernelOtb } from './KernelOtb'
 import { ManualPane } from './ManualPane'
 import { VariantBot } from './VariantBot'
@@ -29,12 +30,19 @@ function registryKind(entry: CatalogEntry): GameKind | null {
 
 /**
  * Per-game page: hero + Play (vs Bot / Local OTB / Online) + Manual.
- * Local OTB is wired end-to-end for the chessops variant wave; vs Bot and
- * Online surface "landing in P2" toasts. TODO(P2): parameterize the existing
- * PlayView machinery (SetupCard/GameView/OnlineTab) by game kind via the
- * kernel registry so all three modes share the chess Play experience.
+ * vs Bot: chess family → VariantBot (Fairy-Stockfish), every other registered
+ * kind → KernelBot (KataGo GTP ipc for go, in-process bots for the rest).
  */
-export function GamePage({ entry, onBack }: { entry: CatalogEntry; onBack: () => void }): JSX.Element {
+export function GamePage({
+  entry,
+  onBack,
+  onOpenSettings
+}: {
+  entry: CatalogEntry
+  onBack: () => void
+  /** Deep link to Settings (KernelBot's inline KataGo install prompt). */
+  onOpenSettings?: () => void
+}): JSX.Element {
   const { settings } = useSettings()
   const [tab, setTab] = useState<PageTab>('play')
   const [mode, setMode] = useState<PlayMode | null>(null)
@@ -80,21 +88,23 @@ export function GamePage({ entry, onBack }: { entry: CatalogEntry; onBack: () =>
         setMode('otb')
         return
       }
-      if (m === 'bot' && entry.family === 'chess') {
-        // Chess-family wave: 5-level Fairy-Stockfish via games/bots.ts.
+      if (m === 'bot') {
+        // Chess family → VariantBot (Fairy-Stockfish); every other registered
+        // kind → KernelBot over the games/bots.ts provider seam (KataGo GTP
+        // for go — its install state is handled INLINE by KernelBot).
         // (Standard chess lives in the Play tab's richer PlayView, not here.)
-        setMode('bot')
-        return
+        if (entry.family === 'chess' || onlineKind) {
+          setMode('bot')
+        } else {
+          showToast(`Bots for ${entry.title} are landing in P2 — the board is being carved.`)
+        }
       }
-      // TODO(P2): non-chess vs Bot via the generic kernel board views (the
-      // providers in games/bots.ts are ready).
-      showToast(`Bots for ${entry.title} are landing in P2 — the board is being carved.`)
     },
     [entry, onlineKind, showToast]
   )
 
   const playable = entry.status === 'playable'
-  const botReady = playable && entry.otbReady === true && entry.family === 'chess'
+  const botReady = playable && entry.otbReady === true && (entry.family === 'chess' || onlineKind !== null)
 
   return (
     <div className="game-page">
@@ -114,7 +124,16 @@ export function GamePage({ entry, onBack }: { entry: CatalogEntry; onBack: () =>
           <KernelOtb entry={entry} />
         )
       ) : mode === 'bot' ? (
-        <VariantBot entry={entry} onToast={showToast} />
+        entry.family === 'chess' ? (
+          <VariantBot entry={entry} onToast={showToast} />
+        ) : (
+          <KernelBot
+            entry={entry}
+            kind={onlineKind!}
+            onToast={showToast}
+            onOpenSettings={onOpenSettings}
+          />
+        )
       ) : mode === 'online' && onlineKind ? (
         <div className="game-online">
           <OnlineTab initialGameKind={onlineKind} />
