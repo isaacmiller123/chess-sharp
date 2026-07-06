@@ -74,16 +74,8 @@ export function VariantBot({
   const isUserTurn = phase === 'playing' && !outcome && turn === userColor
 
   const applyMove = useCallback(
-    (move: string): boolean => {
-      let played = false
-      setState((s: unknown) => {
-        if (s === null) return s
-        const next = spec.play(s, move)
-        if (!next) return s
-        played = true
-        return next
-      })
-      return played
+    (move: string): void => {
+      setState((s: unknown) => (s === null ? s : (spec.play(s, move) ?? s)))
     },
     [spec]
   )
@@ -99,7 +91,16 @@ export function VariantBot({
       .then((mv) => {
         if (cancelled || seq !== gameSeq.current) return
         setThinking(false)
-        if (!applyMove(mv)) onToast(`The engine offered an illegal move (${mv}) — try restarting.`)
+        // Validate against the exact state the provider was asked about (the
+        // cancelled/seq guards above drop stale replies). NEVER smuggle a
+        // success flag out of a setState updater: React runs updaters during
+        // render, and its eager fast path is skipped when another update
+        // (setThinking above) is already pending — so a flag read back
+        // synchronously is ALWAYS false and the toast fired on every legal
+        // bot reply (live packaged-app audit, 2026-07-07).
+        const next = spec.play(state, mv)
+        if (next) setState(next)
+        else onToast(`The engine offered an illegal move (${mv}) — try restarting.`)
       })
       .catch((err) => {
         if (cancelled || seq !== gameSeq.current) return
@@ -114,7 +115,7 @@ export function VariantBot({
     return () => {
       cancelled = true
     }
-  }, [phase, state, turn, userColor, outcome, provider, level, applyMove, onToast])
+  }, [phase, state, turn, userColor, outcome, provider, level, spec, onToast])
 
   // The board proposes canonical kernel moves (promotion dialogs and pocket
   // drops included) — validate through spec.play and ignore rejects.

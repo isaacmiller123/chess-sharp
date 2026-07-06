@@ -10,9 +10,11 @@ const FILE_LABELS = 'abcdefghijkl'
 
 // ffish UCI for custom variants: drops 'P@e4' (letter always uppercase) and
 // from-to with an optional promotion suffix ('q' letter or shogi-style '+').
+// Two-digit rank 10 MUST come before [1-9] in the alternation, and files run
+// a–l (12-wide largeboard limit) — see games/customVariants.ts SQ.
 const MOVE_PARTS = /^(?:([A-Z+]?)@([a-l](?:10|[1-9]))|([a-l](?:10|[1-9]))([a-l](?:10|[1-9]))([a-z+]?))$/
 
-interface ParsedMove {
+export interface ParsedMove {
   raw: string
   drop?: { letter: string; to: string }
   from?: string
@@ -20,14 +22,17 @@ interface ParsedMove {
   suffix?: string
 }
 
-function parseMove(raw: string): ParsedMove | null {
+// parseMove/squareName are pure and exported for scripts/test-custom-board-keys.mjs
+// — they are the Variant Lab board's ONLY square/move codec (full UCI names
+// like 'a10'; no chessgroundx keys here, this board renders its own grid).
+export function parseMove(raw: string): ParsedMove | null {
   const m = MOVE_PARTS.exec(raw)
   if (!m) return null
   if (m[2]) return { raw, drop: { letter: m[1] || 'P', to: m[2] } }
   return { raw, from: m[3], to: m[4], suffix: m[5] || '' }
 }
 
-function squareName(file: number, rank: number): string {
+export function squareName(file: number, rank: number): string {
   return `${FILE_LABELS[file]}${rank + 1}`
 }
 

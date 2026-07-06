@@ -79,7 +79,10 @@ export function chessOccupancy(fen: string, ranks: number): OccPiece[] {
         file += Number(digits)
         digits = ''
       }
-      if (ch === '~') continue // crazyhouse promoted-piece marker
+      // Promoted-piece markers: crazyhouse suffix 'Q~' and fairy/shogi prefix
+      // '+P' — both annotate a real piece letter, they are not pieces. Reading
+      // '+' as a piece would also shift every later piece on its rank.
+      if (ch === '~' || ch === '+') continue
       if (ch === '[') break // bracket-FEN pocket segment
       out.push({
         file,

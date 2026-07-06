@@ -103,6 +103,21 @@ try {
   // Crazyhouse markers: promoted '~' skipped, bracket pocket ignored.
   const zh = chessOccupancy('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBN~R[QP]', 8)
   ok(zh.length === 32, 'crazyhouse ~ marker + [pocket] tolerated')
+  // Fairy '+' promoted-piece PREFIX (shogi/ffish FENs spell a promoted pawn
+  // '+P'): the marker must be skipped, not read as a piece named '+' that
+  // shifts every later piece on its rank.
+  const sh = chessOccupancy('+P8/9/9/9/9/9/9/9/9', 9)
+  ok(sh.length === 1, `shogi '+P' reads as ONE piece (got ${sh.length})`)
+  eq(
+    { f: sh[0]?.file, r: sh[0]?.rank, t: sh[0]?.type, c: sh[0]?.color },
+    { f: 0, r: 8, t: 'p', c: 'white' },
+    "'+P' occupies file 0 as a white pawn-type piece"
+  )
+  // 10-rank FEN (xiangqi): rank-10 pieces land on rank index 9.
+  const xq = chessOccupancy('rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR', 10)
+  ok(xq.length === 32, 'xiangqi start FEN: 32 pieces across 10 ranks')
+  const a10occ = xq.find((p) => p.file === 0 && p.rank === 9)
+  eq({ t: a10occ?.type, c: a10occ?.color }, { t: 'r', c: 'black' }, 'black chariot on a10 (rank index 9)')
 
   // ---- checkers codec mapping ------------------------------------------------
   console.log('checkers codec')
@@ -146,6 +161,17 @@ try {
   ok(
     chessDragMove(['e2e4'], occ, { file: 4, rank: 1 }, { file: 4, rank: 4 }) === null,
     'illegal drag → null'
+  )
+  // Rank-10 drags emit two-digit UCI (sqName must never truncate rank 10).
+  eq(
+    chessDragMove(['a10a9'], [], { file: 0, rank: 9 }, { file: 0, rank: 8 }),
+    'a10a9',
+    'rank-10 drag → two-digit UCI a10a9'
+  )
+  eq(
+    chessDragMove(['b3b10'], [], { file: 1, rank: 2 }, { file: 1, rank: 9 }),
+    'b3b10',
+    'drag INTO rank 10 → b3b10'
   )
 
   // ---- checkersDragMove ------------------------------------------------------

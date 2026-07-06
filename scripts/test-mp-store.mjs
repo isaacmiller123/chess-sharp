@@ -27,7 +27,7 @@ import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -138,7 +138,16 @@ async function main() {
 
   // Bundle onlineStore.ts, redirecting its `./mpClient` import to our mock via a
   // resolve plugin (the import specifier is relative, so match on the basename).
+  // The entry also re-exports preloadFfish from the SAME module graph so the
+  // xiangqi section (17) can seed the ffish WASM singleton the store's adapter
+  // preload will then find already resolved (bare node has no '?url' path).
   console.log('· bundling onlineStore.ts with a mocked mpClient …')
+  const storeEntry = resolve(outdir, 'store.entry.ts')
+  writeFileSync(
+    storeEntry,
+    `export { onlineStore } from '${resolve(ROOT, 'src/renderer/src/features/play/online/onlineStore.ts').replace(/\\/g, '/')}'\n` +
+      `export { preloadFfish } from '${resolve(ROOT, 'src/renderer/src/games/ffish.ts').replace(/\\/g, '/')}'\n`
+  )
   const storeOut = resolve(outdir, 'onlineStore.mjs')
   const swapMpClient = {
     name: 'swap-mpclient',
@@ -146,7 +155,7 @@ async function main() {
       b.onResolve({ filter: /(^|\/)mpClient$/ }, () => ({ path: mockPath }))
     }
   }
-  await bundle(resolve(ROOT, 'src/renderer/src/features/play/online/onlineStore.ts'), storeOut, [swapMpClient])
+  await bundle(storeEntry, storeOut, [swapMpClient])
 
   // Bundle the chess helpers so we can construct UCIs / verify fens like the store.
   const helpersOut = resolve(outdir, 'helpers.mjs')
@@ -158,12 +167,16 @@ async function main() {
   globalThis.window = {
     api: { games: { save: async (g) => { saved.push(g); return { ok: true } } } }
   }
+  // The window stub makes emscripten (ffish, section 17) think it is in a
+  // browser and dereference document.currentScript — give it a null one. The
+  // wasm itself arrives via wasmBinary, so no other document/fetch use runs.
+  globalThis.document ??= { currentScript: null }
   // A performance.now the store uses for clock timestamps.
   if (typeof globalThis.performance === 'undefined') {
     globalThis.performance = { now: () => Date.now() }
   }
 
-  const { onlineStore } = await import(pathToFileURL(storeOut).href)
+  const { onlineStore, preloadFfish } = await import(pathToFileURL(storeOut).href)
   const helpers = await import(pathToFileURL(helpersOut).href)
   const { applyMove, turnColor, INITIAL_FEN } = helpers
 
@@ -677,6 +690,67 @@ async function main() {
     eq(S().banner.result, '0-1', 'gomoku flag by white → black wins')
     eq(S().banner.reason, 'on time', 'gomoku flag is a plain on-time loss')
     eq(saved.length, 1, 'gomoku flag result saved')
+  }
+
+  // ==========================================================================
+  // 17. Wire v4 — xiangqi (ffish WASM adapter): the RANK-10 regression path.
+  //     v1.1.2's bug class was two-digit-rank squares breaking at a boundary;
+  //     this section proves the ONLINE boundary is clean end to end: async
+  //     adapter preload during start, a remote 5-char move INTO rank 10, our
+  //     6-char move ALONG rank 10 (optimistic apply + sendMove uncut), the
+  //     host-side ffish validator judging rank-10 guest moves, a 10-row FEN
+  //     positionKey, and the generic archive carrying the codec verbatim.
+  // ==========================================================================
+  console.log('\n· xiangqi (wire v4 + ffish): rank-10 moves end to end …')
+  const XIANGQI_CFG = () => ({ ...CFG(60_000, 0), game: { kind: 'xiangqi' } })
+  {
+    reset()
+    // Seed the ffish singleton with wasm bytes (bare node); the store's
+    // adapter.preload() then resolves against the already-loaded module.
+    await preloadFfish({ wasmBinary: readFileSync(resolve(ROOT, 'node_modules/ffish-es6/ffish.wasm')) })
+    ok(true, 'ffish singleton preloaded from wasm bytes (adapter shares it)')
+    await onlineStore.host(XIANGQI_CFG())
+    await settle()
+    eq(S().phase, 'hosting', 'xiangqi host() reaches hosting (ffish adapter resolved)')
+
+    emit({ type: 'start', gameId: 1, yourColor: 'black', config: XIANGQI_CFG(), opponentName: 'Mei' })
+    await settle() // beginGame tails behind adapter.preload().then(…)
+    await settle()
+    eq(S().phase, 'game', 'xiangqi start → phase game (async preload path)')
+    eq(S().gameKind, 'xiangqi', 'store exposes gameKind xiangqi')
+    eq(S().fen.split(' ')[0].split('/').length, 10, 'positionKey is a 10-rank xiangqi FEN')
+
+    // Red (remote): cannon takes the b10 horse over the b8 screen — a 5-char
+    // wire move whose DESTINATION is rank 10.
+    emit({ type: 'move', gameId: 1, ply: 0, uci: 'b3b10', clockMs: { white: 59_000, black: 60_000 } })
+    eq(S().plyCount, 1, 'remote b3b10 applied through ffish')
+    eq(S().moves[0], 'b3b10', 'rank-10 wire move recorded verbatim')
+
+    // Us (black): chariot a10 takes the cannon on b10 — SIX chars, both
+    // squares on rank 10 (the exact spelling the old cast bug destroyed).
+    await onlineStore.playMove('a10b10'); await settle()
+    eq(S().plyCount, 2, 'our a10b10 applied optimistically')
+    eq(MOCK.lastCall('sendMove').args[0], 'a10b10', 'sendMove carries the 6-char rank-10 move uncut (≤64 wire cap)')
+    ok(S().fen.split(' ')[0].startsWith('1r'), 'fen top row shows the chariot landed on b10 (a10 emptied)')
+
+    // Host-side validator (wire v4 legality gate) with rank-10 guest moves:
+    // red's mirror capture is legal; a blocked rank-10 slide and a move by the
+    // already-captured cannon are not.
+    eq(MOCK.validate(S().moves, 'h3h10'), true, 'validator accepts red h3h10 (cannon × horse on rank 10)')
+    eq(MOCK.validate(S().moves, 'a1a10'), false, 'validator rejects a blocked a1a10 slide')
+    eq(MOCK.validate(S().moves, 'b3b9'), false, 'validator rejects a move by the captured b3 cannon')
+
+    emit({ type: 'move', gameId: 1, ply: 2, uci: 'h3h10', clockMs: { white: 58_000, black: 59_000 } })
+    eq(S().plyCount, 3, 'red h3h10 applied (second rank-10 capture)')
+
+    // Wrap up: red resigns → we (black) win; the generic archive keeps the
+    // two-digit codec verbatim.
+    emit({ type: 'resign', by: 'white' })
+    eq(S().banner.result, '0-1', 'resign by red → black (us) wins')
+    eq(S().banner.outcomeForUser, 'win', 'banner outcome: win for us')
+    eq(saved.length, 1, 'finished xiangqi game saved exactly once')
+    ok(saved[0].pgn.includes('b3b10 a10b10 h3h10'), 'archive carries the rank-10 moves verbatim')
+    ok(saved[0].pgn.includes('[Variant "xiangqi"]'), 'archive tagged xiangqi')
   }
 
   // subscriber sanity: mutations notified.
