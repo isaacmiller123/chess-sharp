@@ -90,14 +90,21 @@ snippets rendered by the game's 2D board component, read-only).
    the "Human" style for chess bots 1100–1900.
 
 ## Phases
-- **P1 foundations (NOW)**: kernel + registry; wire v4 + store genericization (chess regression
-  green); Games tab shell + library cards; chess-variant wave via chessops (8 games playable
-  local+online+bots via existing SF path); bot side-quests started.
-- **P2**: ffish family (xiangqi/shogi/janggi/makruk + placement), checkers both, go+gomoku
-  (Shudan+tenuki), othello/c4/hex/morris/TTT; Fairy-SF + KataGo + lc0 in datasets; manuals all.
-- **P3**: 3D shared renderer + assets; custom variant editor (variants.ini builder UI +
-  ffish.loadVariantConfig + Fairy-SF VariantPath); visual polish audits per game vs named
-  references; CI runs suites on windows-latest + macos-latest; release.
+- **P1 foundations — DONE** (commit 1822c36): kernel + registry; wire v4 + store genericization
+  (chess regression green); Games tab shell + library cards; chess-variant wave via chessops
+  (chess + 8 variants playable local+online+bots via existing SF path); bot side-quests
+  (sub-1320 calibration + Maia groundwork) started.
+- **P2 — DONE** (commits 09015df, d985ece): ffish family (xiangqi/shogi/janggi/makruk +
+  placement), checkers both, go+gomoku (Shudan+tenuki), othello/c4/hex/morris/TTT; Fairy-SF +
+  KataGo + lc0 published in datasets for BOTH platforms; manuals authored for all 22 games
+  (scripts/test-manuals.mjs green).
+- **P3 — DONE except noted** (commits d552b10..2110058): 3D shared renderer + assets (Tabletop3D
+  lazy chunk, Poly Haven chess set, per-game 2D/3D toggle per the tier table) DONE; custom
+  variant editor (Variant Lab: variants.ini builder UI + ffish.loadVariantConfig + Fairy-SF
+  VariantPath) DONE; visual polish audits per game DONE (305bf3d). Open: CI runs
+  typecheck+build+package on windows-latest + macos-latest (.github/workflows/build.yml) but
+  does NOT yet run the game suites there (suites are green locally on mac); no tagged release
+  contains the games platform yet (latest tag v1.0.1 predates it).
 
 ## Quality gates (every phase)
 typecheck+build clean; test-mp/test-mp-store stay green (chess online untouched); new

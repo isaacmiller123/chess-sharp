@@ -3,9 +3,16 @@ import { session, type BrowserWindow } from 'electron'
 // Strict CSP for production; a HMR-friendly relaxation for the Vite dev server.
 // connect-src allows wss: so the renderer can reach the multiplayer signaling
 // relays (trystero/Nostr) — WebRTC media itself isn't gated by connect-src.
+// img-src/connect-src allow file: for the extraResources games art
+// (<resourcesPath>/games-art: 2D/3D textures + SVG decals load via <img>,
+// the chess3d manifest + GLBs via fetch — see renderer games/art.ts). While
+// the window is served by loadFile 'self' happens to cover file:, but the
+// explicit scheme keeps art working after the planned app:// migration
+// (window.ts TODO(packaging)).
 const PROD_CSP =
   "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
-  "img-src 'self' data:; font-src 'self'; connect-src 'self' wss:; media-src 'self'"
+  "img-src 'self' data: file:; font-src 'self'; connect-src 'self' wss: file:; " +
+  "media-src 'self'"
 
 const DEV_CSP =
   "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +

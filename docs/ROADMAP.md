@@ -5,6 +5,24 @@
 > Authoritative school spec: `docs/SCHOOL-SPEC.md`. Live school build state: `docs/school-build-log.md`.
 
 ## 🔜 In progress / recently shipped (this session)
+- [x] **Games platform shipped (2026-07-06/07, spec-driven).** Per the binding
+      `docs/GAMES-PLATFORM-SPEC.md`: game kernel + registry; 22 playable games (chess + 8 chessops
+      variants, xiangqi/shogi/janggi/makruk/placement via ffish WASM, both checkers, go + gomoku,
+      othello/connect4/hex/morris/TTT) each with local OTB + 5-level bots + online (wire v4,
+      game-agnostic) + an authored in-app manual with live board diagrams; engines published to
+      datasets for BOTH platforms (Fairy-Stockfish 14, KataGo 1.16.5 + nets incl. Human-SL,
+      lc0 + Maia 1100–1900 as the chess "Human" style); shared react-three-fiber 3D tabletop
+      (Poly Haven CC0 chess set, ambientCG PBR boards, per-game 2D/3D toggle per the approved
+      tier table, WebGL auto-fallback to 2D); Variant Lab custom-variant editor (variants.ini →
+      ffish runtime load + Fairy-SF VariantPath bots); visual polish audit pass done. Suites all
+      green: games-kernel 68, ffish 85, go 80, checkers 74, small-games 101, custom-variants 83,
+      manuals 222, bots 176, bots-ui 24, board3d 27, mp 215, mp-store 147.
+- [ ] **Games platform residuals.** (1) CI (`.github/workflows/build.yml`) typechecks + builds +
+      packages on windows-latest + macos-latest but does not yet run the game suites (spec P3
+      wants suites in CI on both OSes — needs a Windows-verified run before wiring in). (2) No
+      tagged release contains the games platform yet (v1.0.1 predates it) — tag once pushed.
+      (3) `src/main/window.ts` TODO(packaging): move loadFile → registered `app://` protocol;
+      PROD_CSP already allows `file:` for the extraResources games-art so art survives the move.
 - [x] **Removed the old Lessons tab → folded into the School.** Deleted the `Lessons` nav tab,
       `features/lessons/*`, and the `curriculum` backend/IPC/types. Home "next" card now continues the
       current School chapter / starts the next / prompts placement.
