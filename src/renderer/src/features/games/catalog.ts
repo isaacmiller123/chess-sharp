@@ -48,8 +48,7 @@ export const CHESS_VARIANTS: CatalogEntry[] = [
     status: 'playable',
     rules: 'crazyhouse',
     thumbFen: 'r1bq1rk1/ppp2ppp/2n2n2/3pp3/1b2P3/2NP1N2/PPP2PPP/R1BQKB1R w KQ - 0 1',
-    // Drops need chessgroundx pockets — OTB lands with the chessgroundx swap.
-    otbReady: false,
+    otbReady: true, // drops via ChessFamilyBoard pockets (chessgroundx)
     manualId: 'crazyhouse'
   },
   {
@@ -117,25 +116,69 @@ export const CHESS_VARIANTS: CatalogEntry[] = [
     thumbFen: '8/8/8/8/8/8/krbnNBRK/qrbnNBRQ w - - 0 1',
     otbReady: true,
     manualId: 'racingkings'
+  },
+  // ---- ffish wave (P2): rules via Fairy-Stockfish WASM, board via
+  // ChessFamilyBoard (no thumbFen — the classic 8x8 thumb Board cannot render
+  // these; ArtThumb owns the card art).
+  {
+    kind: 'xiangqi',
+    family: 'chess',
+    title: 'Xiangqi',
+    tagline: 'Chinese chess — rivers, palaces and cannon batteries.',
+    status: 'playable',
+    otbReady: true,
+    manualId: 'xiangqi'
+  },
+  {
+    kind: 'shogi',
+    family: 'chess',
+    title: 'Shogi',
+    tagline: 'Japanese chess — captured pieces re-enter the fight.',
+    status: 'playable',
+    otbReady: true,
+    manualId: 'shogi'
+  },
+  {
+    kind: 'janggi',
+    family: 'chess',
+    title: 'Janggi',
+    tagline: 'Korean chess — free-roaming generals and leaping cannons.',
+    status: 'playable',
+    otbReady: true,
+    manualId: 'janggi'
+  },
+  {
+    kind: 'makruk',
+    family: 'chess',
+    title: 'Makruk',
+    tagline: 'Thai chess — ancient rules, razor-sharp endgames.',
+    status: 'playable',
+    otbReady: true,
+    manualId: 'makruk'
+  },
+  {
+    kind: 'placement',
+    family: 'chess',
+    title: 'Placement',
+    tagline: 'Set up your own back rank, then play chess.',
+    status: 'playable',
+    otbReady: true,
+    manualId: 'placement'
   }
 ]
 
-// ---- Coming soon (P2): rendered as elegant art cards -----------------------
+// ---- The other-boards wave (P2): checkers/go/grid — playable via KernelOtb -
 
 export const COMING_SOON: CatalogEntry[] = [
-  { kind: 'xiangqi', family: 'chess', title: 'Xiangqi', tagline: 'Chinese chess — rivers, palaces and cannon batteries.', status: 'coming', manualId: 'xiangqi' },
-  { kind: 'shogi', family: 'chess', title: 'Shogi', tagline: 'Japanese chess — captured pieces re-enter the fight.', status: 'coming', manualId: 'shogi' },
-  { kind: 'janggi', family: 'chess', title: 'Janggi', tagline: 'Korean chess — free-roaming generals and leaping cannons.', status: 'coming', manualId: 'janggi' },
-  { kind: 'makruk', family: 'chess', title: 'Makruk', tagline: 'Thai chess — ancient rules, razor-sharp endgames.', status: 'coming', manualId: 'makruk' },
-  { kind: 'checkers-8', family: 'draughts', title: 'Checkers', tagline: 'The 8×8 classic — jump, capture, crown your kings.', status: 'coming', manualId: 'checkers-8' },
-  { kind: 'checkers-intl', family: 'draughts', title: 'International Draughts', tagline: '10×10 flying kings and forced majority captures.', status: 'coming', manualId: 'checkers-intl' },
-  { kind: 'go', family: 'go', title: 'Go', tagline: 'Surround territory, capture stones — the deepest game on earth.', status: 'coming', manualId: 'go' },
-  { kind: 'gomoku', family: 'grid', title: 'Gomoku', tagline: 'Five in a row on a Go board — simple rules, brutal tactics.', status: 'coming', manualId: 'gomoku' },
-  { kind: 'othello', family: 'grid', title: 'Othello', tagline: 'Flip the board in one move — a minute to learn, a lifetime to master.', status: 'coming', manualId: 'othello' },
-  { kind: 'hex', family: 'grid', title: 'Hex', tagline: 'Connect your two sides — no draws, ever.', status: 'coming', manualId: 'hex' },
-  { kind: 'connect4', family: 'grid', title: 'Connect Four', tagline: 'Drop, stack and trap — solved, but never boring.', status: 'coming', manualId: 'connect4' },
-  { kind: 'morris', family: 'grid', title: 'Nine Men’s Morris', tagline: 'Form mills, remove men — a Roman classic.', status: 'coming', manualId: 'morris' },
-  { kind: 'ttt', family: 'grid', title: 'Tic-Tac-Toe', tagline: 'The gateway game — perfect play in three lines.', status: 'coming', manualId: 'ttt' },
+  { kind: 'checkers', family: 'draughts', title: 'Checkers', tagline: 'The 8×8 classic — jump, capture, crown your kings.', status: 'playable', otbReady: true, manualId: 'checkers-american' },
+  { kind: 'checkers-intl', family: 'draughts', title: 'International Draughts', tagline: '10×10 flying kings and forced majority captures.', status: 'playable', otbReady: true, manualId: 'checkers-intl' },
+  { kind: 'go', family: 'go', title: 'Go', tagline: 'Surround territory, capture stones — the deepest game on earth.', status: 'playable', otbReady: true, manualId: 'go' },
+  { kind: 'gomoku', family: 'grid', title: 'Gomoku', tagline: 'Five in a row on a Go board — simple rules, brutal tactics.', status: 'playable', otbReady: true, manualId: 'gomoku' },
+  { kind: 'othello', family: 'grid', title: 'Othello', tagline: 'Flip the board in one move — a minute to learn, a lifetime to master.', status: 'playable', otbReady: true, manualId: 'othello' },
+  { kind: 'hex', family: 'grid', title: 'Hex', tagline: 'Connect your two sides — no draws, ever.', status: 'playable', otbReady: true, manualId: 'hex' },
+  { kind: 'connect4', family: 'grid', title: 'Connect Four', tagline: 'Drop, stack and trap — solved, but never boring.', status: 'playable', otbReady: true, manualId: 'connect4' },
+  { kind: 'morris', family: 'grid', title: 'Nine Men’s Morris', tagline: 'Form mills, remove men — a Roman classic.', status: 'playable', otbReady: true, manualId: 'morris' },
+  { kind: 'tictactoe', family: 'grid', title: 'Tic-Tac-Toe', tagline: 'The gateway game — perfect play in three lines.', status: 'playable', otbReady: true, manualId: 'tictactoe' },
   { kind: 'custom-editor', family: 'chess', title: 'Variant Editor', tagline: 'Design your own chess variant — pieces, boards, rules.', status: 'coming', manualId: 'custom-editor' }
 ]
 

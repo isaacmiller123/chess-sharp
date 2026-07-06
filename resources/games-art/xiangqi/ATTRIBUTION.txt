@@ -1,0 +1,3 @@
+Xiangqi pieces: "gmchess style wood" set by Kadagaden
+License: CC-BY-4.0 (see LICENSE.txt)
+Source: https://github.com/Kadagaden/chess-pieces (xiangqi_gmchess_style_wood/)

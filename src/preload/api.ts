@@ -23,6 +23,7 @@ export const api: Api = {
     analyze: (req) => ipcRenderer.invoke('engine:analyze', req),
     stop: (handleId) => ipcRenderer.invoke('engine:stop', { handleId }),
     play: (req) => ipcRenderer.invoke('engine:play', req),
+    playVariant: (req) => ipcRenderer.invoke('engine:playVariant', req),
     status: () => ipcRenderer.invoke('engine:status', {}),
     newGame: (instance) => ipcRenderer.invoke('engine:newGame', { instance }),
     onLine: (cb) => {
@@ -128,6 +129,12 @@ export const api: Api = {
       ipcRenderer.on('datasets:progress', listener)
       return () => ipcRenderer.removeListener('datasets:progress', listener)
     }
+  },
+  customVariants: {
+    save: (req) => ipcRenderer.invoke('customVariants:save', req),
+    list: () => ipcRenderer.invoke('customVariants:list', {}),
+    get: (id) => ipcRenderer.invoke('customVariants:get', { id }),
+    delete: (id) => ipcRenderer.invoke('customVariants:delete', { id })
   }
   // Multiplayer is renderer-owned (WebRTC over trystero); it no longer crosses
   // IPC. See src/renderer/src/features/play/online/mpClient.ts.

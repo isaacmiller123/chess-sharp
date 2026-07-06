@@ -1,0 +1,441 @@
+/* ============================================================
+   ChessFamilyBoard (games/boards/ChessFamilyBoard.tsx) — one
+   chessgroundx board for all 14 chess-family kinds. Look bar:
+   chess.com / lichess grade (CLAUDE.md).
+
+   Scopes:
+     .cfb-wrap            component root (flex column: pockets + board)
+     .cfb-<kind>          per-game hooks (cfb-xiangqi, cfb-shogi, ...)
+     .cfb-cells8          8x8 cells → app board themes apply untouched
+     .cfb-int             9x10 intersection boards (xiangqi / janggi)
+     .cfb-noart           piece-art set missing → disc+glyph fallback
+   Piece art:
+     chess-family-pieces.css   (generated: app piece sets → letter roles)
+     chessFamilyArt.ts         (injected: xiangqi/janggi/shogi SVG urls)
+   ============================================================ */
+
+.cfb-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  --cfb-line: rgba(62, 42, 20, 0.85);
+}
+
+.cfb-board {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--cfb-files) / var(--cfb-ranks);
+  border-radius: var(--radius-board, 8px);
+  overflow: hidden;
+  box-shadow: var(--shadow-md, 0 2px 12px rgba(0, 0, 0, 0.35));
+}
+
+.cfb-board .cfb-cg {
+  position: absolute;
+  inset: 0;
+}
+
+/* Non-8x8 geometry: chessgroundx translates pieces/squares by pixel math;
+   their SIZE comes from CSS (base css hardcodes 12.5% for 8x8). */
+.cfb-wrap piece,
+.cfb-wrap cg-board square {
+  width: calc(100% / var(--cfb-files));
+  height: calc(100% / var(--cfb-ranks));
+}
+
+/* 8x8 cells boards: the app's flat 2-color themes (same recipe as
+   styles/app.css .board-wrap rule — wrap the board in a .board-<theme> +
+   .pieces-<set> ancestor and both apply; brown fallback otherwise). */
+.cfb-cells8 cg-board {
+  background-color: var(--sq-light, #f0d9b5);
+  background-image: conic-gradient(
+    var(--sq-dark, #b58863) 90deg,
+    var(--sq-light, #f0d9b5) 90deg 180deg,
+    var(--sq-dark, #b58863) 180deg 270deg,
+    var(--sq-light, #f0d9b5) 270deg
+  );
+  background-size: 25% 25%;
+}
+
+/* ---------------- boards that are not a checkerboard ---------------- */
+
+/* The global chessground.brown.css / app board themes paint cg-board with a
+   checker — blank it for the wood boards; the grid is an SVG overlay UNDER
+   the (transparent) cg-board. */
+.cfb-int cg-board,
+.cfb-shogi cg-board {
+  background: transparent;
+}
+
+.cfb-xiangqi .cfb-board {
+  background:
+    radial-gradient(ellipse at 50% 38%, rgba(255, 255, 255, 0.16), transparent 70%),
+    linear-gradient(160deg, #ecc48b, #dfab66 58%, #d29c55);
+}
+.cfb-janggi .cfb-board {
+  background:
+    radial-gradient(ellipse at 50% 38%, rgba(255, 244, 214, 0.2), transparent 70%),
+    linear-gradient(160deg, #d9a05b, #c8894a 60%, #b97a3e);
+}
+.cfb-shogi .cfb-board {
+  background:
+    radial-gradient(ellipse at 50% 32%, rgba(255, 255, 255, 0.22), transparent 75%),
+    linear-gradient(165deg, #f0c178, #e5af5f 55%, #dda254);
+}
+
+.cfb-grid {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* River labels (xiangqi) — an overlay so real fonts render the hanzi. */
+.cfb-river {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 45%;
+  height: 10%;
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  pointer-events: none;
+  color: rgba(62, 42, 20, 0.5);
+  font-family: 'Songti SC', 'STKaiti', 'KaiTi', 'Noto Serif CJK SC', serif;
+  letter-spacing: 0.9em;
+  text-indent: 0.9em;
+  user-select: none;
+}
+.cfb-river span:last-child {
+  transform: rotate(180deg);
+}
+
+/* Intersection boards: full-cell paint looks wrong on a line grid — use soft
+   round highlights instead. */
+.cfb-int cg-board square.last-move,
+.cfb-shogi cg-board square.last-move {
+  background: radial-gradient(circle, rgba(155, 199, 0, 0.55) 0%, rgba(155, 199, 0, 0.28) 55%, transparent 72%);
+}
+.cfb-int cg-board square.selected,
+.cfb-shogi cg-board square.selected {
+  background: radial-gradient(circle, rgba(20, 85, 30, 0.5) 0%, rgba(20, 85, 30, 0.28) 55%, transparent 72%);
+}
+
+/* Xiangqi/janggi discs get a soft drop shadow to sit ON the board. */
+.cfb-int piece {
+  filter: drop-shadow(0 2px 2px rgba(40, 20, 5, 0.35));
+}
+.cfb-shogi piece {
+  filter: drop-shadow(0 1px 1.5px rgba(40, 20, 5, 0.3));
+}
+
+/* ---------------- coordinates (8x8 cells boards) ----------------
+   chessgroundx marks coords `coords.bottom|side.forward.white|black`
+   (unlike chessground's .files/.ranks) — the app's global board CSS never
+   matches them, so they are styled here, lichess-style: labels inside the
+   board edge, text color = the OPPOSITE square color under the label. */
+
+.cfb-wrap coords {
+  position: absolute;
+  display: flex;
+  pointer-events: none;
+  user-select: none;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  z-index: 3;
+}
+.cfb-wrap coords coord {
+  flex: 1 1 auto;
+}
+.cfb-wrap coords.bottom {
+  left: 0;
+  bottom: 2px;
+  width: 100%;
+  flex-flow: row;
+}
+.cfb-wrap coords.bottom.black {
+  flex-flow: row-reverse;
+}
+.cfb-wrap coords.bottom coord {
+  text-align: right;
+  padding-right: 4px;
+}
+.cfb-wrap coords.side {
+  top: 0;
+  left: 3px;
+  height: 100%;
+  width: 12px;
+  flex-flow: column-reverse;
+}
+.cfb-wrap coords.side.black {
+  flex-flow: column;
+}
+.cfb-wrap coords.side coord {
+  padding-top: 3px;
+}
+/* a1 is dark: with white orientation the first bottom label (a) and the first
+   side label (1) both sit on dark squares → light text; alternate from there.
+   Black orientation lands on the opposite parity (h1 light / 8 light). */
+.cfb-wrap coords coord:nth-child(odd) {
+  color: var(--sq-light, #f0d9b5);
+}
+.cfb-wrap coords coord:nth-child(even) {
+  color: var(--sq-dark, #b58863);
+}
+.cfb-wrap coords.black coord:nth-child(odd) {
+  color: var(--sq-dark, #b58863);
+}
+.cfb-wrap coords.black coord:nth-child(even) {
+  color: var(--sq-light, #f0d9b5);
+}
+
+/* ---------------- pockets (crazyhouse / shogi hands / placement) ------ */
+
+.cfb-pocket {
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+  padding: 4px 6px;
+  background: var(--surface-2, #26221e);
+  border-radius: var(--radius-md, 8px);
+  min-height: 24px;
+}
+.cfb-pocket square {
+  position: relative;
+  display: block;
+  width: calc((100% - 5 * 3px - 12px) / var(--pocketLength, 5));
+  max-width: 64px;
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  transition: background-color 120ms ease;
+}
+.cfb-pocket piece {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: 0.95;
+}
+.cfb-pocket.usable piece {
+  cursor: grab;
+}
+.cfb-pocket piece[data-nb='0'] {
+  opacity: 0.22;
+  cursor: default;
+}
+/* count badge, chess.com style — shown for 2+ */
+.cfb-pocket piece::after {
+  content: attr(data-nb);
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background: var(--accent, #7fa650);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.cfb-pocket piece[data-nb='0']::after,
+.cfb-pocket piece[data-nb='1']::after {
+  content: none;
+}
+.cfb-pocket square.selected-square {
+  background: rgba(155, 199, 0, 0.35);
+  box-shadow: inset 0 0 0 2px rgba(155, 199, 0, 0.7);
+}
+.cfb-pocket square.last-move {
+  background: rgba(155, 199, 0, 0.22);
+}
+
+/* ---------------- promotion dialog ---------------- */
+
+.cfb-promo {
+  position: absolute;
+  inset: 0;
+  z-index: 12; /* above piece.dragging (11) */
+  display: grid;
+  place-items: center;
+  background: rgba(12, 10, 8, 0.55);
+  backdrop-filter: blur(1.5px);
+}
+.cfb-promo-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg, 12px);
+  background: var(--surface-1, #2d2925);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
+}
+.cfb-promo-title {
+  margin: 0 4px 0 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary, #bbb);
+}
+.cfb-promo-choice {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  padding: 4px;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface-2, #3a352f);
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    transform 120ms ease;
+}
+.cfb-promo-choice:hover {
+  background: var(--surface-3, #4a443c);
+  transform: translateY(-1px);
+}
+.cfb-promo-choice piece {
+  display: block;
+  width: 52px;
+  height: 52px;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+.cfb-promo-choice span {
+  font-size: 11px;
+  color: var(--text-muted, #999);
+}
+
+/* ---------------- preload shimmer (ffish WASM) ---------------- */
+
+.cfb-loading {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--cfb-files, 8) / var(--cfb-ranks, 8);
+  border-radius: var(--radius-board, 8px);
+  overflow: hidden;
+  background: var(--surface-2, #2a2622);
+}
+.cfb-loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.07) 50%, transparent 70%);
+  animation: cfb-shimmer 1.4s infinite;
+}
+.cfb-loading-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted, #8b857c);
+  font-size: 13px;
+}
+@keyframes cfb-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* ---------------- no-art fallback (contract: board ALWAYS renders) ----
+   When chessFamilyArt.ts could not resolve a set, .cfb-noart renders discs
+   with the traditional glyphs. TODO(P2 polish): delete once dedicated art
+   ships for every kind. */
+
+.cfb-noart piece {
+  background-image: none !important;
+}
+.cfb-noart piece::before {
+  content: '';
+  position: absolute;
+  inset: 6%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fdf3dc, #ecd9b4 65%, #d9bf90);
+  box-shadow:
+    inset 0 -2px 3px rgba(120, 80, 30, 0.35),
+    0 2px 3px rgba(40, 20, 5, 0.4);
+}
+.cfb-noart piece::after {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: calc(100% + 0.9vw);
+  font-weight: 700;
+  font-family: 'Songti SC', 'STKaiti', 'KaiTi', 'Noto Serif CJK SC', serif;
+}
+.cfb-noart piece.white::after {
+  color: #b3231f;
+}
+.cfb-noart piece.black::after {
+  color: #23293b;
+}
+/* shogi fallback: wedge-ish tile instead of a disc */
+.cfb-noart.cfb-shogi piece::before {
+  border-radius: 18% 18% 30% 30%;
+  clip-path: polygon(50% 0%, 88% 14%, 97% 100%, 3% 100%, 12% 14%);
+}
+.cfb-noart.cfb-shogi piece::after {
+  color: #1d1509;
+}
+.cfb-noart.cfb-shogi piece.enemy::after {
+  transform: rotate(180deg);
+}
+.cfb-noart.cfb-shogi piece.promoted::after {
+  color: #b3231f;
+}
+
+/* glyphs — xiangqi */
+.cfb-noart.cfb-xiangqi piece.r-piece.white::after { content: '俥'; }
+.cfb-noart.cfb-xiangqi piece.n-piece.white::after { content: '傌'; }
+.cfb-noart.cfb-xiangqi piece.b-piece.white::after { content: '相'; }
+.cfb-noart.cfb-xiangqi piece.a-piece.white::after { content: '仕'; }
+.cfb-noart.cfb-xiangqi piece.k-piece.white::after { content: '帥'; }
+.cfb-noart.cfb-xiangqi piece.c-piece.white::after { content: '炮'; }
+.cfb-noart.cfb-xiangqi piece.p-piece.white::after { content: '兵'; }
+.cfb-noart.cfb-xiangqi piece.r-piece.black::after { content: '車'; }
+.cfb-noart.cfb-xiangqi piece.n-piece.black::after { content: '馬'; }
+.cfb-noart.cfb-xiangqi piece.b-piece.black::after { content: '象'; }
+.cfb-noart.cfb-xiangqi piece.a-piece.black::after { content: '士'; }
+.cfb-noart.cfb-xiangqi piece.k-piece.black::after { content: '將'; }
+.cfb-noart.cfb-xiangqi piece.c-piece.black::after { content: '砲'; }
+.cfb-noart.cfb-xiangqi piece.p-piece.black::after { content: '卒'; }
+/* glyphs — janggi (blue = Cho, red = Han) */
+.cfb-noart.cfb-janggi piece.white::after { color: #1d4f9c; }
+.cfb-noart.cfb-janggi piece.r-piece::after { content: '車'; }
+.cfb-noart.cfb-janggi piece.n-piece::after { content: '馬'; }
+.cfb-noart.cfb-janggi piece.b-piece::after { content: '象'; }
+.cfb-noart.cfb-janggi piece.a-piece::after { content: '士'; }
+.cfb-noart.cfb-janggi piece.c-piece::after { content: '包'; }
+.cfb-noart.cfb-janggi piece.k-piece.white::after { content: '楚'; }
+.cfb-noart.cfb-janggi piece.k-piece.black::after { content: '漢'; }
+.cfb-noart.cfb-janggi piece.p-piece.white::after { content: '卒'; }
+.cfb-noart.cfb-janggi piece.p-piece.black::after { content: '兵'; }
+/* glyphs — shogi */
+.cfb-noart.cfb-shogi piece.p-piece::after { content: '歩'; }
+.cfb-noart.cfb-shogi piece.l-piece::after { content: '香'; }
+.cfb-noart.cfb-shogi piece.n-piece::after { content: '桂'; }
+.cfb-noart.cfb-shogi piece.s-piece::after { content: '銀'; }
+.cfb-noart.cfb-shogi piece.g-piece::after { content: '金'; }
+.cfb-noart.cfb-shogi piece.b-piece::after { content: '角'; }
+.cfb-noart.cfb-shogi piece.r-piece::after { content: '飛'; }
+.cfb-noart.cfb-shogi piece.k-piece.white::after { content: '玉'; }
+.cfb-noart.cfb-shogi piece.k-piece.black::after { content: '王'; }
+.cfb-noart.cfb-shogi piece.pp-piece::after { content: 'と'; }
+.cfb-noart.cfb-shogi piece.pl-piece::after { content: '杏'; }
+.cfb-noart.cfb-shogi piece.pn-piece::after { content: '圭'; }
+.cfb-noart.cfb-shogi piece.ps-piece::after { content: '全'; }
+.cfb-noart.cfb-shogi piece.pb-piece::after { content: '馬'; }
+.cfb-noart.cfb-shogi piece.pr-piece::after { content: '龍'; }

@@ -19,24 +19,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import type { Role } from 'chessops/types'
 import type { Key } from 'chessground/types'
-import {
-  Copy,
-  Check,
-  Globe,
-  Radio,
-  LogIn,
-  Loader2,
-  AlertTriangle,
-  X,
-  Wifi,
-  WifiOff,
-  OctagonX,
-  Handshake,
-  Repeat
-} from 'lucide-react'
+import { Copy, Check, Globe, Radio, LogIn, Loader2, AlertTriangle, X } from 'lucide-react'
 import type { MpColor, MpGameConfig } from '@shared/types'
+import type { GameKind } from '../../games/kernel'
+import { isRegisteredGame } from '../../games/registry'
 import { onlineStore } from './online/onlineStore'
 import { useOnlineGame } from './online/useOnlineGame'
+import { GamePicker } from './online/GamePicker'
+import { KernelOnlineGame } from './online/KernelOnlineGame'
+import { liveMs, LeaveConfirm, OnlineStatusBar, PeerStrips, RematchStrip } from './online/OnlineChrome'
 import { useGameTree } from '../../state/gameTree'
 import { useSettings } from '../../state/settings'
 import {
@@ -71,27 +62,16 @@ export interface OnlineTabProps {
   onTimeControl?: (tc: TimeControl) => void
   /** Stage reports for the host surface (game-width handoff only). */
   onStage?: (stage: OnlineStage) => void
-}
-
-/** Live remaining ms for one side, computed from the store's authoritative clock
- *  snapshot at render time. The store-owned Clock component does the smooth 100ms
- *  ticking on top of this; this coarse value keeps GameView's ClockSide contract
- *  intact and drives the active-side glow. */
-function liveMs(
-  clock: { snapshot: { white: number; black: number }; atMono: number; running: 'white' | 'black' | null } | null,
-  side: Color
-): number {
-  if (!clock) return 0
-  const base = clock.snapshot[side]
-  if (clock.running !== side) return Math.max(0, base)
-  const elapsed = performance.now() - clock.atMono
-  return Math.max(0, base - elapsed)
+  /** Pre-seed the host card's game picker (GamePage Online tab passes its
+   *  kind). Chess remains the default — and the picker stays changeable. */
+  initialGameKind?: GameKind
 }
 
 export default function OnlineTab({
   initialTimeControl,
   onTimeControl,
-  onStage
+  onStage,
+  initialGameKind
 }: OnlineTabProps = {}): JSX.Element {
   const { settings } = useSettings()
   const state = useOnlineGame()
@@ -112,6 +92,11 @@ export default function OnlineTab({
     onTimeControlRef.current?.(tc)
   }, [])
   const [hostColorChoice, setHostColorChoice] = useState<ColorChoice>('white')
+  // Which game the host card offers (wire v4). Chess default; GamePage's Online
+  // tab pre-seeds its own kind. Guarded so a stale/unknown seed can't stick.
+  const [gameKind, setGameKind] = useState<GameKind>(() =>
+    initialGameKind && isRegisteredGame(initialGameKind) ? initialGameKind : 'chess'
+  )
   const [joinCode, setJoinCode] = useState('')
   const [copied, setCopied] = useState(false)
   // Client-side form validation (empty code / unlimited TC) lives here so it's
@@ -132,7 +117,9 @@ export default function OnlineTab({
   const syncedGameIdRef = useRef<number>(-1)
   const syncedPlyRef = useRef(0)
   useEffect(() => {
-    if (state.phase !== 'game') return
+    // Chess only: the tree applies UCIs with chessops. Kernel games render
+    // through KernelOnlineGame straight off the store's boardState instead.
+    if (state.phase !== 'game' || state.gameKind !== 'chess') return
     if (syncedGameIdRef.current !== state.gameId) {
       tree.reset()
       syncedGameIdRef.current = state.gameId
@@ -152,7 +139,7 @@ export default function OnlineTab({
     syncedPlyRef.current = state.moves.length
     // tree identity is stable across renders; keying on moves/gameId is enough.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.phase, state.gameId, state.moves.length])
+  }, [state.phase, state.gameId, state.moves.length, state.gameKind])
 
   // ---- promotion picker (local UI state) -----------------------------------
   const [pendingPromo, setPendingPromo] = useState<{ orig: string; dest: string } | null>(null)
@@ -247,10 +234,23 @@ export default function OnlineTab({
     setFormError(null)
     const cfg: MpGameConfig = {
       tc: { initialMs: hostTc.baseMs, incrementMs: hostTc.incMs },
-      hostColor: hostColorChoice
+      hostColor: hostColorChoice,
+      // Wire v4: chess stays the implicit default (config byte-identical to
+      // pre-v4 hosts); other kinds ride in config.game. Chess960 resolves its
+      // shuffled start HERE so both peers init the same position.
+      ...(gameKind !== 'chess'
+        ? {
+            game: {
+              kind: gameKind,
+              ...(gameKind === 'chess960'
+                ? { options: { positionNumber: Math.floor(Math.random() * 960) } }
+                : {})
+            }
+          }
+        : {})
     }
     onlineStore.host(cfg)
-  }, [hostTc, hostColorChoice])
+  }, [hostTc, hostColorChoice, gameKind])
 
   const doJoin = useCallback(() => {
     const trimmed = joinCode.trim()
@@ -292,6 +292,20 @@ export default function OnlineTab({
   // RENDER
   // ==========================================================================
   if (state.phase === 'game') {
+    // Non-chess kinds (wire v4): the registry's own board inside the same
+    // online chrome. The joiner renders whatever kind arrived in the start
+    // config — no local selection involved.
+    if (state.gameKind !== 'chess') {
+      return (
+        <KernelOnlineGame
+          state={state}
+          leaveArmed={leaveArmed}
+          onLeaveRequest={requestLeave}
+          onConfirmResignLeave={confirmResignLeave}
+          onCancelLeave={cancelLeave}
+        />
+      )
+    }
     return (
       <OnlineGame
         state={state}
@@ -371,6 +385,11 @@ export default function OnlineTab({
                 <h3>Host a game</h3>
                 <span className="muted small">Open a table and share the code.</span>
               </div>
+            </div>
+
+            <div className="online-field">
+              <span className="online-label">Game</span>
+              <GamePicker value={gameKind} onChange={setGameKind} disabled={busy} />
             </div>
 
             <div className="online-field">
@@ -628,93 +647,12 @@ function OnlineGame({
   // authority) and, obviously, once the game is over.
   const inputFrozen = over || !!state.peerAway || state.peerLeft
 
-  // Draw cooldown: the store exposes drawBlockedUntilPly; a tooltip explains the
-  // disabled Offer-draw button. Offers before ply 2 are also blocked.
-  const drawCoolingDown = state.plyCount < state.drawBlockedUntilPly || state.plyCount < 2
-  const drawCooldownTip = drawCoolingDown
-    ? state.plyCount < 2
-      ? 'Draw offers open after the first moves.'
-      : 'Please wait before offering another draw.'
-    : undefined
-
   return (
     <div className="online-game">
-      {/* Slim status strip above the board: online tag, a live status message
-          (in-game errors are surfaced here — never silent, L12), and the
-          in-game actions (draw offer/accept/decline, abort, leave). */}
-      <div className="online-statusbar">
-        <span className="online-statusbar-tag">
-          <Globe size={13} aria-hidden /> Online
-        </span>
-
-        {state.error ? (
-          <span className="online-statusbar-msg warn">{state.error}</span>
-        ) : state.drawOffered && !over ? (
-          <span className="online-statusbar-msg">{opponentName} offers a draw.</span>
-        ) : state.drawSent && !over ? (
-          <span className="online-statusbar-msg muted">Draw offered — waiting…</span>
-        ) : (
-          <span className="online-statusbar-msg muted">Fair-play mode: hints &amp; takebacks are off.</span>
-        )}
-
-        <div className="online-statusbar-actions">
-          {/* Incoming draw offer → Accept / Decline pair. */}
-          {!over && state.drawOffered && !state.peerLeft && (
-            <>
-              <button
-                className="btn ghost small is-accept"
-                onClick={() => onlineStore.acceptDraw()}
-              >
-                <Handshake size={14} /> Accept draw
-              </button>
-              <button className="btn ghost small" onClick={() => onlineStore.declineDraw()}>
-                Decline
-              </button>
-            </>
-          )}
-          {/* Offer draw (hidden while an incoming offer is pending). */}
-          {!over && !state.drawOffered && !state.peerLeft && (
-            <button
-              className="btn ghost small"
-              onClick={() => onlineStore.offerDraw()}
-              disabled={state.drawSent || drawCoolingDown}
-              title={drawCooldownTip}
-            >
-              {state.drawSent ? 'Draw sent' : 'Offer draw'}
-            </button>
-          )}
-          {/* Abort while abortable (plyCount < 2): either side may abort. */}
-          {!over && state.canAbort && !state.peerLeft && (
-            <button className="btn ghost small" onClick={() => onlineStore.abort()} title="Abort — no result recorded">
-              <OctagonX size={14} /> Abort
-            </button>
-          )}
-          <button className="btn ghost small" onClick={onLeaveRequest}>
-            Leave
-          </button>
-        </div>
-      </div>
-
-      {/* Peer-away countdown strip (MP-06): live "Ns to reconnect", then Claim
-          victory / Abort once the grace expires. Reconnect swaps to peer-back. */}
-      {state.peerAway && !state.peerLeft && (
-        <PeerAwayStrip name={opponentName} deadlineMono={state.peerAway.deadlineMono} />
-      )}
-      {state.peerLeft && !over && (
-        <div className="online-away-strip is-expired" role="status">
-          <span className="online-away-msg">
-            <WifiOff size={14} aria-hidden /> {opponentName} left the game.
-          </span>
-          <div className="online-away-actions">
-            <button className="btn small" onClick={() => onlineStore.claimVictory()}>
-              Claim victory
-            </button>
-            <button className="btn ghost small" onClick={() => onlineStore.abort()}>
-              Abort game
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Shared online chrome (OnlineChrome.tsx): status/actions strip with the
+          draw negotiation + abort + leave, then the peer-away/left strips. */}
+      <OnlineStatusBar state={state} over={over} onLeaveRequest={onLeaveRequest} />
+      <PeerStrips state={state} over={over} />
 
       <GameView
         fen={fen}
@@ -776,92 +714,7 @@ function OnlineGame({
       )}
 
       {/* Leave confirm (L10) — only reachable while a live undecided game is up. */}
-      {leaveArmed && (
-        <div className="online-leave-confirm" role="alertdialog" aria-label="Leave the game?">
-          <div className="online-leave-card">
-            <h3>Leave the game?</h3>
-            <p className="muted">Leaving forfeits the game — your opponent wins by resignation.</p>
-            <div className="online-leave-actions">
-              <button className="btn danger" onClick={onConfirmResignLeave}>
-                Resign &amp; leave
-              </button>
-              <button className="btn ghost" onClick={onCancelLeave}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {leaveArmed && <LeaveConfirm onConfirm={onConfirmResignLeave} onCancel={onCancelLeave} />}
     </div>
   )
-}
-
-// ---------------------------------------------------------------------------
-// Peer-away countdown: a self-ticking "Ns to reconnect" line. On expiry the
-// store flips peerLeft (the parent then renders the Claim victory / Abort row),
-// so this component only owns the pre-expiry countdown display.
-// ---------------------------------------------------------------------------
-function PeerAwayStrip({ name, deadlineMono }: { name: string; deadlineMono: number }): JSX.Element {
-  const [remaining, setRemaining] = useState(() => Math.max(0, deadlineMono - performance.now()))
-  useEffect(() => {
-    const tick = (): void => setRemaining(Math.max(0, deadlineMono - performance.now()))
-    tick()
-    const id = window.setInterval(tick, 250)
-    return () => window.clearInterval(id)
-  }, [deadlineMono])
-  const secs = Math.ceil(remaining / 1000)
-  return (
-    <div className="online-away-strip" role="status">
-      <span className="online-away-msg">
-        <Wifi size={14} className="online-away-spin" aria-hidden /> {name} disconnected — {secs}s to
-        reconnect…
-      </span>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Symmetric rematch strip. The banner's Rematch button sends the offer; this
-// strip reports the negotiation the banner can't: sent → waiting + Cancel,
-// incoming → Accept / Decline.
-// ---------------------------------------------------------------------------
-function RematchStrip({
-  name,
-  sent,
-  offered
-}: {
-  name: string
-  sent: boolean
-  offered: boolean
-}): JSX.Element | null {
-  if (offered) {
-    return (
-      <div className="online-rematch-strip" role="status">
-        <span className="online-rematch-msg">
-          <Repeat size={14} aria-hidden /> {name} wants a rematch.
-        </span>
-        <div className="online-rematch-actions">
-          <button className="btn small" onClick={() => onlineStore.offerRematch()}>
-            Accept
-          </button>
-          <button className="btn ghost small" onClick={() => onlineStore.declineRematch()}>
-            Decline
-          </button>
-        </div>
-      </div>
-    )
-  }
-  if (sent) {
-    return (
-      <div className="online-rematch-strip" role="status">
-        <span className="online-rematch-msg muted">Rematch offered — waiting for {name}…</span>
-        <div className="online-rematch-actions">
-          <button className="btn ghost small" onClick={() => onlineStore.declineRematch()}>
-            Cancel
-          </button>
-        </div>
-      </div>
-    )
-  }
-  return null
 }

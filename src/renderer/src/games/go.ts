@@ -204,7 +204,7 @@ function finalizeScore(s: GoState): GoState | null {
   return { ...s, finalized: true }
 }
 
-function scoreDetail(s: GoState): { black: number; white: number } | null {
+export function scoreDetail(s: GoState): { black: number; white: number } | null {
   const g = gameFor(s)
   if (!g.isOver()) return null
   return g.score()
@@ -235,6 +235,37 @@ export function deadStonesOf(s: GoState): string[] {
   return gameFor(s)
     .deadStones()
     .map((p) => pointToVertex(p.y, p.x, s.size))
+}
+
+/**
+ * The ko point (recapture currently banned) as a codec vertex, or null. Read
+ * as: the previous move captured exactly ONE stone and playing back on that
+ * point is illegal for the side to move — the classic ko shape. Board UI only.
+ */
+export function koVertexOf(s: GoState): string | null {
+  const g = gameFor(s)
+  if (g.isOver()) return null
+  const st = g.currentState()
+  // tenuki's INITIAL state carries no capturedPositions array — guard it.
+  if (st.pass || !Array.isArray(st.capturedPositions) || st.capturedPositions.length !== 1) return null
+  const p = st.capturedPositions[0]
+  if (!g.intersectionAt(p.y, p.x).isEmpty() || !g.isIllegalAt(p.y, p.x)) return null
+  return pointToVertex(p.y, p.x, s.size)
+}
+
+/**
+ * Territory read-model for the scoring phase: empty vertices owned by each
+ * color with marked-dead stones treated as captures (tenuki recomputes as
+ * marks toggle). Null while the game is still in move play.
+ */
+export function territoryOf(s: GoState): { black: string[]; white: string[] } | null {
+  const g = gameFor(s)
+  if (!g.isOver()) return null
+  const t = g.territory()
+  return {
+    black: t.black.map((p) => pointToVertex(p.y, p.x, s.size)),
+    white: t.white.map((p) => pointToVertex(p.y, p.x, s.size))
+  }
 }
 
 // ---------------------------------------------------------------------------

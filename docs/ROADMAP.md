@@ -60,17 +60,13 @@
       abort path — all PASS.
 
 ## ⏳ Deferred (needs a decision or owner action)
-- [ ] **Mac Stockfish engine — upload to the release.** ROOT CAUSE: the app uses a lean installer
-      that fetches Stockfish at runtime from the `datasets-v1` GitHub release, but only the Windows
-      binary (`stockfish-sf18-win-x64.exe`) is uploaded — the mac asset `stockfish-sf18-mac-arm64`
-      is **missing**, so a fresh Mac install's engine download 404s. (This dev machine is fine — it
-      already has the engine imported at `~/Library/Application Support/chess-sharp/datasets/engine/`.)
-      The binary exists at `resources/engine/mac/stockfish` (113 MB, Mach-O arm64).
-      - **Fix A (keep lean, needs your GitHub login):** `brew install gh && gh auth login`, then
-        `gh release upload datasets-v1 resources/engine/mac/stockfish#stockfish-sf18-mac-arm64 --repo isaacmiller123/chess-sharp`
-      - **Fix B (no credentials, I can do it):** bundle the engine into the Mac build via
-        `electron-builder.yml` extraResources — Mac installer grows ~113 MB, diverges from lean design.
-      - Deferred for now ("not worried about git yet").
+- [x] **Mac Stockfish engine — upload to the release.** DONE 2026-07-06 (Fix A): uploaded
+      `resources/engine/mac/stockfish` as `stockfish-sf18-mac-arm64` (sha256 matches the
+      `ENGINE_ARTIFACTS` row; a stray asset literally named `stockfish` — an earlier upload that
+      kept the raw filename, which the importer never matched — was deleted). Fresh Mac installs
+      can now import the engine. The same pass published the whole games-platform engine set
+      (Fairy-Stockfish 14, lc0 0.32.1, KataGo 1.16.5 + Go nets, Maia weights mirror) for BOTH
+      platforms — see the asset table in docs/DATASETS.md.
 - [ ] **chess.com 1:1 puzzle-rating rework.** Behavior-match their puzzle rating model. (The puzzle
       team flagged this as design-forked and left the Glicko-2 ladder intact; Rush deliberately
       doesn't move it.)

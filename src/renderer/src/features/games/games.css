@@ -357,6 +357,22 @@
   width: 100%;
   height: 100%;
 }
+/* ChessFamilyBoard stage: the component owns its aspect ratio (9x10 boards,
+   pockets stacked above/below) — this wrapper only carries the board-theme +
+   piece-set classes and keeps tall boards from outgrowing the viewport. */
+.votb-cfb {
+  width: 100%;
+}
+.votb-cfb .cfb-board,
+.votb-cfb .cfb-pocket,
+.votb-cfb .cfb-loading {
+  max-height: 72vh;
+  margin: 0 auto;
+  max-width: calc(72vh * var(--cfb-files, 8) / var(--cfb-ranks, 8));
+}
+.votb-cfb .cfb-pocket {
+  width: 100%;
+}
 .votb-banner {
   position: absolute;
   inset: auto var(--space-5) var(--space-5);
@@ -442,6 +458,158 @@
   font-size: var(--fs-xs);
   color: var(--text-muted);
   line-height: 1.5;
+}
+
+/* ---- vs Bot (VariantBot) ---- */
+
+.vbot-setup {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-6) 0;
+}
+.vbot-setup-card {
+  width: min(560px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-7);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.vbot-setup-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.vbot-setup-head h3 {
+  margin: 0;
+  font-size: var(--fs-lg);
+}
+.vbot-setup-head p {
+  margin: 2px 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.vbot-levels {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-2);
+}
+.vbot-level {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-3) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.vbot-level:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+.vbot-level.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--text-primary);
+}
+.vbot-level-num {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  line-height: 1.1;
+}
+.vbot-level-name {
+  font-size: var(--fs-xs);
+}
+.vbot-level-hint {
+  margin: calc(-1 * var(--space-3)) 0 0;
+  min-height: 1.2em;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  text-align: center;
+}
+.vbot-colors {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+.vbot-color {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.vbot-color:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+.vbot-color.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+.vbot-start {
+  align-self: stretch;
+  padding: var(--space-4);
+  font-size: var(--fs-md);
+}
+.vbot-opponent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.vbot-opponent.is-thinking {
+  color: var(--text-primary);
+}
+.vbot-dots {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: auto;
+}
+.vbot-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: vbot-dot 1s ease-in-out infinite;
+}
+.vbot-dots i:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.vbot-dots i:nth-child(3) {
+  animation-delay: 0.32s;
+}
+@keyframes vbot-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
 }
 
 /* ---- Manual ---- */
@@ -548,4 +716,44 @@
     flex-direction: column;
     align-items: flex-start;
   }
+}
+
+/* ---- Kernel OTB (non-chess boards) ---- */
+
+.kotb .votb-stage {
+  max-width: min(76vh, 680px);
+}
+.kotb-loading {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-board);
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.kotb-sizes {
+  display: flex;
+  gap: var(--space-2);
+}
+.kotb-chip {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+.kotb-chip:hover {
+  border-color: var(--border-strong);
+}
+.kotb-chip.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
 }

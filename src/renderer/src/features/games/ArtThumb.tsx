@@ -139,10 +139,10 @@ export function ArtThumb({ kind }: { kind: string }): JSX.Element {
       )
       break
     }
-    case 'checkers-8':
+    case 'checkers':
     case 'checkers-intl': {
-      hue = kind === 'checkers-8' ? 0 : 350
-      const n = kind === 'checkers-8' ? 8 : 10
+      hue = kind === 'checkers' ? 0 : 350
+      const n = kind === 'checkers' ? 8 : 10
       const step = (S - 20) / n
       const squares: JSX.Element[] = []
       for (let r = 0; r < n; r++)
@@ -274,7 +274,7 @@ export function ArtThumb({ kind }: { kind: string }): JSX.Element {
       )
       break
     }
-    case 'ttt': {
+    case 'tictactoe': {
       hue = 330
       body = (
         <>

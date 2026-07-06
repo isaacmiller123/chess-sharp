@@ -37,11 +37,16 @@ is available at <https://www.gnu.org/licenses/agpl-3.0.txt>. Copyright
 These sound files are unmodified apart from renaming. They are distributed as
 data assets alongside (not linked into) this GPL-3.0-or-later application.
 
-## `classic/` and `real/` — generated in-repo
+## `classic/`, `real/` and `games/` — generated in-repo
 
 The WAV files in `classic/` and `real/` are original works synthesized
 offline by `scripts/gen-sounds.mjs` in this repository (pure-Node procedural
-audio; no third-party recordings or samples). They are covered by this
+audio; no third-party recordings or samples). The files in `games/` (the
+games-platform events: goStone, discFlip, discPlace, discDrop,
+pieceSlideCapture, penStroke, shogiPiece, gameStartGong) are likewise
+synthesized by `scripts/gen-game-sounds.mjs`; that directory is a
+theme-agnostic pool served under all three themes (see
+`src/renderer/src/sound/SoundManager.ts`). All are covered by this
 project's own license (GPL-3.0-or-later, see /LICENSE).
 
 Regenerate with:
@@ -49,4 +54,6 @@ Regenerate with:
 ```sh
 node scripts/fetch-lichess-sounds.mjs   # standard/ (network required)
 node scripts/gen-sounds.mjs             # classic/ + real/ (offline)
+node scripts/gen-game-sounds.mjs        # games/ (offline)
+node scripts/check-game-sounds.mjs      # verify games/ (levels/size gate)
 ```

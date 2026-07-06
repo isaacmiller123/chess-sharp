@@ -35,7 +35,8 @@ export interface SmallBot {
   move(state: unknown, level: number): string
 }
 
-const clampLevel = (level: number): number => Math.min(5, Math.max(1, Math.round(level)))
+/** Shared by every 5-level provider (games/bots.ts, games/gomokuBot.ts). */
+export const clampLevel = (level: number): number => Math.min(5, Math.max(1, Math.round(level)))
 
 /** Thrown when a search exceeds its node budget; callers keep the previous depth's move. */
 const BUDGET_EXCEEDED = Symbol('budget-exceeded')
@@ -49,7 +50,8 @@ function tick(b: Budget): void {
   if (++b.n > b.max) throw BUDGET_EXCEEDED
 }
 
-function noisyArgmax(moves: string[], scores: number[], noise: number): string {
+/** Argmax with uniform ±noise on each score — low levels vary, high levels don't. */
+export function noisyArgmax(moves: string[], scores: number[], noise: number): string {
   let best = 0
   let bestScore = -Infinity
   for (let i = 0; i < moves.length; i++) {

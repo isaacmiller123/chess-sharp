@@ -2,14 +2,17 @@ import { app, type WebContents } from 'electron'
 import { z } from 'zod'
 import { parseFen, makeFen } from 'chessops/fen'
 import { handle } from './util'
-import { ENGINE_ELO_FLOOR } from '../../shared/types'
+import { ENGINE_ELO_FLOOR, FAIRY_VARIANT_KINDS } from '../../shared/types'
 import { StockfishPool } from '../engine/StockfishPool'
 import { MaiaPool } from '../engine/MaiaPool'
+import { FairyStockfishPool } from '../engine/FairyPool'
 import { maiaAvailable } from '../datasets/maia'
+import { fairyEngineInstalled } from '../datasets/fairyStockfish'
 import type { BestMove, InfoLine, UciEngine } from '../engine/UciEngine'
 
 const pool = new StockfishPool()
 const maiaPool = new MaiaPool()
+const fairyPool = new FairyStockfishPool()
 
 // Parse + re-serialize any FEN before it reaches the engine, so a malicious
 // renderer payload can't smuggle newlines/extra UCI commands into stdin.
@@ -62,6 +65,57 @@ const playSchema = z
         .optional()
     }),
     limit: limitSchema
+  })
+  .strict()
+
+// ---- Variant bots (games platform, spec §Bots) -------------------------------------
+//
+// Fairy-Stockfish plays every chess-family kind except standard chess (which
+// keeps the Stockfish path above). One long-lived engine (FairyStockfishPool)
+// is re-targeted per request via UCI_Variant; strength is a 1..5 level row
+// mapped to UCI_LimitStrength/UCI_Elo (Fairy-SF's floor is 500 — no sub-floor
+// weak model needed for variants) plus a per-level movetime.
+
+/** kind → the engine's UCI_Variant id ('chess960' is 'chess' + UCI_Chess960). */
+const FAIRY_UCI_VARIANT: Record<(typeof FAIRY_VARIANT_KINDS)[number], string> = {
+  chess960: 'chess',
+  crazyhouse: 'crazyhouse',
+  atomic: 'atomic',
+  antichess: 'antichess',
+  kingofthehill: 'kingofthehill',
+  threecheck: '3check',
+  horde: 'horde',
+  racingkings: 'racingkings',
+  xiangqi: 'xiangqi',
+  shogi: 'shogi',
+  janggi: 'janggi',
+  makruk: 'makruk',
+  placement: 'placement'
+}
+
+/** Level 1..5 → engine strength. Elo values sit inside Fairy-SF's native
+ *  UCI_Elo range (500..2850); mirror games/bots.ts CHESS_LEVEL_ELO. */
+const FAIRY_LEVELS = [
+  { elo: 600, movetime: 150 },
+  { elo: 1000, movetime: 250 },
+  { elo: 1400, movetime: 350 },
+  { elo: 1850, movetime: 500 },
+  { elo: 2300, movetime: 700 }
+] as const
+
+// Variant FENs can't be chessops-validated (xiangqi/shogi/janggi dialects), so
+// the anti-smuggling guard is a character allowlist: one line, FEN alphabet
+// only (board letters/digits, '/', pockets '[]', shogi '+', check counts,
+// castling '-', spaces). The engine itself is the rules authority — a bogus
+// FEN yields 'bestmove (none)' or an ignored position, never extra commands.
+const VARIANT_FEN_RE = /^[A-Za-z0-9/\[\]+~.\- ]{1,160}$/
+
+const playVariantSchema = z
+  .object({
+    kind: z.enum(FAIRY_VARIANT_KINDS),
+    fen: z.string().regex(VARIANT_FEN_RE),
+    level: z.number().int().min(1).max(5),
+    movetimeMs: z.number().int().min(20).max(10000).optional()
   })
   .strict()
 
@@ -357,12 +411,26 @@ function serializePlay<T>(fn: () => Promise<T>): Promise<T> {
   return run
 }
 
+// engine:playVariant shares one long-lived Fairy-Stockfish engine — same
+// serialization discipline, own chain so variant bots never block chess bots.
+let fairyChain: Promise<unknown> = Promise.resolve()
+function serializeFairy<T>(fn: () => Promise<T>): Promise<T> {
+  const run = fairyChain.then(fn, fn)
+  fairyChain = run.then(
+    () => undefined,
+    () => undefined
+  )
+  return run
+}
+
 export function registerEngine(): void {
   handle('engine:status', z.object({}).strict(), () => ({
     analysisReady: pool.hasAnalysis(),
     playReady: pool.hasPlay(),
     // "Can the Human style play right now": lc0 binary + >=1 maia weight on disk.
-    lc0Ready: maiaAvailable()
+    lc0Ready: maiaAvailable(),
+    // Variant bots: Fairy-Stockfish on disk (bundled on mac, imported on win).
+    fairyReady: fairyEngineInstalled()
   }))
 
   handle(
@@ -457,9 +525,28 @@ export function registerEngine(): void {
     })
   )
 
+  handle('engine:playVariant', playVariantSchema, ({ kind, fen, level, movetimeMs }) =>
+    serializeFairy(async () => {
+      if (!fairyEngineInstalled()) {
+        throw new Error('Fairy-Stockfish is not installed — import the engines dataset first.')
+      }
+      const eng = await fairyPool.get(FAIRY_UCI_VARIANT[kind], kind === 'chess960')
+      // Drain any abandoned search to idle before touching options — same
+      // discipline as engine:play above.
+      await eng.stop()
+      const cfg = FAIRY_LEVELS[level - 1]
+      eng.setOption('UCI_LimitStrength', true)
+      eng.setOption('UCI_Elo', cfg.elo)
+      // The schema's character allowlist already blocked command smuggling;
+      // the engine itself is the rules authority for the variant FEN dialect.
+      return eng.bestMove(fen, { kind: 'movetime', value: movetimeMs ?? cfg.movetime })
+    })
+  )
+
   // Windows-safe lifecycle: kill all engine children when the app quits.
   app.on('will-quit', () => {
     pool.killAll()
     maiaPool.killAll()
+    fairyPool.killAll()
   })
 }

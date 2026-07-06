@@ -13,6 +13,7 @@ import {
   PLAY_THINK_MS_MAX
 } from '../../state/settings'
 import { PIECE_SETS, getPieceSet, normalizePieceSet } from '../../board/pieceSets'
+import { GAMES_ART_CREDITS } from '@shared/credits'
 import { getSoundManager } from '../../sound'
 import DatasetsPanel from './DatasetsPanel'
 import './settings.css'
@@ -593,6 +594,20 @@ export function SettingsView() {
             <p className="muted small">Progress resets are available in the desktop app.</p>
           )}
         </div>
+      </section>
+
+      {/* CC-BY art REQUIRES user-facing attribution (docs/CREDITS.md is the
+          full ledger; this list mirrors src/shared/credits.ts). */}
+      <section className="card settings-card">
+        <h2>Art credits</h2>
+        <ul className="settings-credits">
+          {GAMES_ART_CREDITS.map((c) => (
+            <li key={c.asset} className="muted small">
+              {c.asset} — {c.author} ({c.license}) —{' '}
+              <span className="settings-credit-url">{c.url}</span>
+            </li>
+          ))}
+        </ul>
       </section>
     </div>
   )

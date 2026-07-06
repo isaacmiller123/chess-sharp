@@ -1,0 +1,55 @@
+import os from 'node:os'
+import { UciEngine } from './UciEngine'
+import { resolveFairyEnginePath } from '../datasets/fairyStockfish'
+
+// One persistent Fairy-Stockfish instance for ALL variant bot play (games
+// platform, docs/GAMES-PLATFORM-SPEC.md §Bots). Mirrors StockfishPool's play
+// engine: small thread/hash budget, bounded `go`, callers serialize through
+// engine.ipc's fairy chain so option changes can never interleave a search.
+//
+// The pool re-targets the single engine between variants with UCI_Variant +
+// ucinewgame (verified across all 13 routed variants by
+// scripts/probe-fairy-sf.mjs); chess960 additionally flips UCI_Chess960 so the
+// engine speaks king-takes-rook castling both ways.
+export class FairyStockfishPool {
+  private engine: UciEngine | null = null
+  private variant: string | null = null
+  private chess960 = false
+
+  private threads(): number {
+    return Math.max(1, Math.min(2, os.cpus().length - 1))
+  }
+
+  /** The engine, spawned on first use and re-targeted to `variant`. */
+  async get(variant: string, chess960: boolean): Promise<UciEngine> {
+    if (!this.engine) {
+      const e = new UciEngine(resolveFairyEnginePath())
+      await e.start()
+      e.setOption('Threads', this.threads())
+      e.setOption('Hash', 64)
+      await e.isready()
+      this.engine = e
+      this.variant = null // force the variant handshake below
+    }
+    const e = this.engine
+    if (this.variant !== variant || this.chess960 !== chess960) {
+      e.setOption('UCI_Variant', variant)
+      e.setOption('UCI_Chess960', chess960)
+      await e.newGame()
+      this.variant = variant
+      this.chess960 = chess960
+    }
+    return e
+  }
+
+  hasEngine(): boolean {
+    return this.engine !== null
+  }
+
+  killAll(): void {
+    this.engine?.kill()
+    this.engine = null
+    this.variant = null
+    this.chess960 = false
+  }
+}

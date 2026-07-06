@@ -18,6 +18,11 @@ extraResources:
     to: "curriculum"
   - from: "resources/personas"
     to: "personas"
+  # Games platform art (piece SVGs + CC0 PBR board textures, ~14 MB — see
+  # docs/CREDITS.md). The renderer resolves file:// URLs into this copy via
+  # src/renderer/src/games/art.ts.
+  - from: "resources/games-art"
+    to: "games-art"
 win:
   # x64 only — matches the published stockfish-sf18-win-x64 engine artifact and the
   # existing releases. Three artifacts: the NSIS installer, a single-file portable
@@ -40,6 +45,12 @@ win:
 mac:
   # Same lean model as Windows: the engine + puzzle DB are imported at runtime,
   # not bundled, so the .dmg/.zip stay small. arm64 (Apple Silicon) + x64 (Intel).
+  # Exception: Fairy-Stockfish (~750 KB, the games-platform variant-bot engine)
+  # IS bundled — it is tiny, always-on, and has no official mac build upstream
+  # (datasets/fairyStockfish.ts still resolves an imported copy first).
+  extraResources:
+    - from: "resources/engine/mac/fairy-stockfish"
+      to: "engine/mac/fairy-stockfish"
   target:
     - target: dmg
       arch:

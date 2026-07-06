@@ -1,14 +1,20 @@
-// The default (and P1-only) OnlineGameAdapter: standard chess via the existing
-// chessops helpers. State S = FEN string; move codec = UCI. Extracting the
-// store's previous inline chessops usage behind the adapter seam keeps online
-// chess byte-for-byte behavioral while letting other games register later.
-//
-// TODO(P2): builder-kernel's games/registry.ts should become the single source
-// of adapters (this file then just wraps the chess GameSpec, or disappears).
+// The DEFAULT OnlineGameAdapter: standard chess via the existing chessops
+// helpers. State S = FEN string; move codec = UCI. Extracting the store's
+// previous inline chessops usage behind the adapter seam keeps online chess
+// byte-for-byte behavioral; every other game registers through the kernel
+// registry via gameAdapter.adapterFromSpec (see onlineStore's init). This file
+// stays dedicated (rather than wrapping the chess GameSpec) so the chess path
+// keeps its SAN-producing moveMeta — the store's PGN archive depends on it.
 // Must stay bare-node clean (scripts/test-mp-store.mjs bundles it).
 
 import type { MpColor } from '@shared/types'
-import { applyMove, outcome, turnColor, INITIAL_FEN } from '../../../chess/chess'
+import {
+  applyMove,
+  hasInsufficientMaterial,
+  outcome,
+  turnColor,
+  INITIAL_FEN
+} from '../../../chess/chess'
 import type { OnlineGameAdapter, OnlineMoveMeta } from './gameAdapter'
 
 function uciPromo(uci: string): 'queen' | 'rook' | 'bishop' | 'knight' | undefined {
@@ -56,5 +62,15 @@ export const chessOnlineAdapter: OnlineGameAdapter<string> = {
   moveMeta(fen: string, move: string): OnlineMoveMeta | null {
     const m = applyMove(fen, move.slice(0, 2), move.slice(2, 4), uciPromo(move))
     return m ? { san: m.san, capture: m.capture, check: m.check } : null
+  },
+
+  /** Lichess timeout rule: if the side that did NOT flag can never mate, the
+   *  flag is a draw — otherwise a plain win on time. */
+  flagResult(fen: string, by: MpColor): { result: '1-0' | '0-1' | '1/2-1/2'; reason: string } {
+    const winner: MpColor = by === 'white' ? 'black' : 'white'
+    if (hasInsufficientMaterial(fen, winner)) {
+      return { result: '1/2-1/2', reason: 'time out — insufficient material' }
+    }
+    return { result: winner === 'white' ? '1-0' : '0-1', reason: 'on time' }
   }
 }

@@ -20,9 +20,10 @@ import { TICTACTOE_SPEC } from './small/tictactoe'
 /**
  * Props every game's 2D board component accepts. The renderer is presentation
  * only: it never validates rules — it proposes `onMove(uci)` and the owner
- * (store/session) answers by advancing state through the spec.
- * TODO(P2): extend with lastMove/premove/interactivity flags as the chess
- * board component gets genericized.
+ * (store/session) answers by advancing state through the spec. Last-move
+ * markers need no extra prop: every spec state carries its `moves` history.
+ * TODO(P2): extend with premove/interactivity flags as the chess board
+ * component gets genericized.
  */
 export interface GameBoardProps {
   kind: GameKind
@@ -31,6 +32,13 @@ export interface GameBoardProps {
   orientation: 'white' | 'black'
   interactive: boolean
   onMove(move: string): void
+  /**
+   * Out-of-codec board actions, owner-optional. Today only go's scoring phase
+   * proposes them: 'markdead <vertex>' (toggle a group's dead status via
+   * GoSpec.markDead) and 'finalize' (GoSpec.finalizeScore). Boards must
+   * degrade to a read-only scoring view when the owner passes no handler.
+   */
+  onAction?(action: string): void
 }
 
 export type GameRendererLoader = () => Promise<{ default: ComponentType<GameBoardProps> }>
@@ -56,15 +64,15 @@ export interface GameEntry<S = unknown> {
   requiresPreload?: boolean
 }
 
-// TODO(P2): real renderers. All chess-family kinds will share one chessgroundx
-// component parameterized by kind (drops UI for crazyhouse).
-const placeholderRenderer: GameRendererLoader = () => import('./PlaceholderBoard')
+// One chessgroundx component covers every chess-family kind (8x8 cells,
+// shogi 9x9, xiangqi/janggi 9x10 intersections, pockets, promotion dialogs).
+const chessFamilyRenderer: GameRendererLoader = () => import('./boards/ChessFamilyBoard')
 
 function chessFamilyEntry(spec: GameSpec<unknown> | undefined, kind: GameKind): GameEntry {
   if (!spec) throw new Error(`missing chess-variant spec: ${kind}`)
   return {
     spec,
-    loadRenderer: placeholderRenderer,
+    loadRenderer: chessFamilyRenderer,
     botProviderId: kind === 'chess' ? 'stockfish' : 'fairy-stockfish',
     manualId: kind
   }
@@ -96,9 +104,9 @@ REGISTRY.go = {
 }
 REGISTRY.gomoku = {
   spec: GOMOKU_SPEC as GameSpec<unknown>,
-  // TODO(P2w2): dedicated gomoku board (Shudan signMap works for it too —
-  // see gomokuSignMapOf in games/gomoku.ts).
-  loadRenderer: placeholderRenderer,
+  // Same Shudan mount as go — GoBoard branches on kind (gomokuSignMapOf +
+  // win-line highlight instead of scoring UI).
+  loadRenderer: () => import('./boards/GoBoard'),
   botProviderId: 'worker:gomoku',
   manualId: 'gomoku'
 }
@@ -110,50 +118,76 @@ for (const kind of FFISH_FAMILY_KINDS) {
   if (!spec) throw new Error(`missing ffish-variant spec: ${kind}`)
   REGISTRY[kind] = {
     spec,
-    loadRenderer: placeholderRenderer,
+    loadRenderer: chessFamilyRenderer,
     botProviderId: 'fairy-stockfish',
     manualId: kind,
     requiresPreload: true
   }
 }
-// Small hand-rolled games (games/small/): rules + bots are P2 wave 1, real
-// renderers are P2 wave 2 (placeholder for now). Bots resolve in-process via
-// games/small/bots.ts SMALL_BOTS ('worker:<kind>' ids — the actual worker
-// wrapper is P2w2 if any level needs it).
+// Small hand-rolled games (games/small/): one parameterized GridBoard covers
+// all five idioms (disc flips / gravity drops / hexes / line-graph / strokes).
+// Bots resolve in-process via games/small/bots.ts SMALL_BOTS ('worker:<kind>'
+// ids — the actual worker wrapper is P2w2 if any level needs it).
 const SMALL_GAME_SPECS = [OTHELLO_SPEC, CONNECT4_SPEC, HEX_SPEC, MORRIS_SPEC, TICTACTOE_SPEC]
 for (const spec of SMALL_GAME_SPECS) {
   REGISTRY[spec.kind] = {
     spec: spec as GameSpec<unknown>,
-    loadRenderer: placeholderRenderer,
+    loadRenderer: () => import('./boards/GridBoard'),
     botProviderId: `worker:${spec.kind}`,
     manualId: spec.kind
   }
 }
 // Checkers (P2): American over rapid-draughts (its alphaBeta is the bot
 // backend, per spec §Bots), international over @jortvl/draughts (audited —
-// see games/checkers.ts header). Draughtsground renderer is P2 wave 2.
+// see games/checkers.ts header). One board component covers both sizes.
 REGISTRY.checkers = {
   spec: AMERICAN_CHECKERS_SPEC as GameSpec<unknown>,
-  loadRenderer: placeholderRenderer,
+  loadRenderer: () => import('./boards/CheckersBoard'),
   botProviderId: 'rapid-draughts',
   manualId: 'checkers'
 }
 REGISTRY['checkers-intl'] = {
   spec: INTL_CHECKERS_SPEC as GameSpec<unknown>,
-  loadRenderer: placeholderRenderer,
+  loadRenderer: () => import('./boards/CheckersBoard'),
   botProviderId: 'worker:checkers-intl',
   manualId: 'checkers-intl'
 }
 
-export function getGame(kind: GameKind): GameEntry | undefined {
-  return REGISTRY[kind]
+// ---------------------------------------------------------------------------
+// Dynamic entries — the custom-variant seam (games/customVariants.ts).
+//
+// Runtime-registered GameSpecs (user-built variants.ini games) live in a
+// SEPARATE map so the static registry above stays untouched. Dynamic kinds are
+// strings outside the GameKind union ('custom-<id>'); getGame/isRegisteredGame
+// fall back to this map so registry consumers resolve them transparently, but
+// listGames() stays static-only (the library grid never shows half-registered
+// customs — the Variant Lab gallery owns their presentation).
+
+const DYNAMIC = new Map<string, GameEntry>()
+
+/** Register (or replace) a runtime game entry, keyed by its spec.kind. */
+export function registerDynamic(entry: GameEntry): void {
+  DYNAMIC.set(entry.spec.kind, entry)
 }
 
-/** Registered (playable) games, in library display order. */
+export function unregisterDynamic(kind: string): void {
+  DYNAMIC.delete(kind)
+}
+
+/** Runtime-registered entries, registration order. */
+export function listDynamicGames(): GameEntry[] {
+  return [...DYNAMIC.values()]
+}
+
+export function getGame(kind: GameKind): GameEntry | undefined {
+  return REGISTRY[kind] ?? DYNAMIC.get(kind)
+}
+
+/** Registered (playable) games, in library display order (static only). */
 export function listGames(): GameEntry[] {
   return Object.values(REGISTRY)
 }
 
 export function isRegisteredGame(kind: string): kind is GameKind {
-  return kind in REGISTRY
+  return kind in REGISTRY || DYNAMIC.has(kind)
 }

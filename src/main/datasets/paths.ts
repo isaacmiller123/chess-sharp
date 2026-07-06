@@ -37,6 +37,11 @@ export function engineBinaryName(): string {
   return process.platform === 'win32' ? 'stockfish.exe' : 'stockfish'
 }
 
+/** Fairy-Stockfish binary filename (games platform variant bots). */
+export function fairyBinaryName(): string {
+  return process.platform === 'win32' ? 'fairy-stockfish.exe' : 'fairy-stockfish'
+}
+
 export function datasetsDir(): string {
   return path.join(app.getPath('userData'), 'datasets')
 }
@@ -45,12 +50,27 @@ export function importedEnginePath(): string {
   return path.join(datasetsDir(), 'engine', engineBinaryName())
 }
 
+export function importedFairyEnginePath(): string {
+  return path.join(datasetsDir(), 'engine', fairyBinaryName())
+}
+
 export function importedPuzzlesPath(): string {
   return path.join(datasetsDir(), 'puzzles.sqlite')
 }
 
 function bundledEnginePath(): string {
   const rel = path.join('engine', enginePlatformDir(), engineBinaryName())
+  return app.isPackaged
+    ? path.join(process.resourcesPath, rel)
+    : path.join(__dirname, '../../resources', rel)
+}
+
+// Fairy-Stockfish's mac build ships BUNDLED (resources/engine/mac, from the
+// Homebrew fairy-stockfish 14.0.1 bottle — it's only ~750 KB); win-x64 imports
+// at runtime from the official Fairy-Stockfish GitHub release (see
+// datasets/fairyStockfish.ts). Resolution stays imported-first like Stockfish.
+function bundledFairyEnginePath(): string {
+  const rel = path.join('engine', enginePlatformDir(), fairyBinaryName())
   return app.isPackaged
     ? path.join(process.resourcesPath, rel)
     : path.join(__dirname, '../../resources', rel)
@@ -68,6 +88,12 @@ export function resolveEnginePath(): string {
   return fs.existsSync(imported) ? imported : bundledEnginePath()
 }
 
+/** The Fairy-Stockfish binary to launch: imported first, then bundled. */
+export function resolveFairyEnginePath(): string {
+  const imported = importedFairyEnginePath()
+  return fs.existsSync(imported) ? imported : bundledFairyEnginePath()
+}
+
 /** The puzzle DB to open: an imported one wins over any bundled one. */
 export function resolvePuzzlesPath(): string {
   const imported = importedPuzzlesPath()
@@ -76,6 +102,10 @@ export function resolvePuzzlesPath(): string {
 
 export function engineInstalled(): boolean {
   return fs.existsSync(resolveEnginePath())
+}
+
+export function fairyEngineInstalled(): boolean {
+  return fs.existsSync(resolveFairyEnginePath())
 }
 
 export function puzzlesInstalled(): boolean {

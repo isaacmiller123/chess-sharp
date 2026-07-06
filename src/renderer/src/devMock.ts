@@ -16,6 +16,7 @@
 
 import type {
   Api,
+  CustomVariantRow,
   DailyStreak,
   DatasetProgress,
   EngineLine,
@@ -195,6 +196,9 @@ function emitLines(fen: string, handleId: number, multipv: number): void {
 
 const ok = Promise.resolve({ ok: true as const })
 
+// Variant Lab (customVariants mock): session-scoped in-memory store.
+const mockCustomVariants = new Map<string, CustomVariantRow>()
+
 export function installMock(): void {
   const api: Api = {
     app: {
@@ -217,7 +221,11 @@ export function installMock(): void {
         const ucis = legalUcis(fen)
         return { bestmove: ucis[0] ?? '0000' }
       },
-      status: async () => ({ analysisReady: true, playReady: true, lc0Ready: false }),
+      // No engine in the browser mock — variant bots surface the toast path.
+      playVariant: async () => {
+        throw new Error('Fairy-Stockfish is unavailable in the browser dev mock.')
+      },
+      status: async () => ({ analysisReady: true, playReady: true, lc0Ready: false, fairyReady: false }),
       newGame: async () => ok,
       onLine: (cb) => {
         lineSubs.add(cb)
@@ -399,6 +407,25 @@ export function installMock(): void {
         return () => {
           datasetSubs.delete(cb)
         }
+      }
+    },
+    // Variant Lab: in-memory store so the editor gallery/save/delete flows work
+    // in the browser preview (ffish WASM itself loads fine in the browser).
+    customVariants: {
+      save: async (req) => {
+        const now = Date.now()
+        const prev = mockCustomVariants.get(req.id)
+        const variant = { ...req, createdAt: prev?.createdAt ?? now, updatedAt: now }
+        mockCustomVariants.set(req.id, variant)
+        return { variant }
+      },
+      list: async () => ({
+        variants: [...mockCustomVariants.values()].sort((a, b) => b.updatedAt - a.updatedAt)
+      }),
+      get: async (id) => ({ variant: mockCustomVariants.get(id) ?? null }),
+      delete: async (id) => {
+        mockCustomVariants.delete(id)
+        return { ok: true }
       }
     }
     // NOTE: multiplayer is no longer part of window.api — the renderer owns the

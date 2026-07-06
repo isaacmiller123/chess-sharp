@@ -56,11 +56,16 @@ const state = {
   cb: null,            // the store's single onEvent subscriber
   calls: [],           // [{ name, args }]
   sendMoveOk: true,    // controls sendMove result (D6 rollback test)
-  hostCode: 'ABCDE-FGHJK'
+  hostCode: 'ABCDE-FGHJK',
+  validator: null      // the store's registered guest-move validator
 }
 function record(name, args) { state.calls.push({ name, args }) }
 export const mp = {
   onEvent(cb) { state.cb = cb; return () => { if (state.cb === cb) state.cb = null } },
+  // Wire-v4 host-side legality seam: the store registers its kernel validator at
+  // construction; the test invokes it via MOCK.validate to assert HOST rejection
+  // of illegal guest moves (session behavior is covered by test-mp.mjs).
+  setMoveValidator(fn) { state.validator = fn },
   async host(cfg) { record('host', [cfg]); return { code: state.hostCode } },
   async join(code) { record('join', [code]); return { ok: true } },
   async sendMove(uci) { record('sendMove', [uci]); return { ok: state.sendMoveOk } },
@@ -82,6 +87,7 @@ globalThis.__MP_MOCK__ = {
   clearCalls: () => { state.calls.length = 0 },
   countCalls: (name) => state.calls.filter((c) => c.name === name).length,
   lastCall: (name) => [...state.calls].reverse().find((c) => c.name === name),
+  validate: (moves, move) => (state.validator ? state.validator(moves, move) : true),
   set sendMoveOk(v) { state.sendMoveOk = v },
   get sendMoveOk() { return state.sendMoveOk }
 }
@@ -100,7 +106,15 @@ async function bundle(entry, outfile, extraPlugins = []) {
     outfile,
     bundle: true,
     format: 'esm',
-    platform: 'neutral',
+    // The store consumes the game-kernel registry (wire v4), whose entries lazy-
+    // import board renderers (.tsx/.css) and whose ffish specs resolve WASM via a
+    // Vite '?url' import: platform node + automatic JSX + empty CSS + external
+    // '?url' make all of that bundle cleanly — none of it EXECUTES here (dynamic
+    // imports stay lazy; preload is never called for the kinds under test).
+    platform: 'node',
+    jsx: 'automatic',
+    loader: { '.css': 'empty' },
+    external: ['*?url'],
     mainFields: ['module', 'main'],
     conditions: ['import', 'module', 'default'],
     alias: { '@shared': resolve(ROOT, 'src/shared') },
@@ -579,6 +593,89 @@ async function main() {
     eq(S().orientation, 'black', 'flip() toggles orientation')
     onlineStore.flip()
     eq(S().orientation, 'white', 'flip() toggles back')
+  }
+
+  // ==========================================================================
+  // 16. Wire v4 — a full NON-CHESS game (gomoku) through the kernel adapter:
+  //     host with a game kind, kernel state exposure, optimistic play, the
+  //     HOST-side validator rejecting an illegal (occupied-cell) guest move,
+  //     five-in-a-row terminal → gameEnded + generic (non-PGN) archive.
+  // ==========================================================================
+  console.log('\n· gomoku (wire v4): host with kind + kernel state …')
+  const GOMOKU_CFG = () => ({ ...CFG(60_000, 0), game: { kind: 'gomoku' } })
+  {
+    reset()
+    await onlineStore.host(GOMOKU_CFG())
+    await settle()
+    eq(S().phase, 'hosting', 'gomoku host() reaches hosting (kernel adapter resolved)')
+    eq(MOCK.lastCall('host').args[0].game.kind, 'gomoku', 'host() passes game.kind to the session untouched')
+
+    // Start: we are BLACK — the first mover in gomoku (spec players order).
+    emit({ type: 'start', gameId: 1, yourColor: 'black', config: GOMOKU_CFG(), opponentName: 'Wei' })
+    eq(S().phase, 'game', 'gomoku start → phase game')
+    eq(S().gameKind, 'gomoku', 'store exposes gameKind for the UI board switch')
+    eq(S().fen, '', 'gomoku positionKey: empty codec history at start')
+    ok(S().boardState !== null && typeof S().boardState === 'object', 'boardState carries the kernel state object')
+    eq(S().boardState.size, 15, 'gomoku kernel state: default 15×15 board')
+    ok(S().clock !== null && S().clock.running === null, 'gomoku start: clock idle until the first move')
+  }
+  console.log('\n· gomoku: black (us) marches to five-in-a-row; white replies …')
+  {
+    // Our stones f8 g8 h8 j8 k8 (go columns skip "i") vs white a1..d1.
+    await onlineStore.playMove('h8'); await settle()
+    eq(S().plyCount, 1, 'gomoku playMove: optimistic apply advances plyCount')
+    eq(S().moves[0], 'h8', 'gomoku playMove: codec move recorded')
+    eq(S().clock.running, 'white', 'gomoku playMove: display clock flips to white')
+    emit({ type: 'move', gameId: 1, ply: 1, uci: 'a1', clockMs: { white: 59_000, black: 60_000 } })
+    eq(S().plyCount, 2, 'gomoku remote move applies through the kernel')
+    eq(S().fen, 'h8 a1', 'gomoku positionKey mirrors the codec history')
+    await onlineStore.playMove('f8'); await settle()
+    emit({ type: 'move', gameId: 1, ply: 3, uci: 'b1', clockMs: { white: 58_000, black: 60_000 } })
+    await onlineStore.playMove('g8'); await settle()
+    emit({ type: 'move', gameId: 1, ply: 5, uci: 'c1', clockMs: { white: 57_000, black: 60_000 } })
+    await onlineStore.playMove('j8'); await settle()
+    emit({ type: 'move', gameId: 1, ply: 7, uci: 'd1', clockMs: { white: 56_000, black: 60_000 } })
+    eq(S().plyCount, 8, 'gomoku: eight plies applied, no terminal yet')
+    eq(S().banner, null, 'gomoku: game still live before the fifth stone')
+
+    // Occupied cell (a1 holds a white stone): the kernel rejects it locally.
+    const sendsBefore = MOCK.countCalls('sendMove')
+    await onlineStore.playMove('a1'); await settle()
+    eq(MOCK.countCalls('sendMove'), sendsBefore, 'occupied-cell move rejected locally (no sendMove)')
+    eq(S().plyCount, 8, 'occupied-cell move: no optimistic apply')
+
+    // HOST-side validator (wire v4 legality gate) judges guest moves with the
+    // same kernel: occupied cell → reject; a free vertex → accept.
+    eq(MOCK.validate(S().moves, 'h8'), false, 'host validator rejects an occupied-cell guest move')
+    eq(MOCK.validate(S().moves, 'p12'), true, 'host validator accepts a legal guest move')
+
+    // The winning fifth stone: f8 g8 h8 j8 k8 across rank 8.
+    await onlineStore.playMove('k8'); await settle()
+    ok(S().banner !== null, 'five-in-a-row raises the banner')
+    eq(S().banner.result, '0-1', 'gomoku: black wins → color-anchored 0-1')
+    eq(S().banner.reason, 'five-in-a-row', 'gomoku terminal reason from the kernel')
+    eq(S().banner.outcomeForUser, 'win', 'we (black) won')
+    const ge = MOCK.lastCall('gameEnded')
+    ok(ge !== undefined, 'kernel terminal calls mp.gameEnded')
+    eq(ge.args[0], '0-1', 'gameEnded relayed the gomoku result')
+    eq(saved.length, 1, 'finished gomoku game saved exactly once')
+    eq(saved[0].result, '0-1', 'gomoku save carries the result')
+    eq(saved[0].opponentKind, 'human', 'gomoku save is a human online game')
+    ok(saved[0].pgn.includes('[Variant "gomoku"]'), 'generic archive tags the game kind')
+    ok(saved[0].pgn.includes('h8 a1 f8 b1 g8 c1 j8 d1 k8 0-1'), 'generic archive is the wire codec joined + result')
+    ok(!saved[0].pgn.includes('1. '), 'non-chess archive is NOT numbered PGN movetext')
+  }
+  console.log('\n· gomoku: flag = plain loss on time (no insufficient-material rule) …')
+  {
+    reset()
+    emit({ type: 'start', gameId: 1, yourColor: 'black', config: GOMOKU_CFG(), opponentName: 'Wei' })
+    await onlineStore.playMove('h8'); await settle()
+    emit({ type: 'move', gameId: 1, ply: 1, uci: 'a1', clockMs: { white: 59_000, black: 60_000 } })
+    emit({ type: 'flag', gameId: 1, by: 'white', clockMs: { white: 0, black: 60_000 } })
+    ok(S().banner !== null, 'gomoku flag raises a banner')
+    eq(S().banner.result, '0-1', 'gomoku flag by white → black wins')
+    eq(S().banner.reason, 'on time', 'gomoku flag is a plain on-time loss')
+    eq(saved.length, 1, 'gomoku flag result saved')
   }
 
   // subscriber sanity: mutations notified.

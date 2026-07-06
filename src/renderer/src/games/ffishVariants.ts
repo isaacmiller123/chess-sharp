@@ -161,6 +161,15 @@ function moveMetaOf(s: FfishState, move: string): MoveMeta {
   })
 }
 
+/**
+ * Renderer helper (boards/ChessFamilyBoard.tsx): is the side to move in
+ * check? Highlight only — never rules-authoritative. Requires preloadFfish()
+ * (like every other rules call).
+ */
+export function ffishStateCheck(s: FfishState): boolean {
+  return withBoard(s, (board) => board.isCheck())
+}
+
 // ---------------------------------------------------------------------------
 // Spec factory
 

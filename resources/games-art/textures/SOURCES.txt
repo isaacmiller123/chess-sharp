@@ -1,0 +1,7 @@
+CC0 PBR materials from ambientCG (https://ambientcg.com, by Lennart Demes), 1K-JPG,
+recompressed. License: CC0-1.0 (https://docs.ambientcg.com/license/).
+  wood-light_* = Wood048   (https://ambientcg.com/view?id=Wood048)
+  wood-dark_*  = Wood027   (https://ambientcg.com/view?id=Wood027)
+  slate_*      = Onyx013   (https://ambientcg.com/view?id=Onyx013)
+  felt_*       = Fabric034 (https://ambientcg.com/view?id=Fabric034)
+Maps: _color = Color, _normal = NormalGL, _roughness = Roughness.

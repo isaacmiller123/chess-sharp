@@ -1,0 +1,4 @@
+celtic chess piece set
+Author: Maurizio Monge (https://github.com/maurimo/chess-art)
+License: MIT (https://github.com/maurimo/chess-art/blob/main/LICENSE)
+Source: https://github.com/lichess-org/lila/tree/master/public/piece/celtic

@@ -22,6 +22,12 @@ import { onlineStore, type OnlineState } from './onlineStore'
 // subscription). play() itself gates on the manager's enabled/volume settings.
 onlineStore.setSoundSink((name) => getSoundManager().play(name))
 
+// Debug/preview handle: the renderer-preview harness (browser, no electron —
+// see devMock.ts) drives the store's event pump through this to render online
+// screens without a live peer. Renderer-only module, so bare-node tests never
+// see it; harmless in production (same power as devtools already has).
+;(globalThis as { __onlineStore?: typeof onlineStore }).__onlineStore = onlineStore
+
 /** Subscribe to the live online-game snapshot. Re-renders on every store change. */
 export function useOnlineGame(): OnlineState {
   const state = useSyncExternalStore(

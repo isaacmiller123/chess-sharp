@@ -28,7 +28,9 @@ declare module 'tenuki' {
     intersections: readonly TenukiIntersection[]
     blackStonesCaptured: number
     whiteStonesCaptured: number
-    /** Stones removed by the move that produced THIS state. */
+    /** Stones removed by the move that produced THIS state. CAUTION: the
+     *  INITIAL state omits this field entirely (undefined at runtime) —
+     *  guard with Array.isArray before reading it. */
     capturedPositions: readonly TenukiPoint[]
     boardSize: number
     intersectionAt(y: number, x: number): TenukiIntersection

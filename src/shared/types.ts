@@ -65,6 +65,36 @@ export interface PlayRequest {
   limit: GoLimit
 }
 
+/** Chess-family kinds routed to Fairy-Stockfish (engine:playVariant). Standard
+ *  chess stays on the Stockfish engine:play path; chess960 runs Fairy-SF with
+ *  UCI_Chess960=true (king-takes-rook castling both ways). */
+export const FAIRY_VARIANT_KINDS = [
+  'chess960',
+  'crazyhouse',
+  'atomic',
+  'antichess',
+  'kingofthehill',
+  'threecheck',
+  'horde',
+  'racingkings',
+  'xiangqi',
+  'shogi',
+  'janggi',
+  'makruk',
+  'placement'
+] as const
+export type FairyVariantKind = (typeof FAIRY_VARIANT_KINDS)[number]
+
+export interface PlayVariantRequest {
+  kind: FairyVariantKind
+  /** Current-position FEN in the variant's own dialect (spec state `fen`). */
+  fen: string
+  /** Bot strength 1..5 (games/bots.ts row; main maps it to UCI_Elo+movetime). */
+  level: number
+  /** Override the level's default engine movetime (ms). */
+  movetimeMs?: number
+}
+
 export interface EngineLine {
   handleId: number
   depth?: number
@@ -93,6 +123,8 @@ export interface EngineStatus {
   analysisReady: boolean
   playReady: boolean
   lc0Ready: boolean
+  /** Fairy-Stockfish binary present (imported or bundled) — variant bots can play. */
+  fairyReady: boolean
 }
 
 export type Unsubscribe = () => void
@@ -989,6 +1021,32 @@ export type MpEvent =
   /** Anything went wrong (bad code, version mismatch, socket error, ...). */
   | { type: 'error'; message: string }
 
+// ---------------------------------------------------------------------------
+// Variant Lab — user-authored custom variants (custom_variant table, v9)
+
+/** One saved custom variant. `iniText` is Fairy-Stockfish variants.ini text —
+ *  the single source of truth for the rules; boardFiles/boardRanks are
+ *  denormalized for gallery cards. Dynamic game kind = `custom-<id>`. */
+export interface CustomVariantRow {
+  id: string
+  name: string
+  description: string
+  iniText: string
+  boardFiles: number
+  boardRanks: number
+  createdAt: number
+  updatedAt: number
+}
+
+export interface SaveCustomVariantReq {
+  id: string
+  name: string
+  description: string
+  iniText: string
+  boardFiles: number
+  boardRanks: number
+}
+
 export interface Api {
   app: {
     ping(): Promise<PingResult>
@@ -1006,6 +1064,8 @@ export interface Api {
     analyze(req: AnalyzeRequest): Promise<{ handleId: number }>
     stop(handleId: number): Promise<OkResult>
     play(req: PlayRequest): Promise<BestMove>
+    /** Variant bot move via Fairy-Stockfish (games platform, spec §Bots). */
+    playVariant(req: PlayVariantRequest): Promise<BestMove>
     status(): Promise<EngineStatus>
     newGame(instance: 'analysis' | 'play'): Promise<OkResult>
     onLine(cb: (line: EngineLine) => void): Unsubscribe
@@ -1179,6 +1239,13 @@ export interface Api {
     import(): Promise<DatasetImportResult>
     cancel(): Promise<OkResult>
     onProgress(cb: (p: DatasetProgress) => void): Unsubscribe
+  }
+  customVariants: {
+    /** Upsert by id (renderer validates the ini through ffish first). */
+    save(req: SaveCustomVariantReq): Promise<{ variant: CustomVariantRow }>
+    list(): Promise<{ variants: CustomVariantRow[] }>
+    get(id: string): Promise<{ variant: CustomVariantRow | null }>
+    delete(id: string): Promise<OkResult>
   }
   // NOTE: multiplayer no longer crosses IPC — the renderer owns the WebRTC session
   // directly (import `mp` from features/play/online/mpClient). See MpEvent above.

@@ -20,20 +20,17 @@
 
 import type { MpColor, MpEvent, MpGameConfig, MpClocks } from '@shared/types'
 import { mp } from './mpClient'
+import { applyMove, INITIAL_FEN, type Color, type GameResult } from '../../../chess/chess'
 import {
-  applyMove,
-  hasInsufficientMaterial,
-  INITIAL_FEN,
-  type Color,
-  type GameResult
-} from '../../../chess/chess'
-import {
+  adapterFromSpec,
   registerOnlineGameAdapter,
   resolveOnlineGameAdapter,
   type OnlineGameAdapter,
   type OnlineMoveMeta
 } from './gameAdapter'
 import { chessOnlineAdapter } from './chessAdapter'
+import { getGame, listGames } from '../../../games/registry'
+import type { GameKind } from '../../../games/kernel'
 import type { SoundName } from '../../../sound/SoundManager'
 import { treeToPgn } from '../../../state/pgn'
 import type { TreeNode } from '../../../state/gameTree'
@@ -84,8 +81,13 @@ export interface OnlineState {
   gameId: number
   myColor: 'white' | 'black'
   orientation: 'white' | 'black'
-  moves: string[] // UCIs from startpos
-  fen: string // derived incrementally (chessops)
+  /** Registry kind of the live/last game ('chess' when idle — wire default). */
+  gameKind: string
+  moves: string[] // codec moves from the start position (chess: UCIs)
+  fen: string // the adapter's positionKey (chess: the FEN) — chess boards read this
+  /** The adapter's opaque game state — non-chess board renderers consume it
+   *  directly (GameBoardProps.state). Chess: the FEN string (=== fen). */
+  boardState: unknown
   plyCount: number
   clock: OnlineClock | null
   banner: GameViewBanner | null
@@ -156,8 +158,10 @@ const FRESH: OnlineState = {
   gameId: 0,
   myColor: 'white',
   orientation: 'white',
+  gameKind: 'chess',
   moves: [],
   fen: INITIAL_FEN,
+  boardState: INITIAL_FEN,
   plyCount: 0,
   clock: null,
   banner: null,
@@ -176,8 +180,27 @@ const FRESH: OnlineState = {
 }
 
 // The built-in default game. Registered at module init so 'chess' (and an
-// absent config.game — full back-compat) always resolves.
+// absent config.game — full back-compat) always resolves. Chess keeps its
+// dedicated adapter (SAN-producing moveMeta feeds the PGN archive).
 registerOnlineGameAdapter(chessOnlineAdapter)
+// Every OTHER kernel game bridges in from the registry (spec §Wire-v4): any
+// registered game is automatically hostable/joinable online.
+for (const entry of listGames()) {
+  if (entry.spec.kind === 'chess') continue
+  registerOnlineGameAdapter(adapterFromSpec(entry.spec))
+}
+
+/** Resolve the online adapter for a kind, bridging registry entries that were
+ *  registered AFTER module init (the custom-variant dynamic seam) on demand. */
+function onlineAdapterFor(kind: string): OnlineGameAdapter<unknown> | null {
+  const existing = resolveOnlineGameAdapter(kind)
+  if (existing) return existing
+  const entry = getGame(kind as GameKind)
+  if (!entry) return null
+  const adapter = adapterFromSpec(entry.spec)
+  registerOnlineGameAdapter(adapter)
+  return adapter
+}
 
 class OnlineStore {
   private state: OnlineState = FRESH
@@ -283,21 +306,54 @@ class OnlineStore {
 
   // ---- game lifecycle ------------------------------------------------------
 
-  /** Begin (or restart via rematch) a fresh game. Resets board + offer flags. */
+  /** Begin (or restart via rematch) a fresh game. Resets board + offer flags.
+   *  Games whose rules engine loads asynchronously (ffish WASM) hold in a
+   *  net-ish 'connecting' state until preload resolves, then start. */
   private beginGame(gameId: number, yourColor: MpColor, cfg: MpGameConfig, opponentName?: string): void {
     // Resolve the game kernel (wire v4): absent config.game = chess, always
     // registered. An unknown kind (start from a build with more games) surfaces
     // as a friendly error instead of corrupting state with the wrong rules.
     const kind = cfg.game?.kind ?? 'chess'
-    const adapter = resolveOnlineGameAdapter(kind)
+    const adapter = onlineAdapterFor(kind)
     if (!adapter) {
-      // TODO(P2): consume builder-kernel's games/registry so every registered
-      // game resolves here, and tell the peer via a wire error before leaving.
       this.set({ error: `This build can't play '${kind}' games online yet.` })
       return
     }
+    if (adapter.preload && adapter.needsPreload?.()) {
+      // The joiner learns the kind only at 'start' — load the rules engine
+      // now, surfaced as the tail of the connection dance. Early wire traffic
+      // is impossible in practice (the opponent's first move takes longer than
+      // the WASM load) and dropped safely by the gameId gate if it happens.
+      this.set({ phase: 'connecting', config: cfg, netStage: 'connecting', error: null })
+      void adapter.preload().then(
+        () => this.startGame(gameId, yourColor, cfg, adapter, opponentName),
+        (err) =>
+          this.set({
+            phase: 'idle',
+            error: err instanceof Error ? err.message : `Couldn't load the ${kind} rules engine.`
+          })
+      )
+      return
+    }
+    this.startGame(gameId, yourColor, cfg, adapter, opponentName)
+  }
+
+  /** The synchronous tail of beginGame — adapter is resolved and preloaded. */
+  private startGame(
+    gameId: number,
+    yourColor: MpColor,
+    cfg: MpGameConfig,
+    adapter: OnlineGameAdapter<unknown>,
+    opponentName?: string
+  ): void {
     this.adapter = adapter
-    this.gameState = adapter.init(cfg.game?.options)
+    try {
+      this.gameState = adapter.init(cfg.game?.options)
+    } catch {
+      // Corrupt/unsupported options from the peer: friendly error, no board.
+      this.set({ error: `Couldn't start a '${adapter.kind}' game with these options.` })
+      return
+    }
     this.sans = []
     this.saved = false
     const initial = cfg.tc.initialMs
@@ -307,8 +363,10 @@ class OnlineStore {
       gameId,
       myColor: yourColor,
       orientation: yourColor,
+      gameKind: adapter.kind,
       moves: [],
       fen: adapter.positionKey(this.gameState),
+      boardState: this.gameState,
       plyCount: 0,
       // Clocks are IDLE at start (§2 first-move rule): running = null until
       // white's first move commits.
@@ -337,9 +395,16 @@ class OnlineStore {
     this.set({
       moves,
       fen: this.adapter.positionKey(next),
+      boardState: next,
       plyCount: moves.length,
       canAbort: moves.length < 2 && this.live
     })
+  }
+
+  /** The sound for a just-committed move: the spec's own hint when the adapter
+   *  provides one (kernel games), else the chess SAN heuristics. */
+  private moveSound(meta: OnlineMoveMeta): SoundName {
+    return meta.sound ?? soundNameForMove(meta)
   }
 
   /** Raise the end banner + persist (once) + play the end sound. `save` gates
@@ -391,13 +456,15 @@ class OnlineStore {
   }
 
   /** Persist a finished game exactly once (≥2 plies + a real result). Aborted /
-   *  unclaimed-abandoned games never reach here with save:true. */
+   *  unclaimed-abandoned games never reach here with save:true.
+   *
+   *  Archive format (the game table's `pgn` column): standard chess keeps the
+   *  real PGN writer (byte-for-byte the pre-v4 output); every other game gets
+   *  the generic serialization — PGN-style tags (incl. [Variant "<kind>"]) +
+   *  the wire-codec move list joined by spaces. */
   private saveFinished(result: GameResult): void {
     if (this.saved) return
     if (this.state.plyCount < 2) return // not a real game — don't archive
-    // TODO(P2): per-game archive formats. The PGN writer below is chess-only;
-    // other games skip persistence for now (banner/result still shown).
-    if (this.adapter.kind !== 'chess') return
     this.saved = true
     const uc = this.state.myColor
     const me = cleanName(this.settings.username) || 'Anonymous'
@@ -412,7 +479,10 @@ class OnlineStore {
       Black: blackName,
       Result: result
     }
-    const pgn = treeToPgn(this.buildTree(), headers)
+    const pgn =
+      this.adapter.kind === 'chess'
+        ? treeToPgn(this.buildTree(), headers)
+        : genericArchive(this.adapter.kind, headers, this.state.moves, result)
     // Best-effort; never block the banner on a failed save. (window.api is
     // undefined in bare-node tests — guarded.)
     void (globalThis as { window?: typeof window }).window?.api?.games
@@ -571,11 +641,11 @@ class OnlineStore {
   private onRemoteMove(gameId: number, ply: number, uci: string, clockMs: MpClocks): void {
     if (gameId !== this.state.gameId) return
     if (ply !== this.state.plyCount) return // duplicate / out-of-order — drop (D8)
-    const meta = this.adapter.moveMeta(this.gameState, uci)
+    const meta = this.adapter.moveMeta(this.gameState, uci) ?? { san: uci, capture: false, check: false }
     const next = this.adapter.play(this.gameState, uci)
     if (next === null) return // illegal against our state — ignore rather than corrupt
-    this.pushMove(uci, next, meta ?? { san: uci, capture: false, check: false })
-    this.sound(soundNameForMove(meta ?? { san: uci, capture: false, check: false }))
+    this.pushMove(uci, next, meta)
+    this.sound(this.moveSound(meta))
     // Adopt the authoritative clocks; the side now on move is the running side.
     this.setClock(clockMs, this.live ? this.adapter.turn(next) : null)
     this.detectTerminal(next)
@@ -591,18 +661,17 @@ class OnlineStore {
     this.endGame(out.result, out.reason, { save: true })
   }
 
-  /** A side flagged (§2 Flag). Adjudicate the lichess insufficient-material rule
-   *  on the SAME position both stores hold, so results agree. */
+  /** A side flagged (§2 Flag). Adjudication is the adapter's call, made on the
+   *  SAME position both stores hold, so results agree: chess family applies
+   *  the lichess insufficient-material draw, everything else is a plain loss
+   *  on time (the fallback below, for adapters without the hook). */
   private onFlag(gameId: number, by: MpColor, clockMs: MpClocks): void {
     if (gameId !== this.state.gameId) return
     // Zero the flagged side's displayed clock from the message.
     this.setClock(clockMs, null)
-    const winnerColor: Color = by === 'white' ? 'black' : 'white'
-    // If the side that DIDN'T flag can never mate, it's a draw on time.
-    // TODO(P2): move flag adjudication behind the adapter (chess-only rule;
-    // other games treat a flag as a plain loss, which the else-branch gives).
-    if (this.adapter.kind === 'chess' && hasInsufficientMaterial(this.state.fen, winnerColor)) {
-      this.endGame('1/2-1/2', 'time out — insufficient material', { save: true })
+    const adjudicated = this.adapter.flagResult?.(this.gameState, by)
+    if (adjudicated) {
+      this.endGame(adjudicated.result, adjudicated.reason, { save: true })
     } else {
       this.endGame(by === 'white' ? '0-1' : '1-0', 'on time', { save: true })
     }
@@ -614,6 +683,27 @@ class OnlineStore {
 
   async host(cfg: MpGameConfig): Promise<void> {
     this.set({ ...FRESH, phase: 'hosting', config: cfg, error: null })
+    // The HOST knows the kind up front: refuse unknown kinds before opening a
+    // table, and load an async rules engine (ffish WASM) before the code is
+    // shown so the game starts instantly when the opponent joins.
+    const kind = cfg.game?.kind ?? 'chess'
+    const adapter = onlineAdapterFor(kind)
+    if (!adapter) {
+      this.set({ phase: 'idle', error: `This build can't play '${kind}' games online yet.` })
+      return
+    }
+    if (adapter.preload && adapter.needsPreload?.()) {
+      this.set({ netStage: 'relays' }) // net-ish "getting ready" while WASM loads
+      try {
+        await adapter.preload()
+      } catch (err) {
+        this.set({
+          phase: 'idle',
+          error: err instanceof Error ? err.message : `Couldn't load the ${kind} rules engine.`
+        })
+        return
+      }
+    }
     try {
       const res = await mp.host(cfg)
       this.set({ code: res.code, phase: 'hosting' })
@@ -640,7 +730,7 @@ class OnlineStore {
   async playMove(uci: string): Promise<void> {
     if (!this.live || this.state.peerAway) return
     if (this.myTurn !== this.state.myColor) return
-    const meta = this.adapter.moveMeta(this.gameState, uci)
+    const meta = this.adapter.moveMeta(this.gameState, uci) ?? { san: uci, capture: false, check: false }
     const next = this.adapter.play(this.gameState, uci)
     if (next === null) return
 
@@ -652,8 +742,8 @@ class OnlineStore {
     const priorState = this.gameState
 
     this.set({ drawOffered: false, drawSent: false })
-    this.pushMove(uci, next, meta ?? { san: uci, capture: false, check: false })
-    this.sound(soundNameForMove(meta ?? { san: uci, capture: false, check: false }))
+    this.pushMove(uci, next, meta)
+    this.sound(this.moveSound(meta))
 
     const res = await mp.sendMove(uci)
     if (!res.ok) {
@@ -663,6 +753,7 @@ class OnlineStore {
       this.set({
         moves: priorMoves,
         fen: priorFen,
+        boardState: priorState,
         clock: priorClock,
         plyCount: priorPly,
         canAbort: priorPly < 2 && this.live
@@ -760,6 +851,22 @@ class OnlineStore {
   dismissError(): void {
     this.set({ error: null })
   }
+}
+
+/** Generic archive text for non-chess games (the game table's `pgn` column):
+ *  PGN-style tag pairs + a [Variant] tag + the wire-codec moves joined by
+ *  spaces, terminated by the result — readable, greppable, replayable. */
+function genericArchive(
+  kind: string,
+  headers: Record<string, string>,
+  moves: readonly string[],
+  result: GameResult
+): string {
+  const tags = { ...headers, Variant: kind }
+  const tagText = Object.entries(tags)
+    .map(([k, v]) => `[${k} "${v.replace(/"/g, "'")}"]`)
+    .join('\n')
+  return `${tagText}\n\n${[...moves, result].join(' ')}\n`
 }
 
 /** Promotion role char from a UCI string, if any (e.g. 'e7e8q' → 'queen'). */

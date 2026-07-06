@@ -49,7 +49,7 @@ import { EnglishDraughts, EnglishDraughtsBitSquare } from 'rapid-draughts/englis
 import type { EnglishDraughtsGame } from 'rapid-draughts/english'
 import Draughts from '@jortvl/draughts'
 import type { JortvlMove } from '@jortvl/draughts'
-import type { GameResult, GameSpec, MoveMeta } from './kernel'
+import type { GameResult, GameSpec, MoveMeta, PlayerColor } from './kernel'
 
 // ===========================================================================
 // American checkers (8x8, rapid-draughts)
@@ -238,6 +238,22 @@ function findAmericanMove(game: EnglishDraughtsGame, parsed: ParsedMove): Draugh
       m.destination === parsed.destination &&
       sameSet(m.captures, parsed.captures)
   )
+}
+
+/**
+ * Codec string ('11-15' / '11x18x25') for a rapid-draughts library move that is
+ * legal in `s` — games/bots.ts resolves alphaBeta engine moves through this.
+ * Returns null when the library move doesn't match any legal move of `s`.
+ */
+export function americanMoveToCodec(s: AmericanCheckersState, m: DraughtsMove1D): string | null {
+  const game = americanGame(s)
+  const move = findAmericanMove(game, {
+    origin: m.origin,
+    destination: m.destination,
+    captures: [...m.captures]
+  })
+  if (!move) return null
+  return encodeAmericanMove(move, americanOccupied(game, move.origin))
 }
 
 function americanPlay(s: AmericanCheckersState, moveStr: string): AmericanCheckersState | null {
@@ -485,4 +501,47 @@ export const INTL_CHECKERS_SPEC: GameSpec<IntlCheckersState> = {
   result: intlResult,
   moveMeta: intlMoveMeta,
   serializeOptions: (o: unknown): string => JSON.stringify(o ?? null)
+}
+
+// ===========================================================================
+// Board read-model helpers (games/boards/CheckersBoard.tsx) — presentation
+// only, no rules authority. Squares are the 1-based codec numbers.
+// ===========================================================================
+
+export interface CheckersPieceView {
+  /** 1-based codec square (PDN 1..32 / FMJD 1..50). */
+  square: number
+  color: PlayerColor
+  king: boolean
+}
+
+/** Pieces on the board, ascending square order. */
+export function americanPiecesOf(s: AmericanCheckersState): CheckersPieceView[] {
+  const out: CheckersPieceView[] = []
+  for (const sq of americanGame(s).board) {
+    if (!sq.dark || !sq.piece) continue
+    out.push({
+      square: sq.position + 1,
+      color: sq.piece.player === DraughtsPlayer.DARK ? 'black' : 'white',
+      king: sq.piece.king
+    })
+  }
+  return out.sort((a, b) => a.square - b.square)
+}
+
+export function americanTurnOf(s: AmericanCheckersState): PlayerColor {
+  return s.data.player === DraughtsPlayer.DARK ? 'black' : 'white'
+}
+
+/** Pieces on the board, ascending square order. */
+export function intlPiecesOf(s: IntlCheckersState): CheckersPieceView[] {
+  const pos = parseIntlFen(s.fen)
+  const out: CheckersPieceView[] = []
+  for (const [square, king] of pos.white) out.push({ square, color: 'white', king })
+  for (const [square, king] of pos.black) out.push({ square, color: 'black', king })
+  return out.sort((a, b) => a.square - b.square)
+}
+
+export function intlTurnOf(s: IntlCheckersState): PlayerColor {
+  return parseIntlFen(s.fen).turn === 'W' ? 'white' : 'black'
 }

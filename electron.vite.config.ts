@@ -27,6 +27,11 @@ export default defineConfig({
   },
   renderer: {
     root: resolve(__dirname, 'src/renderer'),
+    server: {
+      // games/art.ts serves resources/games-art via /@fs in dev; allow the
+      // whole repo explicitly so outside-root asset URLs never 403.
+      fs: { allow: [resolve(__dirname)] }
+    },
     build: {
       rollupOptions: {
         input: { index: resolve(__dirname, 'src/renderer/index.html') }
