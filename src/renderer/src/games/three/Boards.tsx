@@ -119,7 +119,18 @@ export function IntersectionsBoard({ layout, style, artBase }: BoardProps): JSX.
       lineColor: style.lineColor ?? '#3b2a12',
       starPoints: stars
     })
-    const side = canvasTexture(src instanceof HTMLCanvasElement ? src : makeWoodGrainCanvas(512, style.topColor, 32))
+    // Sides carry the SAME veneer as the top (a goban is one solid block) —
+    // procedural amber next to pale art veneer reads as mismatched plastic.
+    let sideSrc: HTMLCanvasElement
+    if (src instanceof HTMLCanvasElement) {
+      sideSrc = src
+    } else {
+      sideSrc = document.createElement('canvas')
+      sideSrc.width = 512
+      sideSrc.height = 512
+      sideSrc.getContext('2d')!.drawImage(src, 0, 0, 512, 512)
+    }
+    const side = canvasTexture(sideSrc)
     side.repeat.set(2, 1)
     return { topTex: canvasTexture(canvas), sideTex: side }
   }, [files, ranks, style, layout.margin, topArt])
@@ -137,7 +148,7 @@ export function IntersectionsBoard({ layout, style, artBase }: BoardProps): JSX.
       >
         <meshStandardMaterial
           map={sideTex}
-          color="#d6b075"
+          color="#cdbb9b"
           roughness={0.5}
           metalness={0}
           envMapIntensity={0.5}
