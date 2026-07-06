@@ -44,6 +44,14 @@ import { timeControlCategory, type TimeControl } from '../timeControl'
 
 export type MpRole = 'host' | 'guest'
 
+/** Host-side legality seam (wire v4): the session itself relays OPAQUE move
+ *  strings and knows NO game rules. The store registers a validator backed by
+ *  the game kernel; the session consults it before committing a GUEST move.
+ *  `moves` is the committed move list so far (the position is derivable from
+ *  it); return false to silently drop the move (same as an out-of-turn move).
+ *  Default (nothing registered) = accept, preserving pre-v4 behavior. */
+export type MpMoveValidator = (moves: readonly string[], move: string) => boolean
+
 // ---- Injected transport contract (implemented by rtcTransport.ts) -------------
 
 export interface MpTransportListeners {
@@ -222,6 +230,9 @@ export class MpNetSession {
   // ---- event fan-out ----------------------------------------------------------
   private listeners = new Set<(ev: MpEvent) => void>()
 
+  /** Registered host-side move validator (kernel seam). null = accept all. */
+  private moveValidator: MpMoveValidator | null = null
+
   constructor(makeTransport: MpTransportFactory, opts: MpSessionOptions = {}) {
     this.makeTransport = makeTransport
     this.now =
@@ -229,6 +240,16 @@ export class MpNetSession {
       (typeof performance !== 'undefined' && typeof performance.now === 'function'
         ? () => performance.now()
         : () => Date.now())
+  }
+
+  /** Register the host-side move validator (kernel seam, wire v4). The store
+   *  registers a game-kernel-backed check; the session calls it before
+   *  committing a GUEST move. null (or never called) = accept everything, so
+   *  behavior without a registered kernel is identical to pre-v4. Survives
+   *  resetState() — registration lifetime belongs to the registrant, like
+   *  event listeners (L1). */
+  setMoveValidator(fn: MpMoveValidator | null): void {
+    this.moveValidator = fn
   }
 
   /** Subscribe to session events; returns the unsubscriber. */
@@ -603,7 +624,7 @@ export class MpNetSession {
         this.onResumeReq(msg.gameId, msg.havePly)
         return
       case 'resync':
-        this.onResync(msg.gameId, msg.moves, msg.clockMs, msg.toMove, msg.yourColor)
+        this.onResync(msg.gameId, msg.moves, msg.clockMs, msg.toMove, msg.yourColor, msg.config)
         return
       case 'bye':
         this.onPeerGone()
@@ -948,6 +969,12 @@ export class MpNetSession {
     if (this.role === 'host') {
       // The guest moved. Enforce turn order; ignore their clock hint entirely.
       if (this.toMove !== this.guestColor) return
+      // Kernel seam (v4): the wire no longer proves legality (moves are opaque
+      // game-codec strings) — ask the registered validator before committing.
+      // Silently drop an illegal move, exactly like an out-of-turn one. The
+      // guest's optimistic local state stays consistent because ITS store also
+      // validated locally; a truly malicious guest just gets ignored.
+      if (this.moveValidator && !this.moveValidator(this.moves, uci)) return
       // Lag compensation: forgive up to min(rtt/2, 250ms) of the guest's debit.
       const lagForgive = Math.min(this.rtt / 2, MP_TIMING.MAX_LAG_FORGIVE_MS)
       const committedPly = this.plyCount
@@ -1150,7 +1177,10 @@ export class MpNetSession {
       moves: [...this.moves],
       clockMs: { ...this.clocks },
       toMove: this.toMove ?? 'white',
-      yourColor: this.guestColor
+      yourColor: this.guestColor,
+      // v4: carry the game config (kind + options) so a resumed guest can
+      // rebuild any game, not just chess.
+      ...(this.config ? { config: this.config } : {})
     })
   }
 
@@ -1164,9 +1194,13 @@ export class MpNetSession {
     moves: string[],
     clockMs: Clocks,
     toMove: MpColor,
-    yourColor: MpColor
+    yourColor: MpColor,
+    config?: MpGameConfig
   ): void {
     if (this.role !== 'guest') return
+    // v4: adopt the game config when it rides along (kind + options survive the
+    // JSON round-trip untouched — z.unknown() passes the blob through).
+    if (config) this.config = config
     this.gameId = gameId
     this.moves = [...moves]
     this.plyCount = moves.length

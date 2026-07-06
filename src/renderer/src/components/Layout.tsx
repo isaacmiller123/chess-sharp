@@ -6,6 +6,7 @@ import {
   Puzzle,
   School as SchoolIcon,
   BookOpen,
+  Dices,
   User,
   Settings as SettingsIcon,
   type LucideIcon
@@ -17,6 +18,7 @@ import { useSettings } from '../state/settings'
 export type ViewKey =
   | 'home'
   | 'play'
+  | 'games'
   | 'analysis'
   | 'puzzles'
   | 'school'
@@ -27,6 +29,7 @@ export type ViewKey =
 export const NAV: { key: ViewKey; label: string; Icon: LucideIcon }[] = [
   { key: 'home', label: 'Home', Icon: Home },
   { key: 'play', label: 'Play', Icon: Swords },
+  { key: 'games', label: 'Games', Icon: Dices },
   { key: 'analysis', label: 'Analysis', Icon: Cpu },
   { key: 'puzzles', label: 'Puzzles', Icon: Puzzle },
   { key: 'school', label: 'School', Icon: SchoolIcon },

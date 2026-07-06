@@ -93,7 +93,12 @@ export class UciEngine extends EventEmitter {
   // In-flight bestmove waiters' rejectors, so a crash/exit/timeout never hangs them.
   private pendingRejectors = new Set<(e: Error) => void>()
 
-  constructor(private readonly exePath: string) {
+  /** `args` are extra launch arguments (lc0 needs `--weights=<file>`; Stockfish
+   *  callers pass nothing — the default keeps every existing call site as-is). */
+  constructor(
+    private readonly exePath: string,
+    private readonly args: readonly string[] = []
+  ) {
     super()
   }
 
@@ -110,7 +115,10 @@ export class UciEngine extends EventEmitter {
     // shell:false (the default, stated explicitly) — launch the binary directly on
     // every OS. Never set shell:true or windowsHide here: they change argument
     // handling and are unnecessary for a path-resolved engine binary.
-    const proc = spawn(this.exePath, [], { stdio: ['pipe', 'pipe', 'pipe'], shell: false })
+    const proc = spawn(this.exePath, [...this.args], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      shell: false
+    })
     this.proc = proc
     proc.stdout.setEncoding('utf-8')
     proc.stdout.on('data', (chunk: string) => this.onData(chunk))

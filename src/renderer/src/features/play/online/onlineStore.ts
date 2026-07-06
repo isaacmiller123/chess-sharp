@@ -23,13 +23,17 @@ import { mp } from './mpClient'
 import {
   applyMove,
   hasInsufficientMaterial,
-  outcome,
-  turnColor,
   INITIAL_FEN,
   type Color,
-  type GameResult,
-  type AppliedMove
+  type GameResult
 } from '../../../chess/chess'
+import {
+  registerOnlineGameAdapter,
+  resolveOnlineGameAdapter,
+  type OnlineGameAdapter,
+  type OnlineMoveMeta
+} from './gameAdapter'
+import { chessOnlineAdapter } from './chessAdapter'
 import type { SoundName } from '../../../sound/SoundManager'
 import { treeToPgn } from '../../../state/pgn'
 import type { TreeNode } from '../../../state/gameTree'
@@ -171,9 +175,22 @@ const FRESH: OnlineState = {
   error: null
 }
 
+// The built-in default game. Registered at module init so 'chess' (and an
+// absent config.game — full back-compat) always resolves.
+registerOnlineGameAdapter(chessOnlineAdapter)
+
 class OnlineStore {
   private state: OnlineState = FRESH
   private readonly subscribers = new Set<() => void>()
+
+  /** The kernel for the CURRENT game (spec §Wire-v4). Chess by default; swapped
+   *  per game at start from config.game.kind. All rules-shaped questions (apply
+   *  a move, terminal check, whose turn) go through it — never chessops direct. */
+  private adapter: OnlineGameAdapter<unknown> = chessOnlineAdapter as OnlineGameAdapter<unknown>
+
+  /** The adapter's opaque game state (chess: the FEN). Mirrors state.moves;
+   *  state.fen is always adapter.positionKey(gameState) for the UI board. */
+  private gameState: unknown = chessOnlineAdapter.init()
 
   /** Live settings snapshot (UI pushes it). Defaults keep bare-node tests sane. */
   private settings: OnlineSettingsSnapshot = { username: 'User', lowTimeWarning: true }
@@ -194,6 +211,21 @@ class OnlineStore {
   constructor() {
     // Subscribe to the session ONCE, for the app's lifetime. Never unsubscribed.
     mp.onEvent((ev) => this.onEvent(ev))
+    // Register the host-side legality check (kernel seam, wire v4): the session
+    // relays opaque strings and consults us before committing a guest move.
+    // Optional-chained: the bare-node store test mocks `mp` without this method,
+    // and the seam's default (unregistered) is accept — chess-identical.
+    mp.setMoveValidator?.((moves, move) => this.validateGuestMove(moves, move))
+  }
+
+  /** Host-side legality gate for GUEST moves (called by the session pre-commit).
+   *  Judged with the current game's kernel. Defensive: if our mirrored state
+   *  isn't at the ply the session is committing (mid-resync races), accept —
+   *  authority/behavior then matches pre-v4 exactly. */
+  private validateGuestMove(moves: readonly string[], move: string): boolean {
+    if (this.state.phase !== 'game') return true
+    if (moves.length !== this.state.plyCount) return true
+    return this.adapter.play(this.gameState, move) !== null
   }
 
   // ---- store plumbing ------------------------------------------------------
@@ -232,7 +264,7 @@ class OnlineStore {
   }
 
   private get myTurn(): Color {
-    return turnColor(this.state.fen)
+    return this.adapter.turn(this.gameState)
   }
 
   private sound(name: SoundName): void {
@@ -253,6 +285,19 @@ class OnlineStore {
 
   /** Begin (or restart via rematch) a fresh game. Resets board + offer flags. */
   private beginGame(gameId: number, yourColor: MpColor, cfg: MpGameConfig, opponentName?: string): void {
+    // Resolve the game kernel (wire v4): absent config.game = chess, always
+    // registered. An unknown kind (start from a build with more games) surfaces
+    // as a friendly error instead of corrupting state with the wrong rules.
+    const kind = cfg.game?.kind ?? 'chess'
+    const adapter = resolveOnlineGameAdapter(kind)
+    if (!adapter) {
+      // TODO(P2): consume builder-kernel's games/registry so every registered
+      // game resolves here, and tell the peer via a wire error before leaving.
+      this.set({ error: `This build can't play '${kind}' games online yet.` })
+      return
+    }
+    this.adapter = adapter
+    this.gameState = adapter.init(cfg.game?.options)
     this.sans = []
     this.saved = false
     const initial = cfg.tc.initialMs
@@ -263,7 +308,7 @@ class OnlineStore {
       myColor: yourColor,
       orientation: yourColor,
       moves: [],
-      fen: INITIAL_FEN,
+      fen: adapter.positionKey(this.gameState),
       plyCount: 0,
       // Clocks are IDLE at start (§2 first-move rule): running = null until
       // white's first move commits.
@@ -283,11 +328,18 @@ class OnlineStore {
     this.sound('gameStart')
   }
 
-  /** Append a committed ply to the store's move/SAN/fen state. */
-  private pushMove(m: AppliedMove): void {
-    this.sans.push(m.san)
-    const moves = [...this.state.moves, m.uci]
-    this.set({ moves, fen: m.fen, plyCount: moves.length, canAbort: moves.length < 2 && this.live })
+  /** Append a committed ply: adopt the adapter's next state and mirror its
+   *  position key into state.fen for the UI. */
+  private pushMove(move: string, next: unknown, meta: OnlineMoveMeta): void {
+    this.gameState = next
+    this.sans.push(meta.san)
+    const moves = [...this.state.moves, move]
+    this.set({
+      moves,
+      fen: this.adapter.positionKey(next),
+      plyCount: moves.length,
+      canAbort: moves.length < 2 && this.live
+    })
   }
 
   /** Raise the end banner + persist (once) + play the end sound. `save` gates
@@ -323,7 +375,7 @@ class OnlineStore {
   private resumedClock(): OnlineClock | null {
     const c = this.state.clock
     if (!c || !this.live) return c
-    return { snapshot: { ...c.snapshot }, atMono: performance.now(), running: turnColor(this.state.fen) }
+    return { snapshot: { ...c.snapshot }, atMono: performance.now(), running: this.adapter.turn(this.gameState) }
   }
 
   /** Freeze the current clock (stop interpolating) at its displayed value. */
@@ -343,6 +395,9 @@ class OnlineStore {
   private saveFinished(result: GameResult): void {
     if (this.saved) return
     if (this.state.plyCount < 2) return // not a real game — don't archive
+    // TODO(P2): per-game archive formats. The PGN writer below is chess-only;
+    // other games skip persistence for now (banner/result still shown).
+    if (this.adapter.kind !== 'chess') return
     this.saved = true
     const uc = this.state.myColor
     const me = cleanName(this.settings.username) || 'Anonymous'
@@ -516,23 +571,24 @@ class OnlineStore {
   private onRemoteMove(gameId: number, ply: number, uci: string, clockMs: MpClocks): void {
     if (gameId !== this.state.gameId) return
     if (ply !== this.state.plyCount) return // duplicate / out-of-order — drop (D8)
-    const m = applyMove(this.state.fen, uci.slice(0, 2), uci.slice(2, 4), uciPromo(uci))
-    if (!m) return // illegal against our position — ignore rather than corrupt
-    this.pushMove(m)
-    this.sound(soundNameForMove(m))
+    const meta = this.adapter.moveMeta(this.gameState, uci)
+    const next = this.adapter.play(this.gameState, uci)
+    if (next === null) return // illegal against our state — ignore rather than corrupt
+    this.pushMove(uci, next, meta ?? { san: uci, capture: false, check: false })
+    this.sound(soundNameForMove(meta ?? { san: uci, capture: false, check: false }))
     // Adopt the authoritative clocks; the side now on move is the running side.
-    this.setClock(clockMs, this.live ? turnColor(m.fen) : null)
-    this.detectTerminal(m.fen)
+    this.setClock(clockMs, this.live ? this.adapter.turn(next) : null)
+    this.detectTerminal(next)
   }
 
-  /** After any local/remote move: if the board itself ended, tell the session so
-   *  it stops clocks + broadcasts gameOver, and raise our banner. */
-  private detectTerminal(fen: string): void {
-    const out = outcome(fen)
-    if (!out.over || !out.result) return
-    const reason = out.reason ?? 'checkmate'
-    mp.gameEnded(out.result, reason)
-    this.endGame(out.result, reason, { save: true })
+  /** After any local/remote move: if the game itself ended (kernel-terminal),
+   *  tell the session so it stops clocks + broadcasts gameOver, and raise our
+   *  banner. `s` is the adapter state AFTER the move. */
+  private detectTerminal(s: unknown): void {
+    const out = this.adapter.result(s)
+    if (!out) return
+    mp.gameEnded(out.result, out.reason)
+    this.endGame(out.result, out.reason, { save: true })
   }
 
   /** A side flagged (§2 Flag). Adjudicate the lichess insufficient-material rule
@@ -543,7 +599,9 @@ class OnlineStore {
     this.setClock(clockMs, null)
     const winnerColor: Color = by === 'white' ? 'black' : 'white'
     // If the side that DIDN'T flag can never mate, it's a draw on time.
-    if (hasInsufficientMaterial(this.state.fen, winnerColor)) {
+    // TODO(P2): move flag adjudication behind the adapter (chess-only rule;
+    // other games treat a flag as a plain loss, which the else-branch gives).
+    if (this.adapter.kind === 'chess' && hasInsufficientMaterial(this.state.fen, winnerColor)) {
       this.endGame('1/2-1/2', 'time out — insufficient material', { save: true })
     } else {
       this.endGame(by === 'white' ? '0-1' : '1-0', 'on time', { save: true })
@@ -582,23 +640,26 @@ class OnlineStore {
   async playMove(uci: string): Promise<void> {
     if (!this.live || this.state.peerAway) return
     if (this.myTurn !== this.state.myColor) return
-    const m = applyMove(this.state.fen, uci.slice(0, 2), uci.slice(2, 4), uciPromo(uci))
-    if (!m) return
+    const meta = this.adapter.moveMeta(this.gameState, uci)
+    const next = this.adapter.play(this.gameState, uci)
+    if (next === null) return
 
     // A move answers any pending draw exchange (offer withdrawn / declined).
     const priorMoves = this.state.moves
     const priorFen = this.state.fen
     const priorClock = this.state.clock
     const priorPly = this.state.plyCount
+    const priorState = this.gameState
 
     this.set({ drawOffered: false, drawSent: false })
-    this.pushMove(m)
-    this.sound(soundNameForMove(m))
+    this.pushMove(uci, next, meta ?? { san: uci, capture: false, check: false })
+    this.sound(soundNameForMove(meta ?? { san: uci, capture: false, check: false }))
 
     const res = await mp.sendMove(uci)
     if (!res.ok) {
       // Roll back the optimistic apply — the session refused it.
       this.sans.pop()
+      this.gameState = priorState
       this.set({
         moves: priorMoves,
         fen: priorFen,
@@ -618,10 +679,10 @@ class OnlineStore {
     // re-time which side burns.
     if (this.state.clock && this.live) {
       const c = this.frozenClock()
-      if (c) this.setClock(c.snapshot, turnColor(m.fen))
+      if (c) this.setClock(c.snapshot, this.adapter.turn(next))
     }
-    // The board-terminal check runs on the confirmed position.
-    this.detectTerminal(m.fen)
+    // The kernel-terminal check runs on the confirmed position.
+    this.detectTerminal(next)
   }
 
   async resign(): Promise<void> {
@@ -686,6 +747,9 @@ class OnlineStore {
     mp.leave()
     this.sans = []
     this.saved = false
+    // Back to the default game so an idle store always mirrors FRESH (chess).
+    this.adapter = chessOnlineAdapter as OnlineGameAdapter<unknown>
+    this.gameState = chessOnlineAdapter.init()
     this.set({ ...FRESH })
   }
 

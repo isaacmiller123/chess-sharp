@@ -124,20 +124,37 @@ function destFor(key: 'engine' | 'puzzles'): string {
   return key === 'engine' ? importedEnginePath() : importedPuzzlesPath()
 }
 
-async function downloadItem(
-  it: DatasetItem,
-  itemIndex: number,
-  itemCount: number,
-  onProgress: ProgressFn
+/** What downloadVerified needs to know about one artifact. Shared by the
+ *  stockfish/puzzles items above and the maia group (see ./maia.ts). */
+export interface DownloadSpec {
+  label: string
+  url: string
+  /** Expected compressed size (progress fallback when content-length is absent). */
+  bytes: number
+  /** sha256 of the downloaded (compressed) bytes; '' skips verification (TODO rows). */
+  sha256: string
+  compressed?: 'zstd'
+  /** chmod 0o755 after publish (engine binaries on macOS/Linux). */
+  executable?: boolean
+}
+
+/**
+ * Stream one artifact to `dest`: write to *.part, hash + meter the compressed
+ * bytes (cancellation point), verify sha256, then atomically rename into place.
+ * Exported so other dataset groups (maia) reuse the exact same discipline.
+ */
+export async function downloadVerified(
+  spec: DownloadSpec,
+  dest: string,
+  onChunk: (received: number, total: number) => void
 ): Promise<void> {
-  const dest = destFor(it.key)
   fs.mkdirSync(path.dirname(dest), { recursive: true })
   const tmp = `${dest}.part`
   if (fs.existsSync(tmp)) fs.rmSync(tmp, { force: true })
 
-  const res = await fetch(it.url, { redirect: 'follow' })
-  if (!res.ok || !res.body) throw new Error(`${it.label}: download failed (HTTP ${res.status})`)
-  const total = Number(res.headers.get('content-length')) || it.bytes
+  const res = await fetch(spec.url, { redirect: 'follow' })
+  if (!res.ok || !res.body) throw new Error(`${spec.label}: download failed (HTTP ${res.status})`)
+  const total = Number(res.headers.get('content-length')) || spec.bytes
 
   let received = 0
   const hash = crypto.createHash('sha256')
@@ -148,7 +165,7 @@ async function downloadItem(
       if (cancelFlag) return cb(new Error('cancelled'))
       received += chunk.length
       hash.update(chunk)
-      onProgress({ key: it.key, phase: 'download', received, total, itemIndex, itemCount })
+      onChunk(received, total)
       cb(null, chunk)
     }
   })
@@ -156,7 +173,7 @@ async function downloadItem(
   const source = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0])
   const out = fs.createWriteStream(tmp)
   try {
-    if (it.compressed === 'zstd') {
+    if (spec.compressed === 'zstd') {
       await pipeline(source, meter, zlib.createZstdDecompress(), out)
     } else {
       await pipeline(source, meter, out)
@@ -166,11 +183,10 @@ async function downloadItem(
     throw err
   }
 
-  onProgress({ key: it.key, phase: 'verify', received: total, total, itemIndex, itemCount })
   const digest = hash.digest('hex')
-  if (it.sha256 && digest !== it.sha256) {
+  if (spec.sha256 && digest !== spec.sha256) {
     fs.rmSync(tmp, { force: true })
-    throw new Error(`${it.label}: checksum mismatch (download corrupted, please retry)`)
+    throw new Error(`${spec.label}: checksum mismatch (download corrupted, please retry)`)
   }
 
   // Atomic publish: only a fully-downloaded, verified file ever appears at dest.
@@ -179,9 +195,25 @@ async function downloadItem(
 
   // A freshly downloaded engine binary needs the executable bit on macOS/Linux
   // (Windows ignores file modes). Without this, spawning it fails with EACCES.
-  if (it.key === 'engine' && process.platform !== 'win32') {
+  if (spec.executable && process.platform !== 'win32') {
     fs.chmodSync(dest, 0o755)
   }
+}
+
+async function downloadItem(
+  it: DatasetItem,
+  itemIndex: number,
+  itemCount: number,
+  onProgress: ProgressFn
+): Promise<void> {
+  const dest = destFor(it.key)
+  await downloadVerified(
+    { ...it, executable: it.key === 'engine' },
+    dest,
+    (received, total) =>
+      onProgress({ key: it.key, phase: 'download', received, total, itemIndex, itemCount })
+  )
+  onProgress({ key: it.key, phase: 'verify', received: it.bytes, total: it.bytes, itemIndex, itemCount })
 }
 
 export async function runImport(

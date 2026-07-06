@@ -14,6 +14,7 @@ import './components/shell-overlays.css'
 // bundle only carries the dashboard. React.lazy needs default exports, so views
 // that export a named component are adapted to a default here.
 const PlayView = lazy(() => import('./features/play/PlayView'))
+const GamesView = lazy(() => import('./features/games/GamesView'))
 const PuzzlesView = lazy(() => import('./features/puzzles/PuzzlesView'))
 const OpeningsView = lazy(() => import('./features/openings/OpeningsView'))
 const ProgressView = lazy(() => import('./features/progress/ProgressView'))
@@ -28,6 +29,7 @@ const SettingsView = lazy(() =>
 const TITLES: Record<ViewKey, string> = {
   home: 'Home',
   play: 'Play',
+  games: 'Games',
   analysis: 'Analysis',
   puzzles: 'Puzzles',
   school: 'School',
@@ -68,6 +70,8 @@ function CurrentView({
       return <HomeView onNavigate={onNavigate} onOpenGame={onOpenGame} />
     case 'play':
       return <PlayView onAnalyzeGame={onOpenGame} onOpenFamousGame={onOpenFamousGame} />
+    case 'games':
+      return <GamesView />
     case 'puzzles':
       return <PuzzlesView />
     case 'openings':

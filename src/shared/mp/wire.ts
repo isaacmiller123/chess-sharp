@@ -26,7 +26,14 @@ import type { MpGameConfig } from '@shared/types'
 // whose `v` doesn't match PROTOCOL_VERSION is refused with a wire 'error' and the
 // session is torn down. Bump this on ANY wire-incompatible change below.
 
-export const PROTOCOL_VERSION = 3
+// v4 (docs/GAMES-PLATFORM-SPEC.md §Wire-v4) over v3: game-agnostic online.
+//   - MpGameConfig gains `game?: { kind, options }` (absent = chess).
+//   - move strings are game-defined codecs: uci-regex → non-empty string ≤ 64
+//     chars. Legality is validated by the game kernel on the HOST before a move
+//     is committed/relayed (authority unchanged) — the wire only bounds size.
+//   - resync additionally carries the game config so a resumed guest can rebuild
+//     a non-chess game. v3 peers are refused politely by the hello version gate.
+export const PROTOCOL_VERSION = 4
 
 const roleSchema = z.enum(['host', 'guest'])
 
@@ -87,10 +94,23 @@ export const mpTimeControlSchema = z
   })
   .strict()
 
+/** v4: which game a session plays. `kind` is a registry key ('chess' default);
+ *  `options` is an opaque, game-defined JSON blob (validated by the game's own
+ *  kernel init, not by the wire). Absent `game` on the config means chess. */
+export const mpGameSelectorSchema = z
+  .object({
+    kind: z.string().min(1).max(64),
+    // Opaque per-game options; must survive JSON round-trip untouched. unknown()
+    // accepts anything INCLUDING absent — mirrors `options?: unknown`.
+    options: z.unknown().optional()
+  })
+  .strict()
+
 export const mpGameConfigSchema = z
   .object({
     tc: mpTimeControlSchema,
-    hostColor: z.enum(['white', 'black', 'random'])
+    hostColor: z.enum(['white', 'black', 'random']),
+    game: mpGameSelectorSchema.optional()
   })
   .strict()
 // Compile-time check: the zod schema stays in lockstep with the shared type.
@@ -101,8 +121,11 @@ void _assertMpGameConfig
 const colorSchema = z.enum(['white', 'black'])
 const clocksSchema = z.object({ white: z.number(), black: z.number() }).strict()
 
-/** UCI move like 'e2e4' / 'e7e8q'. */
-export const uciSchema = z.string().regex(/^[a-h][1-8][a-h][1-8][qrbn]?$/)
+/** v4 move string: a game-defined canonical move codec (chess: UCI like 'e2e4'/
+ *  'e7e8q'; go: 'pd4'/'pass'; …). The wire only bounds it (non-empty, ≤64 chars);
+ *  LEGALITY is enforced by the host-side game kernel before commit/relay. The
+ *  field keeps its historical name `uci` on the wire for schema stability. */
+export const moveStrSchema = z.string().min(1).max(64)
 
 export const wireMsgSchema = z.discriminatedUnion('t', [
   helloMsgSchema,
@@ -124,7 +147,7 @@ export const wireMsgSchema = z.discriminatedUnion('t', [
       t: z.literal('move'),
       gameId: z.number().int(),
       ply: z.number().int().min(0),
-      uci: uciSchema,
+      uci: moveStrSchema,
       clockMs: clocksSchema
     })
     .strict(),
@@ -176,10 +199,13 @@ export const wireMsgSchema = z.discriminatedUnion('t', [
     .object({
       t: z.literal('resync'),
       gameId: z.number().int(),
-      moves: z.array(uciSchema),
+      moves: z.array(moveStrSchema),
       clockMs: clocksSchema,
       toMove: colorSchema,
-      yourColor: colorSchema
+      yourColor: colorSchema,
+      // v4: the game config rides along so a resumed guest can rebuild any game
+      // (optional so a config-less resync still parses; chess needs no rebuild).
+      config: mpGameConfigSchema.optional()
     })
     .strict(),
   // graceful goodbye before leaving the room.

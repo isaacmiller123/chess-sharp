@@ -39,6 +39,11 @@ export interface AnalyzeRequest {
  *  lower targets the main process switches to MultiPV-softmax weak play. */
 export const ENGINE_ELO_FLOOR = 1320
 
+/** Maia ("Human" style) strength bands: one lc0 weight file per level. The five
+ *  bands map 1:1 onto the games platform's 5-level bot row (spec §Bots). */
+export const MAIA_LEVELS = [1100, 1300, 1500, 1700, 1900] as const
+export type MaiaLevel = (typeof MAIA_LEVELS)[number]
+
 export interface PlayLevel {
   /** Legacy: native Stockfish UCI_Elo (engine-enforced floor of 1320). Prefer `elo`. */
   uciElo?: number
@@ -48,6 +53,10 @@ export interface PlayLevel {
    *  native UCI_Elo when >= ENGINE_ELO_FLOOR, engine-driven weakening below
    *  that. Takes precedence over uciElo/skill when set (back-compat). */
   elo?: number
+  /** "Human" style: play the maia-<level> lc0 net at nodes=1 instead of
+   *  Stockfish. Must be one of MAIA_LEVELS; takes precedence over all other
+   *  knobs. Requires the 'maia' dataset group (lc0 binary + weight files). */
+  maia?: MaiaLevel
 }
 
 export interface PlayRequest {
@@ -905,6 +914,11 @@ export interface MpGameConfig {
   tc: MpTimeControl
   /** Which color the HOST plays; 'random' is resolved by the host at start. */
   hostColor: 'white' | 'black' | 'random'
+  /** Wire v4: which game this session plays. ABSENT = chess (full back-compat
+   *  for every v4 build; v3 peers are refused by the hello version gate anyway).
+   *  `options` is a game-defined, JSON-serializable options blob (e.g. board
+   *  size, variant config) that must survive a JSON round-trip untouched. */
+  game?: { kind: string; options?: unknown }
 }
 
 export type MpColor = 'white' | 'black'
