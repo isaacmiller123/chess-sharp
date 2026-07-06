@@ -40,6 +40,7 @@
 // concurrency 4. Use --self 1 --cross1 0 --cross2 0 for a smoke pass.
 
 import { execSync } from 'node:child_process'
+import { pathToFileURL } from 'node:url'
 import { appendFileSync, writeFileSync, mkdirSync, readFileSync, existsSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -84,7 +85,7 @@ execSync(
   `npx esbuild src/main/analysis/accuracy.ts --bundle --platform=node --format=esm --outfile=${bundleOut}`,
   { stdio: 'pipe', cwd: repoRoot }
 )
-const A = await import(bundleOut)
+const A = await import(pathToFileURL(bundleOut).href)
 // winPercent, moveAccuracy, gameAccuracy, acpl, computeIsBest, canonicalUci
 
 // ---- Review-parity per-game analysis -------------------------------------------------

@@ -35,6 +35,7 @@
 // and exits 1. The process must exit cleanly (no leaked timers/handles).
 
 import { build } from 'esbuild'
+import { pathToFileURL } from 'node:url'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { mkdtempSync, rmSync, readFileSync, mkdirSync } from 'node:fs'
@@ -275,14 +276,14 @@ async function main() {
     'mpSession bundle has no trystero import'
   )
   ok(!/require\(\s*["']node:/.test(src) && !/from\s*["']node:/.test(src), 'mpSession bundle has no node: import')
-  const mod = await import(sessOut)
+  const mod = await import(pathToFileURL(sessOut).href)
   const { MpNetSession, __setMpTimingForTests } = mod
   ok(typeof MpNetSession === 'function', 'mpSession.ts bundled & MpNetSession exported')
   ok(typeof __setMpTimingForTests === 'function', '__setMpTimingForTests test-hook exported')
 
   const wireOut = resolve(outdir, 'wire.mjs')
   await bundleTo('src/shared/mp/wire.ts', wireOut)
-  const wire = await import(wireOut)
+  const wire = await import(pathToFileURL(wireOut).href)
 
   // Shrink every watchdog window so timers fire in ms, not tens of seconds.
   // (Production defaults live in mpSession.ts; this is the documented test hook.)

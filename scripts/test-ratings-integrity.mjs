@@ -18,6 +18,7 @@
 // Exit 1 on any failure.
 
 import { execSync } from 'node:child_process'
+import { pathToFileURL } from 'node:url'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -33,9 +34,9 @@ function bundle(entry, name) {
   return out
 }
 
-const B = await import(bundle('src/shared/botStrength.ts', 'botStrength.mjs'))
-const R = await import(bundle('src/main/ratings/recompute.ts', 'recompute.mjs'))
-const G = await import(bundle('src/main/rating/glicko2.ts', 'glicko2.mjs'))
+const B = await import(pathToFileURL(bundle('src/shared/botStrength.ts', 'botStrength.mjs')).href)
+const R = await import(pathToFileURL(bundle('src/main/ratings/recompute.ts', 'recompute.mjs')).href)
+const G = await import(pathToFileURL(bundle('src/main/rating/glicko2.ts', 'glicko2.mjs')).href)
 
 let failures = 0
 function check(name, ok, detail = '') {

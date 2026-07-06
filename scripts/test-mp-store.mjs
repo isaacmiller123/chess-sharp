@@ -24,6 +24,7 @@
 // and exits 1. Clean exit (no leaked handles).
 
 import { build } from 'esbuild'
+import { pathToFileURL } from 'node:url'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs'
@@ -162,8 +163,8 @@ async function main() {
     globalThis.performance = { now: () => Date.now() }
   }
 
-  const { onlineStore } = await import(storeOut)
-  const helpers = await import(helpersOut)
+  const { onlineStore } = await import(pathToFileURL(storeOut).href)
+  const helpers = await import(pathToFileURL(helpersOut).href)
   const { applyMove, turnColor, INITIAL_FEN } = helpers
 
   const MOCK = globalThis.__MP_MOCK__

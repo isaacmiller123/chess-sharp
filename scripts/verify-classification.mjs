@@ -7,6 +7,7 @@
 // labels: Best vs Brilliant vs Great, Miss, Book/Forced priority, band thresholds,
 // mate-transition table, and the blunder caps. Exit 1 on any mismatch.
 import { execSync } from 'node:child_process'
+import { pathToFileURL } from 'node:url'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -17,7 +18,7 @@ execSync(
   `npx esbuild src/main/analysis/accuracy.ts --bundle --platform=node --format=esm --outfile=${out}`,
   { stdio: 'pipe' }
 )
-const A = await import(out)
+const A = await import(pathToFileURL(out).href)
 
 // Quiet reference position (after 1.e4 e5 2.Nf3): many legal moves, nothing hanging.
 const QUIET = 'rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2'

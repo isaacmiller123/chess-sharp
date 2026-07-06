@@ -17,6 +17,7 @@
 // on any failure; prints an ALL GREEN line when everything passes.
 
 import { execSync } from 'node:child_process'
+import { pathToFileURL } from 'node:url'
 import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -29,7 +30,7 @@ execSync(
   `npx esbuild src/main/analysis/estElo.ts --bundle --platform=node --format=esm --outfile=${out}`,
   { stdio: 'pipe', cwd: repoRoot }
 )
-const E = await import(out)
+const E = await import(pathToFileURL(out).href)
 
 const fit = JSON.parse(readFileSync(path.join(repoRoot, 'scripts/data/elo-fit.json'), 'utf8'))
 
