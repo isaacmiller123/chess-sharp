@@ -1243,8 +1243,13 @@ export class MpNetSession {
     const now = this.now()
     const tickGap = now - this.lastTickAt
     this.lastTickAt = now
-    // Ping FIRST (carries our mono timestamp for RTT), even if we're about to judge.
-    this.sendWire({ t: 'ping', ts: now })
+    // Ping FIRST, even if we're about to judge. The ping timestamp deliberately
+    // uses REAL monotonic time, not the injectable game clock: RTT is a network
+    // property, and measuring it with the injected clock lets a test's (or any
+    // future consumer's) clock advance masquerade as network lag — a real
+    // Windows-CI failure where a heartbeat straddling a fake 500ms advance
+    // produced rtt=500 and silently forgave 250ms of think time.
+    this.sendWire({ t: 'ping', ts: performance.now() })
     // Self-stall: our own timer was frozen (throttled/suspended machine). Give the
     // peer a clean slate — don't punish them for OUR gap.
     if (tickGap > 2 * MP_TIMING.HEARTBEAT_MS) {
@@ -1265,7 +1270,8 @@ export class MpNetSession {
   }
 
   private onPong(sentTs: number): void {
-    const sample = Math.max(0, this.now() - sentTs)
+    // Real monotonic time, matching the ping timestamp — see heartbeatTick.
+    const sample = Math.max(0, performance.now() - sentTs)
     // Exponential moving average so a single spike doesn't dominate forgiveness.
     this.rtt = this.rtt === 0 ? sample : this.rtt * 0.7 + sample * 0.3
   }
