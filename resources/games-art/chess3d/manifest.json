@@ -1,0 +1,107 @@
+{
+  "asset": "Poly Haven \"Chess Set\"",
+  "author": "Riley Queen",
+  "license": "CC0",
+  "source": "https://polyhaven.com/a/chess_set",
+  "units": "meters",
+  "squareSize": 0.057888,
+  "boardTopY": 0.017393,
+  "pieces": {
+    "king_white": {
+      "file": "king_white.glb",
+      "tris": 4172,
+      "bytes": 110842,
+      "material": "chess_set_pieces_white"
+    },
+    "queen_white": {
+      "file": "queen_white.glb",
+      "tris": 2940,
+      "bytes": 77358,
+      "material": "chess_set_pieces_white"
+    },
+    "rook_white": {
+      "file": "rook_white.glb",
+      "tris": 2976,
+      "bytes": 83626,
+      "material": "chess_set_pieces_white"
+    },
+    "bishop_white": {
+      "file": "bishop_white.glb",
+      "tris": 2924,
+      "bytes": 77598,
+      "material": "chess_set_pieces_white"
+    },
+    "knight_white": {
+      "file": "knight_white.glb",
+      "tris": 2662,
+      "bytes": 71790,
+      "material": "chess_set_pieces_white"
+    },
+    "pawn_white": {
+      "file": "pawn_white.glb",
+      "tris": 1640,
+      "bytes": 43990,
+      "material": "chess_set_pieces_white"
+    },
+    "king_black": {
+      "file": "king_black.glb",
+      "tris": 4172,
+      "bytes": 110842,
+      "material": "chess_set_pieces_black"
+    },
+    "queen_black": {
+      "file": "queen_black.glb",
+      "tris": 2940,
+      "bytes": 77362,
+      "material": "chess_set_pieces_black"
+    },
+    "rook_black": {
+      "file": "rook_black.glb",
+      "tris": 2976,
+      "bytes": 83626,
+      "material": "chess_set_pieces_black"
+    },
+    "bishop_black": {
+      "file": "bishop_black.glb",
+      "tris": 2924,
+      "bytes": 77598,
+      "material": "chess_set_pieces_black"
+    },
+    "knight_black": {
+      "file": "knight_black.glb",
+      "tris": 2662,
+      "bytes": 71790,
+      "material": "chess_set_pieces_black"
+    },
+    "pawn_black": {
+      "file": "pawn_black.glb",
+      "tris": 1640,
+      "bytes": 43990,
+      "material": "chess_set_pieces_black"
+    },
+    "board": {
+      "file": "board.glb",
+      "tris": 2208,
+      "bytes": 63318,
+      "material": "chess_set_board"
+    }
+  },
+  "textures": {
+    "pieces_white": {
+      "diff": "textures/pieces_white_diff.jpg",
+      "normal": "textures/pieces_white_normal.jpg",
+      "arm": "textures/pieces_white_arm.jpg"
+    },
+    "pieces_black": {
+      "diff": "textures/pieces_black_diff.jpg",
+      "normal": "textures/pieces_black_normal.jpg",
+      "arm": "textures/pieces_black_arm.jpg"
+    },
+    "board": {
+      "diff": "textures/board_diff.jpg",
+      "normal": "textures/board_normal.jpg",
+      "arm": "textures/board_arm.jpg"
+    }
+  },
+  "totalMB": 9.87
+}

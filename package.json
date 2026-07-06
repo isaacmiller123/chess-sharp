@@ -25,7 +25,9 @@
     "test:ratings": "node scripts/test-ratings-integrity.mjs",
     "setup": "npm run setup:engines && npm run setup:puzzles && npm run build:puzzles && npm run build:openings",
     "dist:exe": "electron-vite build && electron-builder --dir",
-    "package": "electron-vite build && electron-builder"
+    "package": "electron-vite build && electron-builder",
+    "art:chess3d": "node scripts/prep-chess3d.mjs",
+    "smoke:chess3d": "node scripts/smoke-chess3d.mjs"
   },
   "dependencies": {
     "@jortvl/draughts": "^0.4.2",

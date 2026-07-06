@@ -61,6 +61,12 @@ export const GAMES_ART_CREDITS: readonly ArtCredit[] = [
     author: 'ambientCG',
     license: 'CC0-1.0',
     url: 'https://ambientcg.com'
+  },
+  {
+    asset: '3D chess set (photoscanned pieces + board)',
+    author: 'Riley Queen (Poly Haven)',
+    license: 'CC0-1.0',
+    url: 'https://polyhaven.com/a/chess_set'
   }
 ] as const
 

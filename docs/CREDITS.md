@@ -67,6 +67,23 @@ recorded here so the files stay reproducible:
 
 License: CC0-1.0 (<https://docs.ambientcg.com/license/>).
 
+## 3D chess set — `games-art/chess3d/`
+
+Photoscanned chess set (pieces + board) from [Poly Haven](https://polyhaven.com), repackaged
+by `scripts/prep-chess3d.mjs` (re-run it to reproduce the pack from upstream):
+
+- **Asset:** "Chess Set" — <https://polyhaven.com/a/chess_set>
+- **Author:** Riley Queen
+- **License:** CC0-1.0 (`games-art/chess3d/LICENSE.txt`) — no attribution required; recorded
+  for provenance and listed on the credits screen anyway.
+- **Repackaging:** one geometry-only GLB per piece type × color (12) + `board.glb`, re-exported
+  from the official 2k glTF release (source nodes `piece_<type>_<color>_NN`); the three shared
+  PBR JPEG sets ship once under `chess3d/textures/` (diffuse 2k, normal + ARM 1k;
+  ARM = R:AO / G:roughness / B:metalness). `manifest.json` records per-file tri counts/bytes,
+  the physical square size, and the board-top height. Pack total ≈ 9.9 MB (budget 15 MB).
+- **Loader:** `src/renderer/src/games/three/chessSet.ts` ('marble' = native scan; 'wood' =
+  recolor of the same maps). Smoke gate: `scripts/smoke-chess3d.mjs`.
+
 ## How the assets are wired
 
 - **Packaged builds:** `electron-builder.yml` `extraResources` copies `resources/games-art` →
