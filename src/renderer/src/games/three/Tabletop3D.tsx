@@ -39,6 +39,7 @@ import { GoStones } from './pieces/GoStones'
 import { Discs } from './pieces/Discs'
 import { Wedges } from './pieces/Wedges'
 import { Tokens } from './pieces/Tokens'
+import { ChessSetSystem } from './pieces/ChessSetPieces'
 import { hashString, makeFeltCanvas, canvasTexture } from './procedural'
 import { useArtPbr } from './materialHooks'
 import { CameraRig } from './CameraRig'
@@ -489,6 +490,18 @@ function TabletopScene({
     case 'token':
       system = <Tokens {...systemProps} params={provider.token} />
       break
+    case 'chessSet':
+      // Owns the board too (the Poly Haven scan includes board + frame, with
+      // BoardPlane as its own internal loading/failure fallback).
+      system = (
+        <ChessSetSystem
+          {...systemProps}
+          params={provider.chessSet}
+          layout={layout}
+          boardStyle={provider.board}
+        />
+      )
+      break
   }
 
   return (
@@ -504,7 +517,9 @@ function TabletopScene({
         opacity={0.45}
         resolution={512}
       />
-      <BoardPlane layout={layout} style={provider.board} artBase={artBase} />
+      {provider.system !== 'chessSet' ? (
+        <BoardPlane layout={layout} style={provider.board} artBase={artBase} />
+      ) : null}
       {system}
       {interactive && hoverPos ? <HoverMarker layout={layout} pos={hoverPos} /> : null}
       {pickPlane}

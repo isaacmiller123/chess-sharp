@@ -108,6 +108,26 @@ function shogiDemo(): TabletopPiece[] {
   return pieces
 }
 
+function chessDemo(): TabletopPiece[] {
+  // Italian Game middlegame — mixed material, both castled kings visible.
+  const fen = 'r1bq1rk1/1pp2ppp/p1np1n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQ1RK1'
+  const pieces: TabletopPiece[] = []
+  fen.split('/').forEach((row, i) => {
+    let file = 0
+    for (const ch of row) {
+      if (ch >= '1' && ch <= '8') {
+        file += Number(ch)
+        continue
+      }
+      pieces.push(
+        P(file, 7 - i, ch === ch.toUpperCase() ? 'white' : 'black', ch.toLowerCase())
+      )
+      file++
+    }
+  })
+  return pieces
+}
+
 function xiangqiDemo(): TabletopPiece[] {
   const pieces: TabletopPiece[] = []
   const back = ['r', 'n', 'b', 'a', 'k', 'a', 'b', 'n', 'r']
@@ -126,6 +146,13 @@ function xiangqiDemo(): TabletopPiece[] {
 
 function makeDemos(): Record<string, Demo> {
   return {
+    chess: {
+      kind: 'chess',
+      title: 'Chess (Poly Haven set)',
+      board: { layout: 'cells', files: 8, ranks: 8 },
+      pieces: chessDemo(),
+      drag: true
+    },
     go: {
       kind: 'go',
       title: 'Go 19×19',

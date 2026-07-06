@@ -34,7 +34,7 @@ export interface TabletopPiece {
   color: TabletopColor
 }
 
-export type PieceSystemId = 'goStone' | 'disc' | 'wedge' | 'token'
+export type PieceSystemId = 'goStone' | 'disc' | 'wedge' | 'token' | 'chessSet'
 
 /** games-art texture set names (resources/games-art/textures/<name>_{color,normal,roughness}.jpg). */
 export type ArtTextureName = 'wood-light' | 'wood-dark' | 'slate' | 'felt'
@@ -92,6 +92,11 @@ export interface TokenParams {
   colors?: Record<TabletopColor, string>
 }
 
+export interface ChessSetParams {
+  /** Poly Haven photoscan look ('marble', default) or the warm 'wood' recolor. */
+  variant?: 'marble' | 'wood'
+}
+
 /** GameKind → how the shared tabletop renders it. Registered in three/providers.ts. */
 export interface TabletopProvider {
   system: PieceSystemId
@@ -100,6 +105,7 @@ export interface TabletopProvider {
   stone?: StoneParams
   wedge?: WedgeParams
   token?: TokenParams
+  chessSet?: ChessSetParams
 }
 
 export interface Tabletop3DProps {

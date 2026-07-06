@@ -61,6 +61,8 @@ export interface AppSettings {
   analysisDepth: AnalysisDepth
   /** Engine move time (ms) for casual Play vs the engine. */
   playThinkMs: number
+  /** Per-game 3D board preference (Games library): kind → true = 3D table on. */
+  board3d: Record<string, boolean>
 }
 
 const DEFAULTS: AppSettings = {
@@ -84,7 +86,8 @@ const DEFAULTS: AppSettings = {
   avatar: null,
   analysisMultiPV: 3,
   analysisDepth: 22,
-  playThinkMs: 600
+  playThinkMs: 600,
+  board3d: {}
 }
 
 const KEY = 'oct.settings.v1'
@@ -125,6 +128,14 @@ function normalizeDepth(value: unknown): AnalysisDepth {
   return clampInt(value, ANALYSIS_DEPTH_MIN, ANALYSIS_DEPTH_MAX, DEFAULTS.analysisDepth as number)
 }
 
+/** Coerce the stored per-game 3D map: keep only boolean values on a plain object. */
+function normalizeBoard3d(value: unknown): Record<string, boolean> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
+  const out: Record<string, boolean> = {}
+  for (const [k, v] of Object.entries(value)) if (typeof v === 'boolean') out[k] = v
+  return out
+}
+
 function load(): AppSettings {
   try {
     const raw = localStorage.getItem(KEY)
@@ -158,6 +169,7 @@ function load(): AppSettings {
         PLAY_THINK_MS_MAX,
         DEFAULTS.playThinkMs
       )
+      merged.board3d = normalizeBoard3d(stored.board3d)
       return merged
     }
   } catch {
@@ -186,7 +198,8 @@ const RESETTABLE_KEYS = [
   'showEvalBar',
   'analysisMultiPV',
   'analysisDepth',
-  'playThinkMs'
+  'playThinkMs',
+  'board3d'
 ] as const
 
 interface Ctx {

@@ -6,6 +6,7 @@ import type { CatalogEntry } from './catalog'
 import { getGame, isRegisteredGame } from '../../games/registry'
 import type { GameKind } from '../../games/kernel'
 import { useBoardSound } from '../../games/boards/useBoardSound'
+import { Board3DHost, BoardModeToggle, useBoardMode } from './boardMode'
 
 /**
  * Local over-the-board play for the WHOLE chess family (all 14 kinds), driven
@@ -51,6 +52,7 @@ export function VariantOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
   const [state, setState] = useState<unknown>(() => (game.requiresPreload ? null : spec.init()))
   const [moveCount, setMoveCount] = useState(0)
   const [autoFlip, setAutoFlip] = useState(true)
+  const { is3d } = useBoardMode(kind)
 
   // ffish WASM preload — the board renders behind a shimmer until resolved.
   useEffect(() => {
@@ -136,6 +138,14 @@ export function VariantOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
         <div className={`votb-cfb board-${settings.boardTheme} ${pieceSetClass(settings.pieceSet)}`}>
           {!ready || state === null ? (
             shimmer
+          ) : is3d ? (
+            <Board3DHost
+              kind={kind}
+              state={state}
+              orientation={orientation}
+              interactive={!outcome}
+              onMove={onMove}
+            />
           ) : (
             <Suspense fallback={shimmer}>
               <Board
@@ -163,6 +173,7 @@ export function VariantOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
           {outcome ? 'Game over' : `${sideName(turn)} to move`}
           <span className="votb-movecount">{moveCount === 1 ? '1 move' : `${moveCount} moves`}</span>
         </div>
+        <BoardModeToggle kind={kind} />
         {rotates && (
           <label className="votb-flip">
             <input type="checkbox" checked={autoFlip} onChange={(e) => setAutoFlip(e.target.checked)} />

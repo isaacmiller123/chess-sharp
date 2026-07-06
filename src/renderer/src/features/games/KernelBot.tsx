@@ -30,6 +30,7 @@ import type { GoSpec, GoState } from '../../games/go'
 import { useBoardSound } from '../../games/boards/useBoardSound'
 import type { CatalogEntry } from './catalog'
 import { kernelColorLabel } from './KernelOtb'
+import { Board3DHost, BoardModeToggle, useBoardMode } from './boardMode'
 
 type Phase = 'setup' | 'playing'
 
@@ -70,6 +71,7 @@ export function KernelBot({
   const [goSize, setGoSize] = useState<9 | 13 | 19>(9)
   const [state, setState] = useState<unknown>(null)
   const [thinking, setThinking] = useState(false)
+  const { is3d } = useBoardMode(kind)
   // Go engine availability: null = probing, then katagoReady. Non-go kinds are
   // always available (in-process bots).
   const [engineReady, setEngineReady] = useState<boolean | null>(isGo ? null : true)
@@ -315,6 +317,16 @@ export function KernelBot({
       <div className="votb-stage">
         {state === null ? (
           shimmer
+        ) : is3d ? (
+          <Board3DHost
+            kind={kind}
+            state={state}
+            orientation={userColor === 'black' && spec.flipPolicy === 'rotate' ? 'black' : 'white'}
+            // Scoring phase (go): the human marks dead stones for BOTH sides.
+            interactive={isUserTurn || goScoring}
+            onMove={onUserMove}
+            onAction={onAction}
+          />
         ) : (
           <Suspense fallback={shimmer}>
             <Board
@@ -362,6 +374,7 @@ export function KernelBot({
             </span>
           )}
         </div>
+        <BoardModeToggle kind={kind} />
         {canPass && (
           <button type="button" className="votb-btn" onClick={() => onUserMove('pass')}>
             Pass{kind === 'othello' ? ' — no legal placement' : ''}

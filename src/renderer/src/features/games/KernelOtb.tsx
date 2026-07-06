@@ -20,6 +20,7 @@ import type { CatalogEntry } from './catalog'
 import { getGame, isRegisteredGame, type GameBoardProps } from '../../games/registry'
 import type { PlayerColor } from '../../games/kernel'
 import type { GoSpec, GoState } from '../../games/go'
+import { Board3DHost, BoardModeToggle, useBoardMode } from './boardMode'
 
 /** Per-idiom color naming (spec players stay white/black on the wire). */
 export function kernelColorLabel(kind: string, c: PlayerColor): string {
@@ -65,6 +66,7 @@ export function KernelOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
   const [ready, setReady] = useState(() => game.requiresPreload !== true)
   const [state, setState] = useState<unknown>(() => (game.requiresPreload ? null : spec.init(initOptions)))
   const [autoFlip, setAutoFlip] = useState(true)
+  const { is3d } = useBoardMode(kind)
 
   useEffect(() => {
     if (ready) return
@@ -144,14 +146,25 @@ export function KernelOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
       <div className="votb-stage">
         <Suspense fallback={<div className="kotb-loading">Setting up the board…</div>}>
           {state !== null && ready ? (
-            <Board
-              kind={kind as never}
-              state={state}
-              orientation={orientation}
-              interactive={!result}
-              onMove={onMove}
-              onAction={onAction}
-            />
+            is3d ? (
+              <Board3DHost
+                kind={kind as never}
+                state={state}
+                orientation={orientation}
+                interactive={!result}
+                onMove={onMove}
+                onAction={onAction}
+              />
+            ) : (
+              <Board
+                kind={kind as never}
+                state={state}
+                orientation={orientation}
+                interactive={!result}
+                onMove={onMove}
+                onAction={onAction}
+              />
+            )
           ) : (
             <div className="kotb-loading">Loading rules engine…</div>
           )}
@@ -194,6 +207,7 @@ export function KernelOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
             ))}
           </div>
         )}
+        <BoardModeToggle kind={kind} />
         {rotates && (
           <label className="votb-flip">
             <input type="checkbox" checked={autoFlip} onChange={(e) => setAutoFlip(e.target.checked)} />

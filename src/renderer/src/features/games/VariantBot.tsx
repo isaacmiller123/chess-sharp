@@ -7,6 +7,7 @@ import type { GameKind } from '../../games/kernel'
 import { getGame } from '../../games/registry'
 import { useBoardSound } from '../../games/boards/useBoardSound'
 import type { CatalogEntry } from './catalog'
+import { Board3DHost, BoardModeToggle, useBoardMode } from './boardMode'
 
 type Phase = 'setup' | 'playing'
 
@@ -39,6 +40,7 @@ export function VariantBot({
   const [ready, setReady] = useState(!game.requiresPreload)
   const [state, setState] = useState<unknown>(() => (game.requiresPreload ? null : spec.init()))
   const [thinking, setThinking] = useState(false)
+  const { is3d } = useBoardMode(kind)
   // Monotonic game id: a stale engine reply from a finished/restarted game is dropped.
   const gameSeq = useRef(0)
 
@@ -213,6 +215,14 @@ export function VariantBot({
         <div className={`votb-cfb board-${settings.boardTheme} ${pieceSetClass(settings.pieceSet)}`}>
           {state === null ? (
             shimmer
+          ) : is3d ? (
+            <Board3DHost
+              kind={kind}
+              state={state}
+              orientation={userColor}
+              interactive={isUserTurn}
+              onMove={onUserMove}
+            />
           ) : (
             <Suspense fallback={shimmer}>
               <BoardView
@@ -253,6 +263,7 @@ export function VariantBot({
             </span>
           )}
         </div>
+        <BoardModeToggle kind={kind} />
         <button type="button" className="votb-btn" onClick={start}>
           <RotateCcw size={14} aria-hidden /> {kind === 'chess960' ? 'New position' : 'Restart game'}
         </button>

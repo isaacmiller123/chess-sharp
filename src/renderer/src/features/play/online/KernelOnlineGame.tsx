@@ -26,6 +26,7 @@ import { ResultBanner } from '../ResultBanner'
 import { formatClock } from '../timeControl'
 import { onlineStore, type OnlineState } from './onlineStore'
 import { liveMs, LeaveConfirm, OnlineStatusBar, PeerStrips, RematchStrip } from './OnlineChrome'
+import { Board3DHost, BoardModeToggle, useBoardMode } from '../../games/boardMode'
 
 export interface KernelOnlineGameProps {
   state: OnlineState
@@ -53,6 +54,8 @@ export function KernelOnlineGame({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [state.gameKind]
   )
+
+  const { is3d } = useBoardMode(state.gameKind)
 
   const over = state.banner !== null
   const userColor = state.myColor
@@ -126,15 +129,25 @@ export function KernelOnlineGame({
 
           <div className="kernel-board-stage">
             {BoardComp && entry ? (
-              <Suspense fallback={<KernelBoardLoading title={title} />}>
-                <BoardComp
+              is3d ? (
+                <Board3DHost
                   kind={entry.spec.kind}
                   state={state.boardState}
                   orientation={state.orientation}
                   interactive={interactive}
                   onMove={onMove}
                 />
-              </Suspense>
+              ) : (
+                <Suspense fallback={<KernelBoardLoading title={title} />}>
+                  <BoardComp
+                    kind={entry.spec.kind}
+                    state={state.boardState}
+                    orientation={state.orientation}
+                    interactive={interactive}
+                    onMove={onMove}
+                  />
+                </Suspense>
+              )
             ) : (
               <div className="kernel-board-missing" role="alert">
                 This build has no board for “{state.gameKind}”.
@@ -181,6 +194,7 @@ export function KernelOnlineGame({
                   </span>
                 ) : (
                   <>
+                    <BoardModeToggle kind={state.gameKind} />
                     {canFlip && (
                       <>
                         <button

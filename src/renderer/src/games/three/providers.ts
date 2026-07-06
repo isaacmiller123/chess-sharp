@@ -3,8 +3,10 @@
 // gomoku, othello, connect four. CAN (procedural fallback pieces now): shogi
 // (wedge), xiangqi/janggi/makruk/morris (decal tokens). WON'T: TTT, hex.
 //
-// Chess-family kinds return null for now: they get the Poly Haven GLB piece
-// set in P3 (a 'glb' piece system slots in beside the procedural ones).
+// Standard-board chess kinds use the 'chessSet' system (Poly Haven photoscan
+// GLBs via chessSet.ts; ChessSetPieces.tsx owns board + fallbacks).
+// CRAZYHOUSE stays 2D-only: its pockets (captured pieces held for dropping)
+// have no tabletop representation yet — revisit if a pocket tray ships.
 
 import type { GameKind } from '../kernel'
 import type { TabletopProvider } from './types'
@@ -42,7 +44,37 @@ const CHECKERS_STYLE: TabletopProvider = {
   }
 }
 
+// Poly Haven scan look, with a matching procedural fallback board underneath
+// (slabHeight 0.3 ≈ the scan's own top surface, so the swap is seamless).
+const CHESS_SET_STYLE: TabletopProvider = {
+  system: 'chessSet',
+  board: {
+    topColor: '#e7cfa4',
+    topTexture: 'wood-light',
+    checkerColor: '#6d4326',
+    checkerTexture: 'wood-dark',
+    frameColor: '#3a2618',
+    frameTexture: 'wood-dark',
+    slabHeight: 0.3
+  },
+  chessSet: { variant: 'marble' }
+}
+
+/** Standard-board chess kinds (8×8, orthodox piece codes) — crazyhouse is
+ *  deliberately absent (pockets aren't representable on the tabletop yet). */
+const CHESS_SET_KINDS = [
+  'chess',
+  'chess960',
+  'atomic',
+  'antichess',
+  'kingofthehill',
+  'threecheck',
+  'horde',
+  'racingkings'
+] as const
+
 export const TABLETOP_PROVIDERS: Partial<Record<GameKind, TabletopProvider>> = {
+  ...Object.fromEntries(CHESS_SET_KINDS.map((k) => [k, CHESS_SET_STYLE])),
   go: GO_STYLE,
   gomoku: {
     ...GO_STYLE,
