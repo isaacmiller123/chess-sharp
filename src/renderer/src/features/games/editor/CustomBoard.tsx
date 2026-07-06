@@ -1,4 +1,4 @@
-import { useMemo, useState, type JSX } from 'react'
+import { useMemo, useState, type CSSProperties, type JSX } from 'react'
 import type { GameBoardProps } from '../../../games/registry'
 import { getGame } from '../../../games/registry'
 import type { GameKind } from '../../../games/kernel'
@@ -213,7 +213,12 @@ export default function CustomBoard({
   }
 
   return (
-    <div className="vl-play-board">
+    // --vl-files/--vl-ranks let the play layout cap the board's width by its
+    // aspect ratio (editor.css .vl-play .vl-play-board height budget).
+    <div
+      className="vl-play-board"
+      style={{ '--vl-files': files, '--vl-ranks': ranks } as CSSProperties}
+    >
       {tray(flip ? 'white' : 'black')}
       <div className="vl-board-frame">
         <div

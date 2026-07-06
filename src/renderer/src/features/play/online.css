@@ -712,6 +712,14 @@
    ============================================================================ */
 .play-view.is-kernel {
   grid-template-columns: minmax(0, 1fr);
+  /* Kernel games carry no move-list sidebar, so the board takes the full
+     chess budget (topbar + content padding + online status strip + two
+     player chips + controls row) with no fixed px cap — height-dominant. */
+  --play-board: min(100%, calc(100vh - 384px));
+}
+/* Go adds a captures strip under the goban — hand its height back. */
+.play-view.is-kernel:has(.goboard) {
+  --play-board: min(100%, calc(100vh - 416px));
 }
 .kernel-board-stage {
   position: relative;

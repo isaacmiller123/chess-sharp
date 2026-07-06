@@ -157,6 +157,51 @@
   max-width: 1180px;
 }
 
+/* In-play the page mirrors the chess Play experience: no 1180px cap, the
+   column fills the content viewport and the stage row takes everything the
+   slim playbar leaves behind. min-height (not height) keeps tall setup
+   screens (online host/join, bot picker) scrollable instead of clipped. */
+.game-page.is-playing {
+  max-width: none;
+  min-height: 100%;
+  gap: var(--space-5);
+}
+.game-page.is-playing > .game-online,
+.game-page.is-playing > .vbot-setup {
+  flex: 1;
+  min-height: 0;
+}
+.game-page.is-playing > .vbot-setup .vbot-setup-card {
+  /* auto margins center the card both ways without clipping on short windows */
+  margin: auto;
+}
+
+/* Slim in-play strip: back + title + mode tag (the PlayView-header analogue). */
+.game-playbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 0;
+}
+.game-playbar .game-back {
+  flex: none;
+}
+.game-playbar-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight, 1.2);
+}
+.game-playbar-mode {
+  padding: 1px var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.04em;
+}
+
 .game-back {
   align-self: flex-start;
   display: inline-flex;
@@ -335,16 +380,49 @@
 
 /* ---- Local OTB ---- */
 
+/* In-play layout clones the chess Play experience (play.css .play-view):
+   the board is the hero in a height-bounded left column, with a compact side
+   rail on the right. --votb-h is the board's height budget: viewport height
+   minus the chrome stacked above it (topbar ~58 + content padding 48 +
+   playbar strip ~34 + page gap + air). */
 .votb {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
   gap: var(--space-7);
-  align-items: flex-start;
-  flex-wrap: wrap;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+  --votb-h: calc(100vh - 168px);
 }
 .votb-stage {
   position: relative;
-  flex: 1 1 420px;
-  max-width: min(72vh, 640px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+}
+/* The board tile fills the column up to the height budget. Kinds with a
+   readout strip under the board (go captures, othello count, morris/ttt hint)
+   hand its height back; non-square aspects (connect4 7:6.6, hex ~1.66:1)
+   convert the budget through their ratio so height stays the binding edge. */
+.votb-stage .goboard,
+.votb-stage .gboard.is-othello,
+.votb-stage .gboard.is-morris,
+.votb-stage .gboard.is-tictactoe {
+  width: min(100%, calc(var(--votb-h) - 34px));
+}
+.votb-stage .ckboard,
+.votb-stage .b3d-stage,
+.votb-stage .kotb-loading {
+  width: min(100%, var(--votb-h));
+}
+.votb-stage .gboard.is-connect4 {
+  width: min(100%, calc(var(--votb-h) * 7 / 6.6));
+}
+.votb-stage .gboard.is-hex {
+  width: min(100%, calc(var(--votb-h) * 1.55));
 }
 .votb-board {
   width: 100%;
@@ -359,23 +437,30 @@
 }
 /* ChessFamilyBoard stage: the component owns its aspect ratio (9x10 boards,
    pockets stacked above/below) — this wrapper only carries the board-theme +
-   piece-set classes and keeps tall boards from outgrowing the viewport. */
+   piece-set classes; the wrap's width is capped so board height fits the
+   --votb-h budget exactly (aspect-safe: width cap == height cap x ratio). */
 .votb-cfb {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
-.votb-cfb .cfb-board,
-.votb-cfb .cfb-pocket,
+.votb-cfb .cfb-wrap,
 .votb-cfb .cfb-loading {
-  max-height: 72vh;
-  margin: 0 auto;
-  max-width: calc(72vh * var(--cfb-files, 8) / var(--cfb-ranks, 8));
+  width: min(100%, calc(var(--votb-h) * var(--cfb-files, 8) / var(--cfb-ranks, 8)));
 }
-.votb-cfb .cfb-pocket {
-  width: 100%;
+/* Pocket kinds (crazyhouse, shogi) stack trays above/below the board — give
+   their height back to the budget so the whole column still fits. */
+.votb-cfb:has(.cfb-pocket) .cfb-wrap {
+  width: min(100%, calc((var(--votb-h) - 104px) * var(--cfb-files, 8) / var(--cfb-ranks, 8)));
 }
 .votb-banner {
   position: absolute;
-  inset: auto var(--space-5) var(--space-5);
+  left: 50%;
+  bottom: var(--space-5);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - var(--space-5) * 2);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -388,7 +473,6 @@
   backdrop-filter: blur(6px);
 }
 .votb-side {
-  flex: 0 1 260px;
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
@@ -396,6 +480,25 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
+  align-self: start;
+  min-width: 0;
+}
+
+/* Narrow windows: side rail collapses under the board (GameView pattern). */
+@media (max-width: 1200px) {
+  .votb {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    --votb-h: calc(100vh - 200px);
+  }
+  .votb-stage {
+    width: 100%;
+  }
+  .votb-side {
+    width: min(100%, 620px);
+    align-self: center;
+  }
 }
 .votb-turn {
   display: flex;
@@ -791,13 +894,9 @@
 
 /* ---- Kernel OTB (non-chess boards) ---- */
 
-.kotb .votb-stage {
-  max-width: min(76vh, 680px);
-}
 .kotb-loading {
   display: grid;
   place-items: center;
-  width: 100%;
   aspect-ratio: 1 / 1;
   border-radius: var(--radius-board);
   border: 1px dashed var(--border);

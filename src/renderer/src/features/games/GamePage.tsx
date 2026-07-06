@@ -17,6 +17,9 @@ import { VariantOtb } from './VariantOtb'
 type PageTab = 'play' | 'manual'
 type PlayMode = 'bot' | 'otb' | 'online'
 
+/** Slim in-play strip labels (the hero collapses once a game starts). */
+const MODE_LABEL: Record<PlayMode, string> = { bot: 'vs Bot', otb: 'Local OTB', online: 'Online' }
+
 /** Catalog kinds that predate the kernel registry's naming. */
 const REGISTRY_ALIAS: Record<string, GameKind> = { 'checkers-8': 'checkers', ttt: 'tictactoe' }
 
@@ -107,11 +110,24 @@ export function GamePage({
   const botReady = playable && entry.otbReady === true && (entry.family === 'chess' || onlineKind !== null)
 
   return (
-    <div className="game-page">
-      <button type="button" className="game-back" onClick={mode ? () => setMode(null) : onBack}>
-        <ArrowLeft size={15} aria-hidden />
-        {mode ? `${entry.title} — modes` : 'All games'}
-      </button>
+    // In-play the page trades the hero for a slim title strip and hands the
+    // whole content column to the board (games.css .game-page.is-playing).
+    <div className={`game-page${mode ? ' is-playing' : ''}`}>
+      {mode ? (
+        <header className="game-playbar">
+          <button type="button" className="game-back" onClick={() => setMode(null)}>
+            <ArrowLeft size={15} aria-hidden />
+            Modes
+          </button>
+          <h2 className="game-playbar-title">{entry.title}</h2>
+          <span className="game-playbar-mode">{MODE_LABEL[mode]}</span>
+        </header>
+      ) : (
+        <button type="button" className="game-back" onClick={onBack}>
+          <ArrowLeft size={15} aria-hidden />
+          All games
+        </button>
+      )}
 
       {mode === 'otb' ? (
         // The chess family (chessops + ffish waves, incl. runtime customs)
