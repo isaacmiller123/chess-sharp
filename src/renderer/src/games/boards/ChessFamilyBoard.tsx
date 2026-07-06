@@ -483,7 +483,7 @@ export default function ChessFamilyBoard({
         {intersections && <IntersectionGrid kind={kind} files={files} ranks={ranks} />}
         {kind === 'shogi' && <ShogiGrid files={files} ranks={ranks} />}
         {kind === 'xiangqi' && (
-          <div className="cfb-river" style={{ fontSize: 'calc(100% + 1.2vh)' }} aria-hidden>
+          <div className="cfb-river" aria-hidden>
             <span>楚 河</span>
             <span>漢 界</span>
           </div>

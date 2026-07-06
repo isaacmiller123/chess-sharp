@@ -162,6 +162,9 @@ export const CHESS_VARIANTS: CatalogEntry[] = [
     title: 'Placement',
     tagline: 'Set up your own back rank, then play chess.',
     status: 'playable',
+    // Library card only (the classic 8x8 thumb Board renders it): a mid-draft
+    // back rank — placement's signature moment. Rules stay with ffish.
+    thumbFen: '2bqkb1r/pppppppp/8/8/8/8/PPPPPPPP/3QK1NR w - - 0 1',
     otbReady: true,
     manualId: 'placement'
   }

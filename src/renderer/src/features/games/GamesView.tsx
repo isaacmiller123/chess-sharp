@@ -52,6 +52,9 @@ export default function GamesView({
   }
 
   const boardCls = `board-wrap board-${settings.boardTheme} ${pieceSetClass(settings.pieceSet)}`
+  // Everything shipped in P2 — the section only renders if a future wave adds
+  // new not-yet-playable entries (an empty "Coming soon" header looks broken).
+  const comingSoon = CATALOG.filter((e) => e.status === 'coming' && e.kind !== 'custom-editor')
 
   const card = (entry: CatalogEntry): JSX.Element => (
     <button
@@ -120,15 +123,15 @@ export default function GamesView({
         </button>
       </section>
 
-      <section aria-labelledby="games-soon">
-        <h2 id="games-soon" className="games-section-title">
-          Coming soon
-          <span className="games-section-sub">Landing later in P2</span>
-        </h2>
-        <div className="games-grid">
-          {CATALOG.filter((e) => e.status === 'coming' && e.kind !== 'custom-editor').map(card)}
-        </div>
-      </section>
+      {comingSoon.length > 0 && (
+        <section aria-labelledby="games-soon">
+          <h2 id="games-soon" className="games-section-title">
+            Coming soon
+            <span className="games-section-sub">In the next wave</span>
+          </h2>
+          <div className="games-grid">{comingSoon.map(card)}</div>
+        </section>
+      )}
     </div>
   )
 }

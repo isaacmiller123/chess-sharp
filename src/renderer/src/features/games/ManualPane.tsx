@@ -1,6 +1,7 @@
 import { useMemo, type JSX, type ReactNode } from 'react'
 import { BookOpen } from 'lucide-react'
 import type { CatalogEntry } from './catalog'
+import { ManualDiagram } from './ManualDiagram'
 
 // Manuals ship as markdown in resources/manuals/<kind>.md and are inlined at
 // build time. TODO(P2): serve via a main-process manuals IPC instead (so
@@ -37,11 +38,12 @@ function inline(text: string): ReactNode[] {
   return out
 }
 
-function renderMarkdown(src: string): JSX.Element[] {
+function renderMarkdown(src: string, entry: CatalogEntry): JSX.Element[] {
   const lines = src.split(/\r?\n/)
   const blocks: JSX.Element[] = []
   let list: { ordered: boolean; items: string[] } | null = null
   let para: string[] = []
+  let fence: { lang: string; body: string[] } | null = null
   let key = 0
 
   const flushList = (): void => {
@@ -58,6 +60,33 @@ function renderMarkdown(src: string): JSX.Element[] {
 
   for (const raw of lines) {
     const line = raw.trimEnd()
+    // ``` fenced blocks: ```position payloads become real board diagrams
+    // (rendered in the game's own visual language); anything else is code.
+    const f = /^```(\S*)\s*$/.exec(line)
+    if (f) {
+      if (fence) {
+        const payload = fence.body.join('\n')
+        if (fence.lang === 'position') {
+          blocks.push(<ManualDiagram key={key++} entry={entry} payload={payload} />)
+        } else {
+          blocks.push(
+            <pre key={key++}>
+              <code>{payload}</code>
+            </pre>
+          )
+        }
+        fence = null
+      } else {
+        flushList()
+        flushPara()
+        fence = { lang: f[1], body: [] }
+      }
+      continue
+    }
+    if (fence) {
+      fence.body.push(line)
+      continue
+    }
     const h = /^(#{1,3})\s+(.*)$/.exec(line)
     const ul = /^[-*]\s+(.*)$/.exec(line)
     const ol = /^\d+\.\s+(.*)$/.exec(line)
@@ -94,8 +123,11 @@ function renderMarkdown(src: string): JSX.Element[] {
     } else if (line === '') {
       flushList()
       flushPara()
+    } else if (list !== null && list.items.length > 0) {
+      // Lazy continuation: manuals hard-wrap list items — a plain line while a
+      // list is open belongs to the previous item (else "1. 1. 1." lists).
+      list.items[list.items.length - 1] += ` ${line.trim()}`
     } else {
-      flushList()
       para.push(line)
     }
   }
@@ -106,7 +138,7 @@ function renderMarkdown(src: string): JSX.Element[] {
 
 export function ManualPane({ entry }: { entry: CatalogEntry }): JSX.Element {
   const src = manualSource(entry.manualId)
-  const body = useMemo(() => (src ? renderMarkdown(src) : null), [src])
+  const body = useMemo(() => (src ? renderMarkdown(src, entry) : null), [src, entry])
   if (!body) {
     return (
       <div className="manual-empty">

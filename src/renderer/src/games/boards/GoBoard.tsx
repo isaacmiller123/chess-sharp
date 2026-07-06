@@ -270,17 +270,19 @@ export default function GoBoard({ kind, state, interactive, onMove, onAction }: 
             )}
           </div>
         )}
-        {isGo && !scoring && !finalized && (goState!.moves.length > 0 || null) && (
-          <div className="goboard-caps" aria-hidden>
-            <span>
-              <span className="goboard-dot is-black" /> {capturesOf(goState!, 'black')}
-            </span>
-            <span>
-              <span className="goboard-dot is-white" /> {capturesOf(goState!, 'white')}
-            </span>
-          </div>
-        )}
       </div>
+      {/* Capture counts live BELOW the board (never over coordinates/stones). */}
+      {isGo && !scoring && !finalized && (goState!.moves.length > 0 || null) && (
+        <div className="goboard-caps" aria-hidden>
+          <span className="goboard-caps-label">Captures</span>
+          <span>
+            <span className="goboard-dot is-black" /> {capturesOf(goState!, 'black')}
+          </span>
+          <span>
+            <span className="goboard-dot is-white" /> {capturesOf(goState!, 'white')}
+          </span>
+        </div>
+      )}
     </div>
   )
 }

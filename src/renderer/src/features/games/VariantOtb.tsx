@@ -161,7 +161,7 @@ export function VariantOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
         <div className="votb-turn">
           <span className={`votb-turn-dot is-${turn}`} aria-hidden />
           {outcome ? 'Game over' : `${sideName(turn)} to move`}
-          <span className="votb-movecount">{moveCount} moves</span>
+          <span className="votb-movecount">{moveCount === 1 ? '1 move' : `${moveCount} moves`}</span>
         </div>
         {rotates && (
           <label className="votb-flip">
@@ -178,9 +178,7 @@ export function VariantOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
         <button type="button" className="votb-btn" onClick={reset} disabled={!ready}>
           <RotateCcw size={14} aria-hidden /> {kind === 'chess960' ? 'New position' : 'Restart game'}
         </button>
-        <p className="votb-note">
-          Over-the-board: pass the machine between moves. Clocks, move list and saving land later in P2.
-        </p>
+        <p className="votb-note">Over-the-board: two players, one machine — pass it between moves.</p>
       </aside>
     </div>
   )

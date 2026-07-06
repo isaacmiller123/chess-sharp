@@ -173,7 +173,9 @@ export function KernelOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
             aria-hidden
           />
           {turnLabel}
-          <span className="votb-movecount">{moves.length} moves</span>
+          <span className="votb-movecount">
+            {moves.length === 1 ? '1 move' : `${moves.length} moves`}
+          </span>
         </div>
         {kind === 'go' && (
           <div className="kotb-sizes" role="group" aria-label="Board size">
