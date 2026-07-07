@@ -83,7 +83,9 @@ interface Candidate {
 /**
  * Run a single MultiPV search and resolve with the latest line per multipv index
  * once `bestmove` arrives. The engine's reported bestmove is returned too as a
- * guaranteed-legal fallback.
+ * guaranteed-legal fallback. Every exit path (bestmove / timeout / engine exit /
+ * engine error) detaches all listeners so nothing leaks onto the shared persona
+ * engine, and a wedged engine can never hang the persona's turn forever.
  */
 function searchLines(
   engine: UciEngine,
@@ -91,18 +93,43 @@ function searchLines(
   multipv: number,
   limit: { kind: 'depth'; value: number } | { kind: 'movetime'; value: number }
 ): Promise<{ lines: Map<number, InfoLine>; bestmove: string }> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const lines = new Map<number, InfoLine>()
+    let done = false
     const onInfo = (info: InfoLine): void => {
       const idx = info.multipv ?? 1
       if (info.pv && info.pv.length > 0) lines.set(idx, info)
     }
-    const onBest = (bm: { bestmove: string }): void => {
+    const cleanup = (): void => {
+      clearTimeout(timer)
       engine.off('info', onInfo)
+      engine.off('bestmove', onBest)
+      engine.off('exit', onExit)
+      engine.off('engineError', onErr)
+    }
+    const onBest = (bm: { bestmove: string }): void => {
+      if (done) return
+      done = true
+      cleanup()
       resolve({ lines, bestmove: bm.bestmove })
     }
+    const fail = (e: Error): void => {
+      if (done) return
+      done = true
+      cleanup()
+      reject(e)
+    }
+    const onExit = (): void => fail(new Error('engine exited during persona search'))
+    const onErr = (err: Error): void =>
+      fail(err instanceof Error ? err : new Error('engine error during persona search'))
+    const timer = setTimeout(
+      () => fail(new Error('persona search timeout')),
+      PERSONA_SEARCH_TIMEOUT_MS
+    )
     engine.on('info', onInfo)
     engine.once('bestmove', onBest)
+    engine.once('exit', onExit)
+    engine.once('engineError', onErr)
     void engine.search(fen, limit, multipv)
   })
 }
@@ -338,16 +365,87 @@ function evalTolerancePawns(persona: Persona): number {
   return 0.2 + 1.0 * Math.max(aggression, risk)
 }
 
+// ---- Shared persona engine ---------------------------------------------------------
+//
+// One long-lived Stockfish reused across persona moves (previously a brand-new
+// process was spawned PER MOVE — constant spawn/teardown churn and possible
+// concurrent spawns). Mirrors the engine:play discipline in
+// src/main/ipc/engine.ipc.ts: a single pooled process, a serialization chain so
+// two calls can never interleave their option/search writes, and stop() before
+// each search. It stays arms-length from the analysis/play pool (StockfishPool)
+// so a persona game never starves analysis. The process is disposed after a
+// short idle window — game over or persona deselected means no more moves, so
+// the engine goes away by itself — and lazily respawned on the next move. A
+// crashed or wedged engine is dropped immediately so the next move respawns
+// cleanly instead of writing to a dead process.
+
+const PERSONA_ENGINE_IDLE_MS = 60_000
+/** Hard per-search ceiling (movetime path is <= 10s by the ipc schema; the
+ *  depth path for a 3190 persona is seconds) — the renderer additionally falls
+ *  back to a random legal move if this rejects, so the turn never hangs. */
+const PERSONA_SEARCH_TIMEOUT_MS = 30_000
+
+let personaEngine: UciEngine | null = null
+let personaIdleTimer: NodeJS.Timeout | null = null
+
+// personas:move calls all share the one engine — serialize them (own chain,
+// independent of engine.ipc.ts's queues) exactly like serializePlay there.
+let personaChain: Promise<unknown> = Promise.resolve()
+function serializePersona<T>(fn: () => Promise<T>): Promise<T> {
+  const run = personaChain.then(fn, fn)
+  personaChain = run.then(
+    () => undefined,
+    () => undefined
+  )
+  return run
+}
+
+async function getPersonaEngine(): Promise<UciEngine> {
+  if (personaIdleTimer) {
+    clearTimeout(personaIdleTimer)
+    personaIdleTimer = null
+  }
+  if (personaEngine) return personaEngine
+  const engine = new UciEngine(stockfishPath())
+  await engine.start()
+  engine.setOption('Threads', 1)
+  engine.setOption('Hash', 64)
+  await engine.isready()
+  // A process that dies on its own must not be handed to the next move.
+  engine.once('exit', () => {
+    if (personaEngine === engine) personaEngine = null
+  })
+  personaEngine = engine
+  return engine
+}
+
+/** Drop the pooled engine (crash/timeout or idle end-of-game) and kill the process. */
+function dropPersonaEngine(engine: UciEngine): void {
+  if (personaEngine === engine) personaEngine = null
+  void engine.quit().catch(() => engine.kill())
+}
+
+/** After each move, (re)arm the idle disposal — the "returned on game end" path. */
+function schedulePersonaIdleDisposal(): void {
+  if (personaIdleTimer) clearTimeout(personaIdleTimer)
+  personaIdleTimer = setTimeout(() => {
+    personaIdleTimer = null
+    if (personaEngine) dropPersonaEngine(personaEngine)
+  }, PERSONA_ENGINE_IDLE_MS)
+  // Never keep a headless process alive just for the disposal timer.
+  personaIdleTimer.unref?.()
+}
+
 // ---- Main entry ------------------------------------------------------------------
 
 /**
  * Select a style-weighted move for the given persona in the given position.
- * Spawns its own short-lived Stockfish (kept arms-length from the analysis/play
- * pool so a persona game never starves analysis), caps strength near the persona's
- * MODERN-era Elo estimate (a 2700 from 1900 is far weaker than a 2700 today — the
- * bot should play at the honest present-day strength the detail card advertises;
- * peakElo remains the historical display number), and returns the chosen UCI move
- * plus its line eval.
+ * Runs on the shared persona engine (see above — pooled + serialized, arms-length
+ * from the analysis/play pool so a persona game never starves analysis), caps
+ * strength near the persona's MODERN-era Elo estimate (a 2700 from 1900 is far
+ * weaker than a 2700 today — the bot should play at the honest present-day
+ * strength the detail card advertises; peakElo remains the historical display
+ * number), and returns the chosen UCI move plus its line eval.
  */
 export async function selectMove(args: SelectMoveArgs): Promise<SelectMoveResult> {
   const persona = getPersona(args.personaId)
@@ -365,62 +463,78 @@ export async function selectMove(args: SelectMoveArgs): Promise<SelectMoveResult
   const booked = bookMove(args.personaId, fen)
   if (booked) return { bestmove: booked }
 
-  const engine = new UciEngine(stockfishPath())
-  try {
-    await engine.start()
-    engine.setOption('Threads', 1)
-    engine.setOption('Hash', 64)
-    engine.setOption('UCI_LimitStrength', true)
-    engine.setOption('UCI_Elo', clampElo(strengthElo))
-    await engine.newGame()
-
-    const limit =
-      args.movetimeMs !== undefined
-        ? ({ kind: 'movetime', value: Math.max(50, Math.round(args.movetimeMs)) } as const)
-        : ({ kind: 'depth', value: Math.max(4, args.depth ?? defaultDepth(strengthElo)) } as const)
-
-    const { lines, bestmove } = await searchLines(engine, fen, 6, limit)
-
-    // Assemble candidates ordered by multipv rank.
-    const candidates: Candidate[] = []
-    for (let rank = 1; rank <= 6; rank++) {
-      const info = lines.get(rank)
-      if (!info) continue
-      const cand = infoToCandidate(rank, info)
-      if (cand) candidates.push(cand)
+  return serializePersona(async () => {
+    const engine = await getPersonaEngine()
+    try {
+      // Drain any abandoned search to idle before touching options — same
+      // discipline as engine:play in engine.ipc.ts.
+      await engine.stop()
+      engine.setOption('UCI_LimitStrength', true)
+      engine.setOption('UCI_Elo', clampElo(strengthElo))
+      return await selectOnEngine(engine, persona, fen, args)
+    } catch (err) {
+      // Wedged/crashed engine: kill + drop so the next move respawns cleanly
+      // (KatagoPool discipline). The caller surfaces the error; the renderer
+      // falls back to a random legal move so the turn never hangs.
+      dropPersonaEngine(engine)
+      throw err instanceof Error ? err : new Error(String(err))
+    } finally {
+      schedulePersonaIdleDisposal()
     }
+  })
+}
 
-    // Fallback: if MultiPV produced nothing usable, trust the engine's bestmove.
-    if (candidates.length === 0) {
-      return { bestmove }
+async function selectOnEngine(
+  engine: UciEngine,
+  persona: Persona,
+  fen: string,
+  args: SelectMoveArgs
+): Promise<SelectMoveResult> {
+  const strengthElo = persona.modernElo ?? persona.peakElo
+  const limit =
+    args.movetimeMs !== undefined
+      ? ({ kind: 'movetime', value: Math.max(50, Math.round(args.movetimeMs)) } as const)
+      : ({ kind: 'depth', value: Math.max(4, args.depth ?? defaultDepth(strengthElo)) } as const)
+
+  const { lines, bestmove } = await searchLines(engine, fen, 6, limit)
+
+  // Assemble candidates ordered by multipv rank.
+  const candidates: Candidate[] = []
+  for (let rank = 1; rank <= 6; rank++) {
+    const info = lines.get(rank)
+    if (!info) continue
+    const cand = infoToCandidate(rank, info)
+    if (cand) candidates.push(cand)
+  }
+
+  // Fallback: if MultiPV produced nothing usable, trust the engine's bestmove.
+  if (candidates.length === 0) {
+    return { bestmove }
+  }
+
+  const best = candidates.reduce((a, b) => (evalScalar(b) > evalScalar(a) ? b : a))
+  const bestScalar = evalScalar(best)
+  const tolCp = evalTolerancePawns(persona) * 100
+
+  // Keep lines within tolerance of best (always keep best itself).
+  const eligible = candidates.filter((c) => bestScalar - evalScalar(c) <= tolCp)
+  const pool = eligible.length > 0 ? eligible : [best]
+
+  // Style-score each eligible candidate and pick the highest. Ties resolve toward
+  // the higher-eval (lower-rank) line for stability.
+  let chosen = pool[0]
+  let chosenScore = -Infinity
+  for (const c of pool) {
+    const traits = classifyMove(fen, c.uci)
+    const s = styleScore(persona, c, best, traits)
+    if (s > chosenScore || (s === chosenScore && c.rank < chosen.rank)) {
+      chosen = c
+      chosenScore = s
     }
+  }
 
-    const best = candidates.reduce((a, b) => (evalScalar(b) > evalScalar(a) ? b : a))
-    const bestScalar = evalScalar(best)
-    const tolCp = evalTolerancePawns(persona) * 100
-
-    // Keep lines within tolerance of best (always keep best itself).
-    const eligible = candidates.filter((c) => bestScalar - evalScalar(c) <= tolCp)
-    const pool = eligible.length > 0 ? eligible : [best]
-
-    // Style-score each eligible candidate and pick the highest. Ties resolve toward
-    // the higher-eval (lower-rank) line for stability.
-    let chosen = pool[0]
-    let chosenScore = -Infinity
-    for (const c of pool) {
-      const traits = classifyMove(fen, c.uci)
-      const s = styleScore(persona, c, best, traits)
-      if (s > chosenScore || (s === chosenScore && c.rank < chosen.rank)) {
-        chosen = c
-        chosenScore = s
-      }
-    }
-
-    return {
-      bestmove: chosen.uci,
-      lineEval: { cp: chosen.cp, mate: chosen.mate }
-    }
-  } finally {
-    await engine.quit().catch(() => engine.kill())
+  return {
+    bestmove: chosen.uci,
+    lineEval: { cp: chosen.cp, mate: chosen.mate }
   }
 }

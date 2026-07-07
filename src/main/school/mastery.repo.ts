@@ -1,3 +1,4 @@
+import type { DatabaseSync } from 'node:sqlite'
 import { getAppDb } from '../db/database'
 import { getChapter } from './school.repo'
 import { MAX_ATTEMPTS } from '../../shared/types'
@@ -234,22 +235,29 @@ export function resetChapterForRetake(chapterId: string): void {
   const db = getAppDb()
   db.exec('BEGIN')
   try {
-    db.prepare('DELETE FROM lesson_progress WHERE chapter_id=?').run(chapterId)
-    db.prepare(
-      `UPDATE chapter_progress
-         SET segments_done=0, completed=0, boss_won=0, updated_at=?
-       WHERE chapter_id=?`
-    ).run(Date.now(), chapterId)
-    // Zero attempts + passed so the learner starts the test fresh after redoing the
-    // lessons; keep best_pct.
-    db.prepare(
-      'UPDATE chapter_test SET attempts=0, passed=0, updated_at=? WHERE chapter_id=?'
-    ).run(Date.now(), chapterId)
+    resetChapterStatements(db, chapterId)
     db.exec('COMMIT')
   } catch (err) {
     db.exec('ROLLBACK')
     throw err
   }
+}
+
+/** The retake reset's statements WITHOUT a transaction, so a caller that is
+ *  already inside one (recordTest) can include them atomically — SQLite can't
+ *  nest BEGIN. */
+function resetChapterStatements(db: DatabaseSync, chapterId: string): void {
+  db.prepare('DELETE FROM lesson_progress WHERE chapter_id=?').run(chapterId)
+  db.prepare(
+    `UPDATE chapter_progress
+       SET segments_done=0, completed=0, boss_won=0, updated_at=?
+     WHERE chapter_id=?`
+  ).run(Date.now(), chapterId)
+  // Zero attempts + passed so the learner starts the test fresh after redoing the
+  // lessons; keep best_pct.
+  db.prepare(
+    'UPDATE chapter_test SET attempts=0, passed=0, updated_at=? WHERE chapter_id=?'
+  ).run(Date.now(), chapterId)
 }
 
 /**
@@ -302,27 +310,41 @@ export function recordTest(
   // (4) True second fail: not (now or previously) passed AND we've hit the cap.
   const mustRetake = !passedNow && !wasPassed && attempts >= MAX_ATTEMPTS
 
-  db.prepare(
-    `INSERT INTO chapter_test(chapter_id, attempts, passed, best_pct, updated_at)
-     VALUES (?,?,?,?,?)
-     ON CONFLICT(chapter_id) DO UPDATE SET
-       attempts=?,
-       passed=?,
-       best_pct=?,
-       updated_at=excluded.updated_at`
-  ).run(chapterId, attempts, passedFlag, bestPct, now, attempts, passedFlag, bestPct)
+  // All writes of one recorded attempt land atomically (house BEGIN/COMMIT
+  // idiom): the chapter_test upsert, the study-log row, a fresh pass's chapter
+  // completion, and a second-fail retake reset can never be torn apart by a
+  // crash mid-sequence. appendProgressEvent/completeChapter run on the same
+  // singleton connection, so their statements join this transaction.
+  db.exec('BEGIN')
+  try {
+    db.prepare(
+      `INSERT INTO chapter_test(chapter_id, attempts, passed, best_pct, updated_at)
+       VALUES (?,?,?,?,?)
+       ON CONFLICT(chapter_id) DO UPDATE SET
+         attempts=?,
+         passed=?,
+         best_pct=?,
+         updated_at=excluded.updated_at`
+    ).run(chapterId, attempts, passedFlag, bestPct, now, attempts, passedFlag, bestPct)
 
-  appendProgressEvent('test', chapterId, scorePct)
+    appendProgressEvent('test', chapterId, scorePct)
 
-  // (3) Fresh pass ⇒ the chapter itself is complete (chapter_progress.completed —
-  // new-model chapters have no other completion path). bossWon=false keeps
-  // boss_won sticky: a prior win is never cleared, and none is claimed here.
-  if (passedNow && !wasPassed) completeChapter(chapterId, false)
+    // (3) Fresh pass ⇒ the chapter itself is complete (chapter_progress.completed —
+    // new-model chapters have no other completion path). bossWon=false keeps
+    // boss_won sticky: a prior win is never cleared, and none is claimed here.
+    if (passedNow && !wasPassed) completeChapter(chapterId, false)
 
-  if (mustRetake) {
-    // resetChapterForRetake zeroes attempts/passed/progress (keeps best_pct) so the
-    // learner redoes the chapter. We just wrote attempts=2; the reset clears it.
-    resetChapterForRetake(chapterId)
+    if (mustRetake) {
+      // The retake reset zeroes attempts/passed/progress (keeps best_pct) so the
+      // learner redoes the chapter. We just wrote attempts=2; the reset clears it.
+      // Transaction-free variant — we're already inside BEGIN.
+      resetChapterStatements(db, chapterId)
+    }
+
+    db.exec('COMMIT')
+  } catch (err) {
+    db.exec('ROLLBACK')
+    throw err
   }
 
   return {

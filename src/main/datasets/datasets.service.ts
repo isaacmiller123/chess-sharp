@@ -181,10 +181,20 @@ export interface DownloadSpec {
   executable?: boolean
 }
 
+/** Abort a download if NO bytes arrive for this long — a stalled connection
+ *  (dead wifi, half-open socket) must fail with a clear error instead of
+ *  hanging the import forever with no way to make progress. */
+const STALL_TIMEOUT_MS = 30_000
+
 /**
  * Stream one artifact to `dest`: write to *.part, hash + meter the compressed
  * bytes (cancellation point), verify sha256, then atomically rename into place.
  * Exported so other dataset groups (maia) reuse the exact same discipline.
+ *
+ * A 1s watchdog guards the whole transfer: it aborts the fetch when no bytes
+ * have arrived for STALL_TIMEOUT_MS (surfaced as a clear retryable error), and
+ * it also honors cancelImport() while the stream is stalled — previously a
+ * cancel was only observed on the NEXT chunk, which never came.
  */
 export async function downloadVerified(
   spec: DownloadSpec,
@@ -195,51 +205,80 @@ export async function downloadVerified(
   const tmp = `${dest}.part`
   if (fs.existsSync(tmp)) fs.rmSync(tmp, { force: true })
 
-  const res = await fetch(spec.url, { redirect: 'follow' })
-  if (!res.ok || !res.body) throw new Error(`${spec.label}: download failed (HTTP ${res.status})`)
-  const total = Number(res.headers.get('content-length')) || spec.bytes
-
-  let received = 0
-  const hash = crypto.createHash('sha256')
-  // Meter sits on the COMPRESSED byte stream: hashes the artifact, reports
-  // download progress, and is the cancellation point.
-  const meter = new Transform({
-    transform(chunk, _enc, cb) {
-      if (cancelFlag) return cb(new Error('cancelled'))
-      received += chunk.length
-      hash.update(chunk)
-      onChunk(received, total)
-      cb(null, chunk)
+  const ac = new AbortController()
+  let lastByteAt = Date.now()
+  let stalled = false
+  const watchdog = setInterval(() => {
+    if (cancelFlag) {
+      ac.abort()
+      return
     }
-  })
+    if (Date.now() - lastByteAt > STALL_TIMEOUT_MS) {
+      stalled = true
+      ac.abort()
+    }
+  }, 1000)
 
-  const source = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0])
-  const out = fs.createWriteStream(tmp)
   try {
-    if (spec.compressed === 'zstd') {
-      await pipeline(source, meter, zlib.createZstdDecompress(), out)
-    } else {
-      await pipeline(source, meter, out)
+    const res = await fetch(spec.url, { redirect: 'follow', signal: ac.signal })
+    if (!res.ok || !res.body) throw new Error(`${spec.label}: download failed (HTTP ${res.status})`)
+    const total = Number(res.headers.get('content-length')) || spec.bytes
+
+    let received = 0
+    const hash = crypto.createHash('sha256')
+    // Meter sits on the COMPRESSED byte stream: hashes the artifact, reports
+    // download progress, feeds the stall watchdog, and is the cancellation point.
+    const meter = new Transform({
+      transform(chunk, _enc, cb) {
+        if (cancelFlag) return cb(new Error('cancelled'))
+        lastByteAt = Date.now()
+        received += chunk.length
+        hash.update(chunk)
+        onChunk(received, total)
+        cb(null, chunk)
+      }
+    })
+
+    const source = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0])
+    const out = fs.createWriteStream(tmp)
+    try {
+      if (spec.compressed === 'zstd') {
+        await pipeline(source, meter, zlib.createZstdDecompress(), out)
+      } else {
+        await pipeline(source, meter, out)
+      }
+    } catch (err) {
+      fs.rmSync(tmp, { force: true })
+      throw err
+    }
+
+    const digest = hash.digest('hex')
+    if (spec.sha256 && digest !== spec.sha256) {
+      fs.rmSync(tmp, { force: true })
+      throw new Error(`${spec.label}: checksum mismatch (download corrupted, please retry)`)
+    }
+
+    // Atomic publish: only a fully-downloaded, verified file ever appears at dest.
+    fs.rmSync(dest, { force: true })
+    fs.renameSync(tmp, dest)
+
+    // A freshly downloaded engine binary needs the executable bit on macOS/Linux
+    // (Windows ignores file modes). Without this, spawning it fails with EACCES.
+    if (spec.executable && process.platform !== 'win32') {
+      fs.chmodSync(dest, 0o755)
     }
   } catch (err) {
-    fs.rmSync(tmp, { force: true })
+    // Map watchdog aborts to clear outcomes: the abort reason surfaces as an
+    // opaque AbortError/ERR_STREAM_PREMATURE_CLOSE from fetch/pipeline.
+    if (stalled) {
+      throw new Error(
+        `${spec.label}: download stalled — no data received for ${Math.round(STALL_TIMEOUT_MS / 1000)}s. Check your connection and retry.`
+      )
+    }
+    if (cancelFlag) throw new Error('cancelled')
     throw err
-  }
-
-  const digest = hash.digest('hex')
-  if (spec.sha256 && digest !== spec.sha256) {
-    fs.rmSync(tmp, { force: true })
-    throw new Error(`${spec.label}: checksum mismatch (download corrupted, please retry)`)
-  }
-
-  // Atomic publish: only a fully-downloaded, verified file ever appears at dest.
-  fs.rmSync(dest, { force: true })
-  fs.renameSync(tmp, dest)
-
-  // A freshly downloaded engine binary needs the executable bit on macOS/Linux
-  // (Windows ignores file modes). Without this, spawning it fails with EACCES.
-  if (spec.executable && process.platform !== 'win32') {
-    fs.chmodSync(dest, 0o755)
+  } finally {
+    clearInterval(watchdog)
   }
 }
 

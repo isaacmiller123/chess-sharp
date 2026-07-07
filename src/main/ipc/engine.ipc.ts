@@ -326,7 +326,8 @@ function collectCandidates(
   eng: UciEngine,
   fen: string,
   depth: number,
-  multipv: number
+  multipv: number,
+  movetimeMs: number
 ): Promise<{ lines: Map<number, InfoLine>; best: BestMove }> {
   return new Promise((resolve, reject) => {
     const lines = new Map<number, InfoLine>()
@@ -337,6 +338,7 @@ function collectCandidates(
     }
     const cleanup = (): void => {
       clearTimeout(timer)
+      clearTimeout(softStop)
       eng.off('info', onInfo)
       eng.off('bestmove', onBest)
       eng.off('exit', onExit)
@@ -357,9 +359,16 @@ function collectCandidates(
     const onExit = (): void => fail(new Error('engine exited during weak-play search'))
     const onErr = (err: Error): void =>
       fail(err instanceof Error ? err : new Error('engine error during weak-play search'))
-    // Depth ≤ 8 finishes in well under a second; 20s is a hard crash ceiling so a
-    // wedged engine can never hang the bot's turn (and the renderer) forever.
+    // Depth ≤ 8 finishes in well under a second on decent hardware; 20s stays as
+    // a hard crash ceiling so a wedged engine can never hang the bot's turn (and
+    // the renderer) forever.
     const timer = setTimeout(() => fail(new Error('weak-play search timeout')), 20000)
+    // The caller's movetime budget is a SOFT cap: at the budget, `stop` the
+    // search — the engine answers with bestmove immediately and the pick runs
+    // over whatever completed candidate lines exist by then. On fast hardware
+    // the depth search finishes first and nothing changes (calibration intact);
+    // on slow hardware a sub-1320 bot no longer blows its clock on one move.
+    const softStop = setTimeout(() => void eng.stop(), movetimeMs)
     eng.on('info', onInfo)
     eng.once('bestmove', onBest)
     eng.once('exit', onExit)
@@ -368,16 +377,29 @@ function collectCandidates(
   })
 }
 
+/** Fallback weak-model budget when the caller sent a non-movetime limit. */
+const WEAK_DEFAULT_MOVETIME_MS = 400
+
 /** Resolve a sub-floor bot move. Same response shape as eng.bestMove().
  *  `panic` = the bot time manager's time-trouble collapse: 2 plies shallower
- *  (floor 3), softmax ~1.7x hotter, blunder chance doubled (capped at 50%). */
-async function weakPlay(eng: UciEngine, fen: string, elo: number, panic = false): Promise<BestMove> {
+ *  (floor 3), softmax ~1.7x hotter, blunder chance doubled (capped at 50%).
+ *  `movetimeMs` = the caller's per-move budget; the Elo-scaled depth search is
+ *  stopped at the budget (see collectCandidates). Exported for the headless
+ *  timing proof (scripts bundle this module with an electron stub). */
+export async function weakPlay(
+  eng: UciEngine,
+  fen: string,
+  elo: number,
+  panic = false,
+  movetimeMs = WEAK_DEFAULT_MOVETIME_MS
+): Promise<BestMove> {
   // Full-strength search — honest candidate evals; the weakening is in the pick.
   // (Skill Level explicitly reset in case a legacy `skill` request lowered it.)
   eng.setOption('UCI_LimitStrength', false)
   eng.setOption('Skill Level', 20)
   const depth = panic ? Math.max(3, weakDepth(elo) - 2) : weakDepth(elo)
-  const { lines, best } = await collectCandidates(eng, fen, depth, weakMultiPv(elo))
+  const budget = Math.max(50, Math.round(movetimeMs))
+  const { lines, best } = await collectCandidates(eng, fen, depth, weakMultiPv(elo), budget)
   const cands: WeakCandidate[] = []
   for (const info of lines.values()) {
     const uci = info.pv?.[0]
@@ -539,10 +561,12 @@ export function registerEngine(): void {
       await eng.stop()
       // `elo` wins over the legacy knobs when present (shared/types.ts contract).
       if (level.elo !== undefined && level.elo < ENGINE_ELO_FLOOR) {
-        // Below Stockfish's floor: engine-driven weakening. Ignores the caller's
-        // limit on purpose — a short Elo-scaled depth search picks the candidates.
-        // `level.panic` (bot time manager) is the one extra knob: see weakPlay.
-        return weakPlay(eng, safe, level.elo, level.panic === true)
+        // Below Stockfish's floor: engine-driven weakening. An Elo-scaled depth
+        // search picks the candidates, but the CALLER's movetime is honored as
+        // a cap (soft-stop) so a sub-1320 bot can't blow its clock on slow
+        // hardware. `level.panic` (bot time manager) is the other knob: weakPlay.
+        const budget = limit.kind === 'movetime' ? limit.value : WEAK_DEFAULT_MOVETIME_MS
+        return weakPlay(eng, safe, level.elo, level.panic === true, budget)
       }
       eng.setOption('MultiPV', 1)
       if (level.elo !== undefined) {

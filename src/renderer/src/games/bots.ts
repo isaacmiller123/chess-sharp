@@ -41,6 +41,7 @@ import {
 } from './checkers'
 import type { ChessVariantState } from './chessVariants'
 import type { FfishState } from './ffishVariants'
+import { GO_SPEC, vertexToPoint, type GoState } from './go'
 import { GOMOKU_BOT } from './gomokuBot'
 import type { GameKind } from './kernel'
 import { getGame } from './registry'
@@ -173,11 +174,33 @@ function refreshKatagoStyle(): void {
     .catch(() => undefined)
 }
 
-/** Minimal slice of games/go.ts GoState the provider reads. */
-interface GoStateSlice {
-  size: 9 | 13 | 19
-  komi: number
-  moves: readonly string[]
+/**
+ * KataGo's ruleset and the renderer rules engine (tenuki, positional superko)
+ * can rarely disagree on ko/superko legality: KataGo then genmoves a vertex
+ * the spec's play() rejects, and the Go bot's turn would hang on an "illegal
+ * move" toast forever. Guard: validate the engine's move against
+ * spec.legalMoves and degrade to the nearest legal vertex (locally sensible in
+ * the ko fight that caused the disagreement), or 'pass' if no point is legal.
+ */
+function legalizeGoMove(state: GoState, move: string): string {
+  const legal = GO_SPEC.legalMoves(state)
+  if (legal.length === 0 || legal.includes(move)) return move
+  const points = legal.filter((v) => v !== 'pass')
+  if (points.length === 0) return 'pass'
+  const at = vertexToPoint(move, state.size)
+  if (!at) return points[0]
+  let bestVertex = points[0]
+  let bestDist = Infinity
+  for (const v of points) {
+    const p = vertexToPoint(v, state.size)
+    if (!p) continue
+    const dist = Math.max(Math.abs(p.x - at.x), Math.abs(p.y - at.y))
+    if (dist < bestDist) {
+      bestDist = dist
+      bestVertex = v
+    }
+  }
+  return bestVertex
 }
 
 const katagoProvider: BotProvider = {
@@ -189,7 +212,7 @@ const katagoProvider: BotProvider = {
   async move(state: unknown, level: number): Promise<string> {
     const api = typeof window !== 'undefined' ? window.api : undefined
     if (!api) throw new BotUnavailableError(KATAGO_UNAVAILABLE_MSG)
-    const s = state as GoStateSlice
+    const s = state as GoState
     try {
       const { move } = await api.engine.playGo({
         size: s.size,
@@ -197,7 +220,7 @@ const katagoProvider: BotProvider = {
         moves: [...s.moves],
         level: clampLevel(level)
       })
-      return move
+      return legalizeGoMove(s, move)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       // Main rejects with a clear not-installed line until the katago dataset

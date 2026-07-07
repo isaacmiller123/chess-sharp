@@ -233,7 +233,6 @@ export function recordDaily(input: {
 
 interface SolvedDayRow {
   ymd: string
-  solved: number
 }
 
 /** Daily-streak summary computed from daily_result:
@@ -244,13 +243,16 @@ interface SolvedDayRow {
  *   - recent: the last N days' outcomes, most-recent first, for a calendar strip. */
 export function dailyStreak(recentDays = 35): DailyStreak {
   const db = getAppDb()
+  // Every consumer below (walk-back, best-run scan, calendar strip) only cares
+  // about SOLVED days, so filter in SQL instead of materializing the whole
+  // table; the ymd PK provides the ASC order without a sort.
   const rows = db
-    .prepare('SELECT ymd, solved FROM daily_result ORDER BY ymd ASC')
+    .prepare('SELECT ymd FROM daily_result WHERE solved=1 ORDER BY ymd ASC')
     .all() as unknown as SolvedDayRow[]
 
   // Set of solved day keys for O(1) walk-back.
   const solvedSet = new Set<string>()
-  for (const r of rows) if (r.solved === 1) solvedSet.add(r.ymd)
+  for (const r of rows) solvedSet.add(r.ymd)
 
   const today = todayYmd()
   const yesterday = prevYmd(today)
@@ -267,7 +269,7 @@ export function dailyStreak(recentDays = 35): DailyStreak {
 
   // Best streak: longest run of consecutive calendar days that are all solved.
   // Walk the solved days in ascending order, resetting when there's a gap.
-  const solvedAsc = rows.filter((r) => r.solved === 1).map((r) => r.ymd)
+  const solvedAsc = rows.map((r) => r.ymd)
   let best = 0
   let run = 0
   let prev: string | null = null
@@ -315,10 +317,6 @@ interface DailyBucketRow {
   solved: number
 }
 
-interface StreakScanRow {
-  solved: number
-}
-
 const STATS_THEME_LIMIT = 16
 const STATS_DAILY_DAYS = 30
 
@@ -336,20 +334,25 @@ export function puzzleStats(): PuzzleStats {
   const totalSolved = totals.solved
   const accuracy = totalAttempts > 0 ? totalSolved / totalAttempts : 0
 
-  // Best solving streak across the whole attempt history (chronological scan).
-  const order = db
-    .prepare('SELECT solved FROM puzzle_attempt ORDER BY created_at ASC, id ASC')
-    .all() as unknown as StreakScanRow[]
-  let bestStreak = 0
-  let cur = 0
-  for (const a of order) {
-    if (a.solved === 1) {
-      cur++
-      if (cur > bestStreak) bestStreak = cur
-    } else {
-      cur = 0
-    }
-  }
+  // Best solving streak across the whole attempt history, computed IN SQL
+  // (gaps-and-islands: consecutive solved rows share `rn_all - rn_solved`) so
+  // the scan never materializes the table into JS and needs no sort pass:
+  // `id` is AUTOINCREMENT and attempts are append-only with created_at=now, so
+  // id order IS the old (created_at ASC, id ASC) chronological order. The exact
+  // all-time answer inherently reads every row, but this keeps it O(1) memory.
+  const streakRow = db
+    .prepare(
+      `SELECT COALESCE(MAX(len), 0) AS best
+         FROM (SELECT COUNT(*) AS len
+                 FROM (SELECT (solved=1) AS ok,
+                              ROW_NUMBER() OVER (ORDER BY id)
+                            - ROW_NUMBER() OVER (PARTITION BY (solved=1) ORDER BY id) AS grp
+                         FROM puzzle_attempt)
+                WHERE ok=1
+                GROUP BY grp)`
+    )
+    .get() as unknown as { best: number }
+  const bestStreak = streakRow.best
 
   // Per-theme accuracy. Attempts tagged with a theme (slice A/C). NULL/empty
   // themes are skipped (an untagged adaptive-train attempt has no single theme).

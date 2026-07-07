@@ -585,14 +585,18 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame, onOpenSettings }: Pl
 
       let bestmove: string | undefined
       if (opponent.kind === 'persona') {
-        const res = await window.api?.personas.move({
-          fen,
-          personaId: opponent.persona.id,
-          // personas:move accepts 50..10000ms; in panic the slice is already
-          // tiny (<= ~1.1s) — the persona's strength collapse.
-          movetimeMs: Math.max(50, Math.min(engineMs, 10_000))
-        })
-        bestmove = res?.bestmove
+        const res = await window.api?.personas
+          .move({
+            fen,
+            personaId: opponent.persona.id,
+            // personas:move accepts 50..10000ms; in panic the slice is already
+            // tiny (<= ~1.1s) — the persona's strength collapse.
+            movetimeMs: Math.max(50, Math.min(engineMs, 10_000))
+          })
+          .catch(() => null)
+        // Same failure discipline as the maia/generic branches: a rejected or
+        // empty persona reply must never stall the turn loop on 'thinking'.
+        bestmove = res?.bestmove ?? randomLegalUci(fen) ?? undefined
       } else if (opponent.kind === 'maia') {
         // "Human" style: the maia net's policy head at nodes=1 IS the player —
         // the engine slice is irrelevant (a single NN eval answers in ~ms); the

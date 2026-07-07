@@ -658,6 +658,26 @@ export function initReviewTables(): void {
 function persistReview(gameId: number, r: GameReview): void {
   const db = getAppDb()
   const now = Date.now()
+  // One transaction for the whole DELETE+INSERT rewrite of both cache tables: a
+  // crash mid-write must never leave a game_review row without its move_eval
+  // rows (or a half-deleted previous review). Same BEGIN/COMMIT/ROLLBACK idiom
+  // as db/database.ts migrate().
+  db.exec('BEGIN')
+  try {
+    persistReviewStatements(db, gameId, r, now)
+    db.exec('COMMIT')
+  } catch (err) {
+    db.exec('ROLLBACK')
+    throw err
+  }
+}
+
+function persistReviewStatements(
+  db: ReturnType<typeof getAppDb>,
+  gameId: number,
+  r: GameReview,
+  now: number
+): void {
   db.prepare('DELETE FROM game_review WHERE game_id=?').run(gameId)
   db.prepare('DELETE FROM move_eval WHERE game_id=?').run(gameId)
 

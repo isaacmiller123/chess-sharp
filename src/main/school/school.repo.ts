@@ -49,11 +49,23 @@ function load(): Map<string, SchoolChapter> {
  *
  * A chapter is UNLOCKED when the learner is placed AND either (a) its internal
  * eloFloor is within the placement estimate (the placement prefix), OR (b) the
- * PREVIOUS chapter is cleared — so completing your current chapter unlocks the
- * next one, one at a time, even above your placement level. "Cleared" = the
- * chapter is completed (boss won / placement pre-completed) OR its test passed OR
- * all its lessons are done. The Elo numbers are NEVER put on the meta — only the
- * boolean + a name-based reason (spec §2.2a: the band is an internal grouping).
+ * PREVIOUS chapter is WITHIN the estimate AND cleared — so completing your
+ * current (top-of-estimate) chapter unlocks the next one, one step above your
+ * placement level. "Cleared" = the chapter is completed (boss won / placement
+ * pre-completed) OR its test passed OR all its lessons are done.
+ *
+ * The chain-link deliberately requires the previous chapter to sit within the
+ * CURRENT estimate (spec §1: chapters unlock up to the estimated Elo; higher
+ * chapters stay locked until you climb). Climbing that one-above chapter is done
+ * by passing its test, which raises the estimate to its band (bumpPlacementFloor,
+ * spec §4 mis-placement correction) and thereby extends the chain. Without the
+ * within-estimate condition, a RE-PLACEMENT that lands LOWER would still walk the
+ * chain up through the previous epoch's surviving EARNED completions (earned rows
+ * intentionally survive resetPlacement — see placement.repo.resetPlacement) and
+ * leave chapters far above the fresh estimate unlocked.
+ *
+ * The Elo numbers are NEVER put on the meta — only the boolean + a name-based
+ * reason (spec §2.2a: the band is an internal grouping).
  */
 export function chapterMetas(): SchoolChapterMeta[] {
   const placement = getPlacementState()
@@ -92,7 +104,11 @@ export function chapterMetas(): SchoolChapterMeta[] {
   return chapters.map((c, i) => {
     const floor = c.eloFloor ?? 0
     const prev = i > 0 ? chapters[i - 1] : null
-    const unlocked = placement.placed && (floor <= estElo || (prev != null && cleared(prev)))
+    // Chain-link ONLY from a chapter inside the current estimate: a cleared
+    // chapter ABOVE the estimate (e.g. an earned completion surviving a lower
+    // re-placement) must not unlock its successor (spec §1).
+    const chainFromPrev = prev != null && (prev.eloFloor ?? 0) <= estElo && cleared(prev)
+    const unlocked = placement.placed && (floor <= estElo || chainFromPrev)
     return {
       id: c.id,
       band: c.band,

@@ -165,9 +165,17 @@ export function bumpPlacementFloor(floorElo: number): void {
  * bulk-written by bulkCompleteChapters, not earned, so leaving them would let a
  * lower re-placement inherit stale 'Done' chapters that chain the progression
  * unlock upward (and hide them from pickDailyLesson). Manually earned rows
- * (auto_completed=0) always survive. Direct SQL on the mastery tables here —
- * importing mastery.repo would create the placement→mastery→school→placement
- * cycle (same reason school.repo.chapterMetas reads progress directly).
+ * (auto_completed=0) and chapter_test history always survive — a reset must NEVER
+ * destroy what the learner genuinely earned (spec §1 never says re-placement
+ * wipes progress; it only re-derives the Elo gate). The re-place-LOWER hazard
+ * that leaves — a surviving earned completion ABOVE the fresh estimate chaining
+ * its successor open — is closed on the READ side instead:
+ * school.repo.chapterMetas only chain-unlocks from a cleared chapter whose band
+ * is within the CURRENT estimate, so stale above-estimate earned rows read as
+ * history (best_pct, completed badges) but never as an unlock link. Direct SQL
+ * on the mastery tables here — importing mastery.repo would create the
+ * placement→mastery→school→placement cycle (same reason school.repo.chapterMetas
+ * reads progress directly).
  */
 export function resetPlacement(): PlacementState {
   const db = getAppDb()
