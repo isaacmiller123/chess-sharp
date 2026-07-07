@@ -29,14 +29,18 @@ export interface SaveGameInput {
   opponentLabel?: string
   opponentElo?: number
   source?: string
+  /** The game family (game_kind column). Defaults to 'chess'. Non-chess games
+   *  (go/othello/…) are stored but hidden from the chess Analysis/Progress/Home
+   *  lists, whose PGN parser + review engine only understand standard chess. */
+  gameKind?: string
 }
 
 export function saveGame(g: SaveGameInput): number {
   const r = getAppDb()
     .prepare(
       `INSERT INTO game
-        (created_at,white_name,black_name,user_color,result,opponent_kind,opponent_label,opponent_elo,source,pgn)
-       VALUES (?,?,?,?,?,?,?,?,?,?)`
+        (created_at,white_name,black_name,user_color,result,opponent_kind,opponent_label,opponent_elo,source,pgn,game_kind)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`
     )
     .run(
       Date.now(),
@@ -48,14 +52,21 @@ export function saveGame(g: SaveGameInput): number {
       g.opponentLabel ?? null,
       g.opponentElo ?? null,
       g.source ?? 'play',
-      g.pgn
+      g.pgn,
+      g.gameKind ?? 'chess'
     )
   return Number(r.lastInsertRowid)
 }
 
 export function listGames(limit = 25, offset = 0): GameRow[] {
+  // Only standard-chess games: the Home/Progress/Analysis consumers all parse the
+  // PGN and run the chess review engine, so a stored go/othello/checkers game
+  // would render as a broken or blank board. Non-chess games stay in the table
+  // (for stats/export) but never surface in these chess-only lists.
   return getAppDb()
-    .prepare('SELECT * FROM game ORDER BY created_at DESC LIMIT ? OFFSET ?')
+    .prepare(
+      "SELECT * FROM game WHERE game_kind = 'chess' ORDER BY created_at DESC LIMIT ? OFFSET ?"
+    )
     .all(limit, offset) as unknown as GameRow[]
 }
 

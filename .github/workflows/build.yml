@@ -71,7 +71,9 @@ jobs:
         run: |
           for t in test-games-kernel test-ffish-games test-go test-checkers \
                    test-small-games test-custom-variants test-mp test-mp-store \
-                   test-est-elo test-ratings-integrity test-manuals test-board3d; do
+                   test-est-elo test-ratings-integrity test-manuals test-board3d \
+                   test-cg-keys test-custom-board-keys test-flip test-bot-legality \
+                   test-games-archive test-settings-persist; do
             echo "== $t =="; node scripts/$t.mjs
           done
 

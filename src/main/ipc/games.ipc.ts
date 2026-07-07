@@ -17,7 +17,8 @@ export function registerGames(): void {
         opponentKind: z.string().optional(),
         opponentLabel: z.string().optional(),
         opponentElo: z.number().int().optional(),
-        source: z.string().optional()
+        source: z.string().optional(),
+        gameKind: z.string().max(40).optional()
       })
       .strict(),
     (g) => ({ gameId: saveGame(g) })

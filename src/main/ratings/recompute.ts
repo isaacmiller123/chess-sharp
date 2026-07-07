@@ -62,7 +62,7 @@ export function recomputeVsBotGlicko(
     .prepare(
       `SELECT user_color, result, opponent_kind, opponent_elo
          FROM game
-        WHERE opponent_kind IN ('engine','persona')
+        WHERE opponent_kind IN ('engine','persona','maia')
           AND opponent_elo IS NOT NULL
           AND user_color IN ('white','black')
           AND result IN ('1-0','0-1','1/2-1/2')
@@ -76,7 +76,13 @@ export function recomputeVsBotGlicko(
   for (const row of rows) {
     const score = scoreOf(row.result, row.user_color)
     if (score === null) continue
-    const kind = row.opponent_kind === 'persona' ? 'persona' : 'engine'
+    // Preserve maia/persona (measuredElo passes their nominal Elo through as the
+    // human-like net's rating); everything else is a raw engine level. Coercing
+    // maia→engine here silently dropped Maia games AND re-labeled their strength.
+    const kind: RatedBotConfig['kind'] =
+      row.opponent_kind === 'persona' || row.opponent_kind === 'maia'
+        ? row.opponent_kind
+        : 'engine'
     const opponent = mapElo({ kind, elo: row.opponent_elo })
     g = glicko2Update(g, [{ rating: opponent, rd: VS_BOT_OPPONENT_RD, score }], VS_BOT_TAU)
     games++

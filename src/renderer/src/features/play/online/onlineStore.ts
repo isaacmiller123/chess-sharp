@@ -494,7 +494,9 @@ class OnlineStore {
         result,
         opponentKind: 'human',
         opponentLabel: opp,
-        source: 'online'
+        source: 'online',
+        // Non-chess kinds are archived but hidden from the chess Analysis list.
+        gameKind: this.adapter.kind
       })
       .catch(() => {})
   }

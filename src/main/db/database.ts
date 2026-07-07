@@ -3,7 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 import { resolvePuzzlesPath, puzzlesInstalled } from '../datasets/paths'
-import { migrateRatingsIntegrityV8 } from '../ratings/recompute'
+import { migrateRatingsIntegrityV8, recomputeVsBotGlicko } from '../ratings/recompute'
 
 // We use Node's built-in node:sqlite (Electron 42 / Node 24) — no native module
 // build needed. The puzzles.sqlite (imported at runtime, or bundled) is opened
@@ -366,6 +366,27 @@ function migrate(db: DatabaseSync): void {
       CREATE INDEX idx_custom_variant_updated ON custom_variant(updated_at DESC);
       PRAGMA user_version = 9;
     `)
+      db.exec('COMMIT')
+    } catch (err) {
+      db.exec('ROLLBACK')
+      throw err
+    }
+  }
+
+  if (row.user_version < 10) {
+    // (1) game_kind: the games platform archives non-chess online games (go,
+    //     othello, …) into this same table; without a family tag they polluted
+    //     the chess Analysis/Progress/Home lists and opened as broken boards.
+    //     Existing rows are all standard chess → default 'chess'.
+    // (2) Maia self-heal: the v8 vs-bot recompute excluded opponent_kind='maia'
+    //     (and coerced it to 'engine'), so anyone who played Maia bots carries a
+    //     wrong vs-bot rating. recomputeVsBotGlicko now includes maia; re-run it
+    //     once here (idempotent — replays the whole history from the seed).
+    db.exec('BEGIN')
+    try {
+      db.exec(`ALTER TABLE game ADD COLUMN game_kind TEXT NOT NULL DEFAULT 'chess';`)
+      recomputeVsBotGlicko(db)
+      db.exec('PRAGMA user_version = 10;')
       db.exec('COMMIT')
     } catch (err) {
       db.exec('ROLLBACK')

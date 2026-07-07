@@ -131,13 +131,16 @@ console.log('migration idempotence')
   addGame(db, { result: '0-1', elo: 800, userColor: 'black' })
   addGame(db, { result: '1/2-1/2', elo: 1500 })
   addGame(db, { result: '0-1', userColor: 'black', kind: 'persona', elo: 2551 })
+  addGame(db, { result: '1-0', kind: 'maia', elo: 1500 }) // Maia game — MUST be counted (was dropped)
   addGame(db, { result: '*', elo: 1000 }) // unfinished — skipped
   addGame(db, { result: '1-0', elo: 1000, source: 'import' }) // not a play game — skipped
   const r1 = R.migrateRatingsIntegrityV8(db)
   const row1 = ratingRow(db)
   const r2 = R.migrateRatingsIntegrityV8(db)
   const row2 = ratingRow(db)
-  check('replay counted only rateable play games', r1.games === 4, `got ${r1.games}`)
+  check('replay counts rateable play games incl. maia', r1.games === 5, `got ${r1.games}`)
+  // Regression guard for the v8 bug: dropping the maia game would give 4.
+  check('maia game is not silently dropped', r1.games !== 4)
   check(
     'second run writes the identical rating row',
     row1.rating === row2.rating && row1.rd === row2.rd && row1.vol === row2.vol,
