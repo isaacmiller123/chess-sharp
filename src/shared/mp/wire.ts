@@ -96,13 +96,17 @@ export const mpTimeControlSchema = z
 
 /** v4: which game a session plays. `kind` is a registry key ('chess' default);
  *  `options` is an opaque, game-defined JSON blob (validated by the game's own
- *  kernel init, not by the wire). Absent `game` on the config means chess. */
+ *  kernel init, not by the wire). Absent `game` on the config means chess.
+ *  `firstMover` is which color moves FIRST (black in go/gomoku/othello/
+ *  checkers); absent = white — chess configs stay byte-identical to pre-
+ *  firstMover builds, so the wire stays v4. */
 export const mpGameSelectorSchema = z
   .object({
     kind: z.string().min(1).max(64),
     // Opaque per-game options; must survive JSON round-trip untouched. unknown()
     // accepts anything INCLUDING absent — mirrors `options?: unknown`.
-    options: z.unknown().optional()
+    options: z.unknown().optional(),
+    firstMover: z.enum(['white', 'black']).optional()
   })
   .strict()
 

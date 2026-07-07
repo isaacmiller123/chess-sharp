@@ -94,6 +94,66 @@ globalThis.__MP_MOCK__ = {
 }
 `
 
+// ---- the REAL mpClient shim (section 18: NO mocks) ----------------------------
+//
+// The mocked `mp` above is exactly why the black-first ply-0 deadlock shipped:
+// it answers sendMove ok:true unconditionally, so the SESSION's turn gate was
+// never exercised from the store. Section 18 bundles the store a SECOND time
+// with mpClient redirected to a REAL MpNetSession driven by an in-memory
+// transport room (mirroring scripts/test-mp.mjs). The bundle is then COPIED to
+// two files so `import` yields two INDEPENDENT store+session module instances
+// (ESM caches per-URL) — a true host + guest pair in one process.
+const REAL_MPCLIENT = `
+import { MpNetSession } from '${resolve(ROOT, 'src/renderer/src/features/play/online/mpSession.ts').replace(/\\/g, '/')}'
+// Each module instance takes the next transport factory off the queue the test
+// script set up (host bundle imported first, then guest).
+export const mp = new MpNetSession(globalThis.__MP_REAL_FACTORIES__.shift())
+`
+
+/** Minimal in-memory trystero-alike room for the real-session pair: string
+ *  payloads, targeted send, async (macrotask) delivery, join/leave fan-out. */
+function makeRoom() {
+  let seq = 0
+  const members = new Map()
+  return {
+    join(listeners) {
+      const id = `peer${++seq}`
+      const self = { id, listeners, closed: false }
+      for (const [otherId, other] of members) {
+        if (other.closed) continue
+        setTimeout(() => !other.closed && other.listeners.onPeerJoin(id), 0)
+        setTimeout(() => !self.closed && self.listeners.onPeerJoin(otherId), 0)
+      }
+      members.set(id, self)
+      return {
+        send(text, toPeer) {
+          if (self.closed) return
+          if (toPeer) {
+            const dst = members.get(toPeer)
+            if (dst && !dst.closed) setTimeout(() => !dst.closed && dst.listeners.onMessage(text, id), 0)
+          } else {
+            for (const [otherId, other] of members) {
+              if (otherId === id || other.closed) continue
+              setTimeout(() => !other.closed && other.listeners.onMessage(text, id), 0)
+            }
+          }
+        },
+        stopRelayPoll() {},
+        close() {
+          if (self.closed) return
+          self.closed = true
+          members.delete(id)
+          for (const [, other] of members) {
+            if (other.closed) continue
+            setTimeout(() => !other.closed && other.listeners.onPeerLeave(id), 0)
+          }
+        },
+        closed: Promise.resolve()
+      }
+    }
+  }
+}
+
 // ---- chessops FEN helpers we need locally (to build test positions/UCIs) -----
 // The store derives fen incrementally; to assert its board state we compare against
 // the same chessops the store uses. We bundle a tiny helper module for that.
@@ -160,6 +220,25 @@ async function main() {
   // Bundle the chess helpers so we can construct UCIs / verify fens like the store.
   const helpersOut = resolve(outdir, 'helpers.mjs')
   await bundle(helperEntry, helpersOut)
+
+  // Real-session variant (section 18): the SAME store entry, mpClient → a REAL
+  // MpNetSession over an in-memory room. Bundled once, copied twice so host and
+  // guest get independent module instances.
+  console.log('· bundling onlineStore.ts with a REAL MpNetSession mpClient …')
+  const realMpClientPath = resolve(outdir, 'realMpClient.mjs')
+  writeFileSync(realMpClientPath, REAL_MPCLIENT)
+  const realOut = resolve(outdir, 'onlineStore.real.mjs')
+  const swapReal = {
+    name: 'swap-mpclient-real',
+    setup(b) {
+      b.onResolve({ filter: /(^|\/)mpClient$/ }, () => ({ path: realMpClientPath }))
+    }
+  }
+  await bundle(storeEntry, realOut, [swapReal])
+  const realHostOut = resolve(outdir, 'onlineStore.real.host.mjs')
+  const realGuestOut = resolve(outdir, 'onlineStore.real.guest.mjs')
+  writeFileSync(realHostOut, readFileSync(realOut))
+  writeFileSync(realGuestOut, readFileSync(realOut))
 
   // Observe saves: the store calls window.api.games.save(...) best-effort. Stub it
   // BEFORE importing the store module (its constructor runs on import).
@@ -751,6 +830,55 @@ async function main() {
     eq(saved.length, 1, 'finished xiangqi game saved exactly once')
     ok(saved[0].pgn.includes('b3b10 a10b10 h3h10'), 'archive carries the rank-10 moves verbatim')
     ok(saved[0].pgn.includes('[Variant "xiangqi"]'), 'archive tagged xiangqi')
+  }
+
+  // ==========================================================================
+  // 18. REAL-SESSION black-first game (the regression that shipped): two real
+  //     onlineStore singletons driving two real MpNetSessions over an
+  //     in-memory room — NO mocked mp anywhere on the path. The host UI config
+  //     carries NO firstMover (exactly what OnlineTab sends); the store must
+  //     stamp it from the registry spec (gomoku players[0] = black), the
+  //     joiner must adopt it from `start`, and the guest-as-black FIRST move
+  //     at ply 0 must commit on BOTH sides — the exact path that deadlocked
+  //     (the mocked sendMove above always answered ok:true, so the session's
+  //     turn gate was never exercised from the store).
+  // ==========================================================================
+  console.log('\n· REAL session (no mocks): black-first gomoku plays through ply 0 …')
+  {
+    /** Poll until `fn()` is truthy (real wire delivery is async macrotasks). */
+    const until = async (fn, label, timeout = 5000) => {
+      const deadline = Date.now() + timeout
+      while (Date.now() < deadline) {
+        if (fn()) { passed++; console.log(`  ✓ ${label}`); return }
+        await sleep(5)
+      }
+      throw new Error(`ASSERT FAILED: timeout waiting for ${label}`)
+    }
+    const room = makeRoom()
+    globalThis.__MP_REAL_FACTORIES__ = [(code, l) => room.join(l), (code, l) => room.join(l)]
+    const A = (await import(pathToFileURL(realHostOut).href)).onlineStore // host (white seat)
+    const B = (await import(pathToFileURL(realGuestOut).href)).onlineStore // guest (black seat — FIRST MOVER)
+    // Host with the UI's config shape: game.kind only, NO firstMover.
+    await A.host({ tc: { initialMs: 60_000, incrementMs: 0 }, hostColor: 'white', game: { kind: 'gomoku' } })
+    await until(() => A.getState().code, 'real host() yields a room code')
+    eq(A.getState().config.game.firstMover, 'black', 'host store stamped firstMover=black from the registry spec')
+    await B.join(A.getState().code)
+    await until(() => A.getState().phase === 'game' && B.getState().phase === 'game', 'both real stores reach game phase')
+    eq(B.getState().myColor, 'black', 'guest seat is black (the first mover)')
+    eq(B.getState().config.game.firstMover, 'black', "joiner adopted firstMover from the host's start config")
+    // THE regression: the guest (black) opens at ply 0 through the REAL session.
+    await B.playMove('h8')
+    await until(() => B.getState().plyCount === 1 && B.getState().moves[0] === 'h8', 'guest black ply-0 move sticks (no rollback)')
+    await until(() => A.getState().plyCount === 1 && A.getState().moves[0] === 'h8', 'host received + committed the black ply-0 move')
+    await until(() => B.getState().clock && B.getState().clock.running === 'white', "black's move 1 starts WHITE's display clock")
+    // Alternation continues: white (host) replies, black sees it, black moves on.
+    await A.playMove('a1')
+    await until(() => B.getState().plyCount === 2 && B.getState().moves[1] === 'a1', 'white reply relays to the guest')
+    await B.playMove('f8')
+    await until(() => A.getState().plyCount === 3 && A.getState().moves[2] === 'f8', 'black ply-2 move relays to the host (parity stays black-first)')
+    eq(A.getState().banner, null, 'real black-first game still live (no spurious end)')
+    A.leave()
+    B.leave()
   }
 
   // subscriber sanity: mutations notified.

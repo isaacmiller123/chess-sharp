@@ -1368,6 +1368,103 @@ async function main() {
     third.leave(); host.leave(); guest.leave()
   }
 
+  // ==========================================================================
+  // 24. BLACK-FIRST games (go/gomoku/othello/checkers move order, wire v4).
+  //     THE ply-0 deadlock regression: the session used to hardcode
+  //     toMove='white' at beginGame and ply%2 white/black parity, so every
+  //     black-first online game deadlocked at ply 0 (the kernel said black to
+  //     move, the session said white — neither side could send). The first
+  //     mover now TRAVELS IN THE CONFIG (config.game.firstMover); assert:
+  //       (a) the ply-0 BLACK move relays + emits on both sides, with the
+  //           guest as black AND the host as black;
+  //       (b) first-move grace: BLACK's move 1 debits 0 / no increment and
+  //           STARTS WHITE's clock;
+  //       (c) the abort watchdog fires when the BLACK first-mover never moves
+  //           (and window B: black opened, white never replied);
+  //       (d) chess default (no firstMover) is unchanged: white-first.
+  // ==========================================================================
+  const GOMOKU = (initialMs, incrementMs = 0, hostColor = 'white') => ({
+    tc: { initialMs, incrementMs },
+    hostColor,
+    game: { kind: 'gomoku', firstMover: 'black' }
+  })
+  console.log('\n· black-first (a): guest-as-black opens at ply 0 …')
+  {
+    const { host, guest, he, ge } = await connectPair(GOMOKU(60_000))
+    // Host is white, guest is black — the FIRST MOVER. Its ply-0 move must
+    // commit + relay (this exact path used to hard-deadlock).
+    eq((await host.sendMove('a1')).ok, false, 'black-first: white (host) cannot open at ply 0')
+    eq((await guest.sendMove('h8')).ok, true, 'black-first: guest-as-black opens at ply 0')
+    const hm = await waitEvent(he, (e) => e.type === 'move' && e.uci === 'h8', { label: 'host sees the black ply-0 move' })
+    eq(hm.ply, 0, 'black opening move committed at ply 0')
+    const gc = await waitEvent(ge, (e) => e.type === 'clock', { label: 'guest clock ack for the ply-0 move' })
+    eq(gc.toMove, 'white', 'after black move 1 it is WHITE to move')
+    // Alternation continues both ways (guest-side parity keys off firstMover).
+    eq((await host.sendMove('a1')).ok, true, 'white replies at ply 1')
+    const gm = await waitEvent(ge, (e) => e.type === 'move' && e.uci === 'a1', { label: 'guest sees the white reply' })
+    eq(gm.ply, 1, 'white reply lands at ply 1')
+    eq((await guest.sendMove('h9')).ok, true, 'black moves again at ply 2')
+    await waitEvent(he, (e) => e.type === 'move' && e.uci === 'h9', { label: 'host sees the black ply-2 move' })
+    host.leave(); guest.leave()
+  }
+  console.log("\n· black-first (a'+b): host-as-black opens; grace frees black move 1, starts WHITE's clock …")
+  {
+    const INITIAL = 60_000, INC = 1_000
+    const clock = makeClock()
+    const { host, guest, he, ge } = await connectPair(GOMOKU(INITIAL, INC, 'black'), { clock })
+    // Host is black — the first mover. Clocks IDLE before the opening move:
+    // 5s of idle monotonic time must debit NOBODY.
+    clock.advance(5_000)
+    eq((await guest.sendMove('a1')).ok, false, 'black-first: white (guest) cannot open at ply 0')
+    eq((await host.sendMove('h8')).ok, true, 'host-as-black opens at ply 0')
+    const gm1 = await waitEvent(ge, (e) => e.type === 'move' && e.uci === 'h8', { label: 'guest sees h8' })
+    eq(gm1.clockMs.black, INITIAL, "black move 1 debits 0 (first-move grace) and credits NO increment")
+    eq(gm1.clockMs.white, INITIAL, 'white clock still full after black move 1')
+    // WHITE's clock started with black's move 1: think 800ms → Fischer debit + inc.
+    clock.advance(800)
+    eq((await guest.sendMove('a1')).ok, true, 'white replies at ply 1')
+    const hm2 = await waitEvent(he, (e) => e.type === 'move' && e.uci === 'a1', { label: 'host sees a1' })
+    const whiteSpent = INITIAL + INC - hm2.clockMs.white
+    approx(whiteSpent, 800, 30, "WHITE's clock started after black's move 1 (debit ≈ think)")
+    eq(hm2.clockMs.black, INITIAL, "black clock unchanged during white's move 1")
+    // Black's move 2 debits normally — the grace was move 1 only.
+    clock.advance(1_200)
+    eq((await host.sendMove('f8')).ok, true, 'black moves at ply 2')
+    const gm3 = await waitEvent(ge, (e) => e.type === 'move' && e.uci === 'f8', { label: 'guest sees f8' })
+    const blackSpent = INITIAL + INC - gm3.clockMs.black
+    approx(blackSpent, 1_200, 30, 'black move 2 debits its think time (grace was move 1 only)')
+    host.leave(); guest.leave()
+  }
+  console.log('\n· black-first (c): abort watchdog when BLACK never opens …')
+  await withAbortWindow(150, async () => {
+    const { host, guest, he, ge } = await connectPair(GOMOKU(60_000))
+    // Guest is black (first mover) and never moves → no-first-move abort, both sides.
+    const ha = await waitEvent(he, (e) => e.type === 'abort', { label: 'host abort (black never opened)', timeout: 1500 })
+    const ga = await waitEvent(ge, (e) => e.type === 'abort', { label: 'guest abort (black never opened)', timeout: 1500 })
+    eq(ha.reason, 'no-first-move', 'host: black-first abort reason no-first-move')
+    eq(ga.reason, 'no-first-move', 'guest: black-first abort reason no-first-move')
+    eq((await guest.sendMove('h8')).ok, false, 'move after black-first abort refused')
+    host.leave(); guest.leave()
+  })
+  console.log("\n· black-first (c'): abort window B — black opened, WHITE never replies …")
+  await withAbortWindow(150, async () => {
+    const { host, guest, he, ge } = await connectPair(GOMOKU(60_000))
+    await guest.sendMove('h8') // black opens in time; re-arms the abort for white
+    await waitEvent(he, (e) => e.type === 'move' && e.uci === 'h8', { label: 'h8 (black-first window B setup)' })
+    const ha = await waitEvent(he, (e) => e.type === 'abort', { label: 'host abort B (white silent)', timeout: 1500 })
+    eq(ha.reason, 'no-first-move', 'white-never-replied abort reason no-first-move')
+    await waitEvent(ge, (e) => e.type === 'abort', { label: 'guest abort B (white silent)', timeout: 1500 })
+    host.leave(); guest.leave()
+  })
+  console.log('\n· black-first (d): chess default (no firstMover) unchanged …')
+  {
+    const { host, guest, ge } = await connectPair(CFG(60_000, 0))
+    eq((await guest.sendMove('e7e5')).ok, false, 'chess: black still cannot open at ply 0')
+    eq((await host.sendMove('e2e4')).ok, true, 'chess: white still opens at ply 0')
+    await waitEvent(ge, (e) => e.type === 'move' && e.uci === 'e2e4', { label: 'chess white-first move still relays' })
+    host.leave(); guest.leave()
+  }
+
   // ---- teardown -----------------------------------------------------------
   for (const s of live) { try { s.leave() } catch {} }
   rmSync(outdir, { recursive: true, force: true })

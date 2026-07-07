@@ -986,8 +986,12 @@ export interface MpGameConfig {
   /** Wire v4: which game this session plays. ABSENT = chess (full back-compat
    *  for every v4 build; v3 peers are refused by the hello version gate anyway).
    *  `options` is a game-defined, JSON-serializable options blob (e.g. board
-   *  size, variant config) that must survive a JSON round-trip untouched. */
-  game?: { kind: string; options?: unknown }
+   *  size, variant config) that must survive a JSON round-trip untouched.
+   *  `firstMover` is which COLOR moves first (registry spec players[0]) — the
+   *  session is game-agnostic and must be told that go/gomoku/othello/checkers
+   *  open with BLACK. Absent = white, so chess configs stay byte-identical.
+   *  Color names never change on the wire; only the move ORDER does. */
+  game?: { kind: string; options?: unknown; firstMover?: 'white' | 'black' }
 }
 
 export type MpColor = 'white' | 'black'

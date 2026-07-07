@@ -96,8 +96,9 @@ export interface MpTimingConfig {
   /** Host: after bonding a peer on presence, unbond if no valid hello lands within
    *  this window and accept the next peer (L8). */
   HANDSHAKE_WATCHDOG_MS: number
-  /** First-move grace: white must move within this of start, and black must reply
-   *  within this of white's first move, else the game aborts (D1/MP-03). */
+  /** First-move grace: the first mover must move within this of start, and the
+   *  replier within this of that first move, else the game aborts (D1/MP-03).
+   *  (Who moves first is config.game.firstMover; white when absent — chess.) */
   FIRST_MOVE_ABORT_MS: number
   /** Heartbeat cadence: send a ping this often once handshaken. */
   HEARTBEAT_MS: number
@@ -789,8 +790,19 @@ export class MpNetSession {
     })
   }
 
-  /** Reset per-game state for a fresh game (host + guest). Clocks IDLE, white to
-   *  move but its clock not yet running (first-move rule). Arms the abort watchdog. */
+  /** The color that moves FIRST in this game. Wire v4: rides in the game
+   *  selector (config.game.firstMover — black for go/gomoku/othello/checkers);
+   *  absent = white, so chess and every pre-firstMover config are unchanged.
+   *  Move ORDER is the only thing that varies; color names stay white/black
+   *  on the wire, and rematch color swaps don't touch it (the order is
+   *  anchored to the color, not the seat). */
+  private firstMover(): MpColor {
+    return this.config?.game?.firstMover ?? 'white'
+  }
+
+  /** Reset per-game state for a fresh game (host + guest). Clocks IDLE, the
+   *  first mover is to move but its clock not yet running (first-move rule).
+   *  Arms the abort watchdog. */
   private beginGame(): void {
     const initial = this.config?.tc.initialMs ?? 0
     this.clocks = { white: initial, black: initial }
@@ -804,9 +816,9 @@ export class MpNetSession {
     this.drawBlockedUntilPly = { white: 0, black: 0 }
     this.plyCount = 0
     this.moves = []
-    // Clocks IDLE: white is to move but turnStartedAt stays 0 (no debit, no flag)
-    // until white's first move commits (D1/MP-03).
-    this.toMove = 'white'
+    // Clocks IDLE: the first mover is to move but turnStartedAt stays 0 (no
+    // debit, no flag) until its first move commits (D1/MP-03).
+    this.toMove = this.firstMover()
     this.turnStartedAt = 0
     this.clearFlagTimer()
     // The host owns the abort watchdog for the missing first move.
@@ -831,30 +843,33 @@ export class MpNetSession {
    *  Returns the fresh authoritative clocks, or null if the mover just flagged
    *  (game ended + flag emitted/relayed inside). Host-only. */
   private commitMove(mover: MpColor, uci: string, lagForgiveMs: number): Clocks | null {
-    const isFirstWhiteMove = this.plyCount === 0 && mover === 'white'
+    // The opening move of the game — by the FIRST MOVER (config.game.firstMover;
+    // white when absent, black in go/gomoku/othello/checkers) — gets the
+    // first-move grace: debit 0, no increment.
+    const isOpeningMove = this.plyCount === 0 && mover === this.firstMover()
 
     if (!this.timed) {
       this.recordMove(uci)
       this.toMove = mover === 'white' ? 'black' : 'white'
       this.clearAbortWatchdog()
-      // Black's reply after white's first move still needs its own abort window.
+      // The reply after the opening move still needs its own abort window.
       if (this.plyCount === 1) this.armAbortWatchdog()
       return { ...this.clocks }
     }
 
-    if (isFirstWhiteMove) {
-      // White's first move debits 0 and credits NO increment; it starts black's
-      // clock. (Verified lichess/scalachess.)
+    if (isOpeningMove) {
+      // The first mover's move 1 debits 0 and credits NO increment; it starts
+      // the OTHER side's clock. (Verified lichess/scalachess.)
       this.recordMove(uci)
-      this.toMove = 'black'
+      this.toMove = mover === 'white' ? 'black' : 'white'
       this.turnStartedAt = this.now()
       this.clearAbortWatchdog()
-      this.armAbortWatchdog() // black must reply within the grace window
+      this.armAbortWatchdog() // the replier must answer within the grace window
       this.armFlagTimer()
       return { ...this.clocks }
     }
 
-    // Normal Fischer debit + increment from black's move 1 onward.
+    // Normal Fischer debit + increment from the replier's move 1 onward.
     const now = this.now()
     const elapsed = Math.max(0, now - this.turnStartedAt - Math.max(0, lagForgiveMs))
     const remaining = this.clocks[mover] - elapsed
@@ -870,7 +885,7 @@ export class MpNetSession {
     // Flip the turn; the other side's clock now starts ticking.
     this.toMove = mover === 'white' ? 'black' : 'white'
     this.turnStartedAt = now
-    // Once black has replied (ply ≥ 2) the game is truly underway: no more abort.
+    // Once the reply has landed (ply ≥ 2) the game is truly underway: no more abort.
     this.clearAbortWatchdog()
     this.armFlagTimer()
     return { ...this.clocks }
@@ -923,7 +938,8 @@ export class MpNetSession {
   }
 
   /** Arm the first-move abort watchdog (host-only). Fires if the side that owes
-   *  the move (white pre-move-1, or black pre-reply) never plays within grace. */
+   *  the move (the first mover pre-move-1, or the replier pre-reply) never
+   *  plays within grace. */
   private armAbortWatchdog(): void {
     this.clearAbortWatchdog()
     if (this.over || this.plyCount >= 2) return
@@ -989,9 +1005,13 @@ export class MpNetSession {
     } else {
       // Guest: trust the host's move AND its authoritative clocks (clockMs is
       // authoritative host→guest). Record it, adopt the clocks, flip the turn.
+      // Turn parity keys off the FIRST MOVER (even ply = first mover's turn),
+      // not a hardcoded white.
       this.clocks = { ...clockMs }
       this.recordMove(uci)
-      this.toMove = this.plyCount % 2 === 0 ? 'white' : 'black'
+      const first = this.firstMover()
+      const second: MpColor = first === 'white' ? 'black' : 'white'
+      this.toMove = this.plyCount % 2 === 0 ? first : second
       this.emitEvent({ type: 'move', gameId: this.gameId, ply, uci, clockMs: { ...clockMs } })
     }
   }
@@ -1176,7 +1196,9 @@ export class MpNetSession {
       gameId: this.gameId,
       moves: [...this.moves],
       clockMs: { ...this.clocks },
-      toMove: this.toMove ?? 'white',
+      // Defensive fallback only (toMove is null post-game and onResumeReq
+      // already bails on this.over): derive from the game's move order.
+      toMove: this.toMove ?? this.firstMover(),
       yourColor: this.guestColor,
       // v4: carry the game config (kind + options) so a resumed guest can
       // rebuild any game, not just chess.

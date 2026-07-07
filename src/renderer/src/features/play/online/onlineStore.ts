@@ -682,11 +682,23 @@ class OnlineStore {
   // ==========================================================================
 
   async host(cfg: MpGameConfig): Promise<void> {
+    const kind = cfg.game?.kind ?? 'chess'
+    // Wire v4: the session is game-agnostic — it cannot know that go/gomoku/
+    // othello/checkers open with BLACK. Stamp the registry spec's first mover
+    // (players[0]) into the game selector so the move ORDER travels in the
+    // config; the joiner adopts it from start/resync automatically. Only
+    // stamped when black-first: absent = white, so chess (and every white-
+    // first game) stays byte-identical on the wire.
+    if (cfg.game && !cfg.game.firstMover) {
+      const first = getGame(kind as GameKind)?.spec.players[0]
+      if (first === 'black') {
+        cfg = { ...cfg, game: { ...cfg.game, firstMover: 'black' } }
+      }
+    }
     this.set({ ...FRESH, phase: 'hosting', config: cfg, error: null })
     // The HOST knows the kind up front: refuse unknown kinds before opening a
     // table, and load an async rules engine (ffish WASM) before the code is
     // shown so the game starts instantly when the opponent joins.
-    const kind = cfg.game?.kind ?? 'chess'
     const adapter = onlineAdapterFor(kind)
     if (!adapter) {
       this.set({ phase: 'idle', error: `This build can't play '${kind}' games online yet.` })
