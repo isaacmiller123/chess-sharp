@@ -2,6 +2,7 @@ import { pvToSan, turnColor } from '../chess/chess'
 import { displaySan } from '../chess/notation'
 import { formatScore, toWhite } from '../chess/scores'
 import type { PvLine } from '../hooks/useAnalysis'
+import { EngineRequiredNotice } from '../components/EngineRequiredNotice'
 
 export interface EnginePanelProps {
   fen: string
@@ -10,20 +11,44 @@ export interface EnginePanelProps {
   enabled: boolean
   multipv: number
   figurineMode: boolean
+  /** Stockfish binary not on disk (useEngineReady) — show the install CTA
+   *  instead of "analyzing…" at depth 0 forever. */
+  engineMissing?: boolean
+  /** engine:analyze rejection (useAnalysis.error) — surfaced when the engine
+   *  IS installed but failed (crash/broken binary). */
+  error?: string | null
+  /** Deep link to Settings → Datasets for the install CTA. */
+  onOpenSettings?: () => void
   onToggle: () => void
   onMultipv: (n: number) => void
   onPlayUci: (uci: string) => void
 }
 
 export function EnginePanel(props: EnginePanelProps) {
-  const { fen, lines, depth, enabled, multipv, figurineMode, onToggle, onMultipv, onPlayUci } = props
+  const {
+    fen,
+    lines,
+    depth,
+    enabled,
+    multipv,
+    figurineMode,
+    engineMissing,
+    error,
+    onOpenSettings,
+    onToggle,
+    onMultipv,
+    onPlayUci
+  } = props
   const stm = turnColor(fen)
+  const unavailable = engineMissing || error != null
 
   return (
     <section className="panel engine-panel" aria-label="Engine analysis">
       <div className="panel-head">
         <span className="panel-title">Engine</span>
-        <span className="muted small num">{enabled ? `Stockfish 18 · depth ${depth}` : 'paused'}</span>
+        <span className="muted small num">
+          {enabled ? (unavailable ? 'Stockfish 18 · unavailable' : `Stockfish 18 · depth ${depth}`) : 'paused'}
+        </span>
         <button
           type="button"
           className={`toggle-pill ${enabled ? 'on' : ''}`}
@@ -36,7 +61,15 @@ export function EnginePanel(props: EnginePanelProps) {
       </div>
 
       <div className="engine-lines">
-        {enabled && lines.length === 0 && (
+        {enabled && engineMissing && (
+          <EngineRequiredNotice context="analysis" onOpenSettings={onOpenSettings} />
+        )}
+        {enabled && !engineMissing && error != null && (
+          <div className="muted small pad" role="alert">
+            Engine failed to start — {error}
+          </div>
+        )}
+        {enabled && !unavailable && lines.length === 0 && (
           <div className="muted small pad" role="status">
             analyzing…
           </div>

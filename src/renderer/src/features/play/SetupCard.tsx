@@ -19,6 +19,7 @@ import {
 } from '@shared/types'
 import { measuredElo } from '@shared/botStrength'
 import { EngineAvatar } from '../../components/Avatar'
+import { EngineRequiredNotice } from '../../components/EngineRequiredNotice'
 import { TimeControlPicker } from './TimeControlPicker'
 import type { TimeControl } from './timeControl'
 import { PersonaGallery } from './PersonaGallery'
@@ -86,6 +87,12 @@ export interface SetupCardProps {
   onStart: () => void
   /** Open a famous game in Analysis (threaded from App via PlayView). */
   onOpenFamousGame?: (famousId: string) => void
+  /** True when the Stockfish dataset isn't on disk (fresh install): the
+   *  engine-dependent starts (vs Computer, Grandmasters) swap their Start
+   *  button for the install CTA — same pattern as the go bots' KataGo card. */
+  engineMissing?: boolean
+  /** Deep link to Settings → Datasets (the engine download lives there). */
+  onOpenSettings?: () => void
 }
 
 const ELO_MIN = 100
@@ -210,7 +217,9 @@ function EngineSetup({
   onMaiaLevel,
   onColor,
   onTimeControl,
-  onStart
+  onStart,
+  engineMissing,
+  onOpenSettings
 }: {
   elo: number
   botStyle: BotStyle
@@ -224,6 +233,8 @@ function EngineSetup({
   onColor: (c: ColorChoice) => void
   onTimeControl: (tc: TimeControl) => void
   onStart: () => void
+  engineMissing?: boolean
+  onOpenSettings?: () => void
 }) {
   const tier = tierFor(elo)
   const fillPct = ((elo - ELO_MIN) / (ELO_MAX - ELO_MIN)) * 100
@@ -373,12 +384,19 @@ function EngineSetup({
         <TimeControlPicker value={timeControl} onChange={onTimeControl} />
       </div>
 
-      <button type="button" className="btn psetup-start" onClick={onStart}>
-        <span className="psetup-start-main">Start game</span>
-        <span className="psetup-start-sub num">
-          {human ? `vs Maia ${maiaLevel} · Human style` : `vs Stockfish · ${tier.name} · ${elo} Elo`}
-        </span>
-      </button>
+      {engineMissing ? (
+        // Fresh install: no Stockfish on disk. Starting would dead-end (the
+        // engine spawn rejects), so swap Start for the install CTA — the same
+        // inline pattern as the go bots' KataGo card.
+        <EngineRequiredNotice context="play" onOpenSettings={onOpenSettings} />
+      ) : (
+        <button type="button" className="btn psetup-start" onClick={onStart}>
+          <span className="psetup-start-main">Start game</span>
+          <span className="psetup-start-sub num">
+            {human ? `vs Maia ${maiaLevel} · Human style` : `vs Stockfish · ${tier.name} · ${elo} Elo`}
+          </span>
+        </button>
+      )}
     </section>
   )
 }
@@ -409,7 +427,9 @@ export function SetupCard({
   onOnlineStage,
   onSelectPersona,
   onStart,
-  onOpenFamousGame
+  onOpenFamousGame,
+  engineMissing,
+  onOpenSettings
 }: SetupCardProps) {
   const selectedPersona =
     tab === 'grandmasters' ? (personas.find((p) => p.id === selectedPersonaId) ?? null) : null
@@ -493,6 +513,8 @@ export function SetupCard({
               onColor={onColor}
               onTimeControl={onTimeControl}
               onStart={onStart}
+              engineMissing={engineMissing}
+              onOpenSettings={onOpenSettings}
             />
           ) : (
             <OtbSetup
@@ -515,17 +537,22 @@ export function SetupCard({
           onStage={onOnlineStage}
         />
       ) : selectedPersona ? (
-        <PersonaDetail
-          persona={selectedPersona}
-          famousGames={famousGames}
-          colorChoice={colorChoice}
-          timeControl={timeControl}
-          onColor={onColor}
-          onTimeControl={onTimeControl}
-          onBack={() => onSelectPersona(null)}
-          onChallenge={onStart}
-          onOpenFamousGame={onOpenFamousGame}
-        />
+        <>
+          {/* Persona games run on the same main-process Stockfish — a missing
+              engine dataset must not dead-end the Challenge button either. */}
+          {engineMissing && <EngineRequiredNotice context="play" onOpenSettings={onOpenSettings} />}
+          <PersonaDetail
+            persona={selectedPersona}
+            famousGames={famousGames}
+            colorChoice={colorChoice}
+            timeControl={timeControl}
+            onColor={onColor}
+            onTimeControl={onTimeControl}
+            onBack={() => onSelectPersona(null)}
+            onChallenge={onStart}
+            onOpenFamousGame={onOpenFamousGame}
+          />
+        </>
       ) : (
         <PersonaGallery personas={personas} loading={personasLoading} onOpen={onSelectPersona} />
       )}

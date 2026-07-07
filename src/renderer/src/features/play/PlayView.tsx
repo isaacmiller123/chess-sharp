@@ -53,6 +53,7 @@ import type { OnlineStage } from './OnlineTab'
 import { onlineStore } from './online/onlineStore'
 import { useOnlineGame } from './online/useOnlineGame'
 import { GameView, type GameViewBanner } from './GameView'
+import { useEngineReady } from '../../hooks/useEngineReady'
 import { pieceSetClass } from '../../board/pieceSets'
 import { useSound } from '../../sound'
 import { useChessClock } from './useChessClock'
@@ -125,9 +126,11 @@ export interface PlayViewProps {
    *  consumed by the persona detail pane's "Famous games" list (ids come from
    *  Persona.famousGameIds). */
   onOpenFamousGame?: (famousId: string) => void
+  /** Deep link to Settings → Datasets (the engine-required install CTA). */
+  onOpenSettings?: () => void
 }
 
-export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}) {
+export function PlayView({ onAnalyzeGame, onOpenFamousGame, onOpenSettings }: PlayViewProps = {}) {
   const { settings } = useSettings()
   const { play, playMove } = useSound()
 
@@ -177,6 +180,17 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
   const [personasLoading, setPersonasLoading] = useState(false)
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null)
   const [famousGames, setFamousGames] = useState<Record<string, FamousGameMeta>>({})
+
+  // ---- Engine availability guard (fresh install: no Stockfish on disk) ----
+  // Probed on the setup card (and re-probed on every return to it, so finishing
+  // the Settings → Datasets download is picked up). When the engine is missing,
+  // SetupCard swaps the engine-dependent Start/Challenge affordances for the
+  // install CTA and startGame refuses to dead-end into a rejected spawn.
+  const { ready: engineReady, recheck: recheckEngine } = useEngineReady(phase === 'setup')
+  // Belt-and-braces: set when engine:newGame rejects at start despite the probe
+  // (e.g. a corrupt/deleted binary) — same CTA, a re-download fixes it.
+  const [engineStartError, setEngineStartError] = useState<string | null>(null)
+  const engineMissing = engineReady === false || engineStartError !== null
 
   // Resolved at game start.
   const [userColor, setUserColor] = useState<Color>('white')
@@ -633,7 +647,16 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
       playMove(m)
       const out = outcome(m.fen)
       if (out.over && out.result) void finishGame(out.result, out.reason ?? 'draw')
-    })()
+    })().catch(() => {
+      // A mid-game engine failure (probe/play IPC rejection — e.g. the engine
+      // process died) must never become an unhandled rejection that leaves
+      // "thinking…" stuck on forever; clear the indicators and let the user
+      // retry/resign. Start-time availability is guarded in startGame.
+      if (!cancelled) {
+        setThinking(false)
+        setDeepThink(false)
+      }
+    })
 
     return () => {
       cancelled = true
@@ -700,6 +723,10 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
     // default Local→vs-Stockfish (engine).
     let resolved: Opponent
     const otb = tab === 'local' && localMode === 'otb'
+    // Engine-dependent starts (vs Computer, Grandmasters) are blocked while the
+    // Stockfish dataset is missing — the setup card is already showing the
+    // install CTA in place of Start/Challenge, so just refuse to dead-end.
+    if (!otb && tab !== 'online' && engineMissing) return
     if (tab === 'grandmasters') {
       const persona = personas.find((p) => p.id === selectedPersonaId)
       if (!persona) return // Challenge only exists inside an open detail pane, but stay safe
@@ -744,7 +771,18 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
     setThinking(false)
     setDeepThink(false)
     // OTB never touches the engine; only arm the play instance for bot games.
-    if (!otb) await window.api?.engine.newGame('play')
+    // A rejected spawn (fresh install / broken binary) must NOT dead-end the
+    // click as an unhandled rejection with no board and no error (the audit
+    // CRITICAL): stay on setup and surface the install CTA instead.
+    if (!otb) {
+      try {
+        await window.api?.engine.newGame('play')
+      } catch (e) {
+        setEngineStartError(e instanceof Error ? e.message : String(e))
+        recheckEngine()
+        return
+      }
+    }
     tree.reset(INITIAL_FEN)
     // Bump the game key so the clock resets to base time (even for an unchanged
     // control). Unlimited is a no-op clock — the hook parks itself.
@@ -753,7 +791,7 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
     play('gameStart')
     // vs engine/persona: the fen effect fires; if the user is Black, the
     // opponent replies as White. OTB: the effect early-returns (no bot).
-  }, [tab, localMode, personas, selectedPersonaId, elo, botStyle, maiaLevel, maiaReady, colorChoice, setupTc, otbConfig, tree, play])
+  }, [tab, localMode, personas, selectedPersonaId, elo, botStyle, maiaLevel, maiaReady, colorChoice, setupTc, otbConfig, tree, play, engineMissing, recheckEngine])
 
   const onResign = useCallback(() => {
     if (over) return
@@ -850,6 +888,8 @@ export function PlayView({ onAnalyzeGame, onOpenFamousGame }: PlayViewProps = {}
           onSelectPersona={setSelectedPersonaId}
           onStart={() => void startGame()}
           onOpenFamousGame={onOpenFamousGame}
+          engineMissing={engineMissing}
+          onOpenSettings={onOpenSettings}
         />
       </div>
     )

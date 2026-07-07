@@ -34,6 +34,7 @@ import type { ReviewBadge } from './badges'
 import { useGameTree } from '../../state/gameTree'
 import { useSettings } from '../../state/settings'
 import { useAnalysis } from '../../hooks/useAnalysis'
+import { useEngineReady } from '../../hooks/useEngineReady'
 import { useOpeningTrace } from '../../chess/openingTrace'
 import { treeToPgn } from '../../state/pgn'
 import {
@@ -62,8 +63,9 @@ function headerResultTone(result?: string): 'white' | 'black' | 'draw' | 'open' 
 
 export function AnalysisView({
   gameId,
-  famousId
-}: { gameId?: number; famousId?: string } = {}) {
+  famousId,
+  onOpenSettings
+}: { gameId?: number; famousId?: string; onOpenSettings?: () => void } = {}) {
   const { settings, update: updateSettings } = useSettings()
   const { playMove } = useSound()
   const tree = useGameTree()
@@ -162,7 +164,12 @@ export function AnalysisView({
   }, [tree.root, tree.current])
   const graphCurrentPly = onMainline ? currentPly : -1
 
-  const { lines, depth } = useAnalysis(fen, engineOn, multipv)
+  const { lines, depth, error: engineError } = useAnalysis(fen, engineOn, multipv)
+  // Stockfish-on-disk probe (datasets:status().engine): when the engine dataset
+  // was never imported, EnginePanel swaps "analyzing… depth 0" for the install
+  // CTA — the fresh-install Analysis hang from the audit.
+  const { ready: engineReady } = useEngineReady(engineOn)
+  const engineMissing = engineOn && engineReady === false
   const best = lines.find((l) => l.multipv === 1) ?? lines[0]
   // Null (not a confident +0.00) when the engine is off or before the first line;
   // the eval bar renders a neutral, dimmed state for null.
@@ -554,6 +561,9 @@ export function AnalysisView({
           enabled={engineOn}
           multipv={multipv}
           figurineMode={figurine}
+          engineMissing={engineMissing}
+          error={engineError}
+          onOpenSettings={onOpenSettings}
           onToggle={() => setEngineOn((v) => !v)}
           onMultipv={changeMultipv}
           onPlayUci={playUci}

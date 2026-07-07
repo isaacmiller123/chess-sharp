@@ -69,7 +69,13 @@ function CurrentView({
     case 'home':
       return <HomeView onNavigate={onNavigate} onOpenGame={onOpenGame} />
     case 'play':
-      return <PlayView onAnalyzeGame={onOpenGame} onOpenFamousGame={onOpenFamousGame} />
+      return (
+        <PlayView
+          onAnalyzeGame={onOpenGame}
+          onOpenFamousGame={onOpenFamousGame}
+          onOpenSettings={() => onNavigate('settings')}
+        />
+      )
     case 'games':
       return <GamesView onOpenSettings={() => onNavigate('settings')} />
     case 'puzzles':
@@ -81,7 +87,13 @@ function CurrentView({
     case 'progress':
       return <ProgressView onNavigate={onNavigate} onOpenGame={onOpenGame} />
     case 'analysis':
-      return <AnalysisView gameId={gameId} famousId={famousId} />
+      return (
+        <AnalysisView
+          gameId={gameId}
+          famousId={famousId}
+          onOpenSettings={() => onNavigate('settings')}
+        />
+      )
     case 'settings':
       return <SettingsView />
     default:

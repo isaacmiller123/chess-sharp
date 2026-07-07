@@ -1,0 +1,40 @@
+/* EngineRequiredNotice — visually matches the go bots' .vbot-install card
+   (games.css) but lives standalone so Play/Analysis chunks don't depend on the
+   games chunk's stylesheet. Tokens only; namespaced .engine-required-*. */
+.engine-required {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.engine-required p {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+.engine-required-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+.engine-required-btn:hover {
+  filter: brightness(1.08);
+}
+.engine-required-hint {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}

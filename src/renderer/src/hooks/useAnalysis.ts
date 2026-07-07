@@ -23,6 +23,10 @@ export function useAnalysis(fen: string, enabled: boolean, multipv = 3) {
     lines: [],
     depth: 0
   })
+  // Set when engine:analyze rejects (fresh install without the engine dataset,
+  // spawn failure, crash). Consumers surface it instead of "analyzing… depth 0"
+  // forever — the swallowed rejection here was the audit's Analysis hang.
+  const [error, setError] = useState<string | null>(null)
   const handleRef = useRef<number | null>(null)
   const linesRef = useRef<Map<number, PvLine>>(new Map())
   const fenRef = useRef(fen)
@@ -61,20 +65,26 @@ export function useAnalysis(fen: string, enabled: boolean, multipv = 3) {
 
     const stopCurrent = () => {
       if (handleRef.current !== null) {
-        engine.stop(handleRef.current)
+        // stop() can itself reject (engine gone) — never an unhandled rejection.
+        engine.stop(handleRef.current).catch(() => undefined)
         handleRef.current = null
       }
     }
     stopCurrent()
 
     if (enabled) {
+      setError(null)
       engine
         .analyze({ fen, multipv, limit: { kind: 'infinite' } })
         .then(({ handleId }) => {
-          if (cancelled) engine.stop(handleId)
+          if (cancelled) engine.stop(handleId).catch(() => undefined)
           else handleRef.current = handleId
         })
-        .catch(() => undefined)
+        .catch((e: unknown) => {
+          // Surface the failure (missing/broken engine binary) instead of
+          // leaving the eval bar spinning at depth 0 forever.
+          if (!cancelled) setError(e instanceof Error ? e.message : String(e))
+        })
     }
 
     return () => {
@@ -86,5 +96,5 @@ export function useAnalysis(fen: string, enabled: boolean, multipv = 3) {
   // Only surface lines that belong to the current fen.
   const lines = state.fen === fen ? state.lines : []
   const depth = state.fen === fen ? state.depth : 0
-  return { lines, depth }
+  return { lines, depth, error }
 }
