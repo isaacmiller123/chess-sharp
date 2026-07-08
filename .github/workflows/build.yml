@@ -118,12 +118,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cat > "$RUNNER_TEMP/notes.md" <<'EOF'
-          Offline chess studio — school with Viktor, chess.com-grade game review, grandmaster bots with realistic clocks, puzzles, and worldwide P2P multiplayer (share a code, play anyone, anywhere — no account, no port forwarding).
+          Offline board-game studio for Windows & macOS.
 
-          **Windows:** download `Chess-Setup-*.exe` (installer) or `Chess-Portable-*.exe` (no install).
-          **macOS:** download the `.dmg` for your chip (arm64 = Apple Silicon, x64 = Intel).
+          - **Chess** — Stockfish analysis with chess.com-grade game review, a 0→2000 School (coach Viktor), ~6M Lichess puzzles, 24 grandmaster bots, and human-like Maia opponents.
+          - **Online multiplayer** — worldwide peer-to-peer: host, share a code, play anyone anywhere. No account, no port forwarding.
+          - **20+ games** — chess variants, xiangqi, shogi, janggi, makruk, go, checkers, othello, connect four, gomoku, hex, morris — each local, vs a bot, or online, with 2D & 3D boards. Plus a custom-variant Lab.
 
-          Builds are unsigned: Windows SmartScreen → More info → Run anyway; macOS → right-click the app → Open (first launch only). On first run, use Settings → Datasets to import the engine and puzzle database.
+          **Windows:** `Chess-Setup-*.exe` (installer) or `Chess-Portable-*.exe` (no install).
+          **macOS:** the `.dmg` for your chip (arm64 = Apple Silicon, x64 = Intel).
+
+          Both players must run the same version for online play. Builds are unsigned: Windows SmartScreen → More info → Run anyway; macOS → right-click the app → Open (first launch only). On first run, use Settings → Datasets to import the engine and puzzle database.
           EOF
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
             --title "Chess# $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" \
