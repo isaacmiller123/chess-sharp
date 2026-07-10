@@ -73,7 +73,7 @@ jobs:
                    test-small-games test-custom-variants test-mp test-mp-store \
                    test-est-elo test-ratings-integrity test-manuals test-board3d \
                    test-cg-keys test-custom-board-keys test-flip \
-                   test-games-archive test-settings-persist; do
+                   test-games-archive test-settings-persist test-school-replace; do
             echo "== $t =="; node scripts/$t.mjs
           done
 

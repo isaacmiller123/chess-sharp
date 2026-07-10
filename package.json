@@ -25,6 +25,7 @@
     "fetch:persona-photos": "node scripts/fetch-persona-photos.mjs",
     "smoke:engine": "node scripts/smoke_engine.mjs",
     "test:ratings": "node scripts/test-ratings-integrity.mjs",
+    "test:school-replace": "node scripts/test-school-replace.mjs",
     "setup": "npm run setup:engines && npm run setup:puzzles && npm run build:puzzles && npm run build:openings",
     "dist:exe": "electron-vite build && electron-builder --dir",
     "package": "electron-vite build && electron-builder",
