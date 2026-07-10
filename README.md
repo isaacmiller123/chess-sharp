@@ -8,7 +8,7 @@ No accounts, no paywalls, no internet required for single-player (after a one-ti
 ![Electron](https://img.shields.io/badge/Electron-42-47848F)
 [![Release](https://img.shields.io/github/v/release/isaacmiller123/chess-sharp?sort=semver)](https://github.com/isaacmiller123/chess-sharp/releases/latest)
 
-> A polished studio in the spirit of the big sites — full game review, ~6 million puzzles, a
+> A polished studio in the spirit of the big sites — full game review, ~4.7 million puzzles, a
 > 0→2000 curriculum, grandmaster-style opponents, and **peer-to-peer online play** — plus a
 > library of **20+ board games** (chess variants, xiangqi, shogi, go, checkers, othello, and
 > more), each playable local, versus a bot, or online. Built entirely from open, redistributable
@@ -22,8 +22,8 @@ No accounts, no paywalls, no internet required for single-player (after a one-ti
 
 - **Analysis board** — full-strength Stockfish with multi-line evaluation, an eval bar, depth control, the engine's top lines drawn as arrows, and one-click **game review** with chess.com-style move classifications (Brilliant / Great / Blunder / Miss …), per-side accuracy, factual move comments, and an **empirically-calibrated Elo estimate** (fitted to real engine games, shown with an honest ± band).
 - **Play vs the engine** — pick any strength from beginner to grandmaster. Weak (sub-1320) play is calibrated so low-rated bots feel human, not random. Optional **"Human" style** uses **Maia** neural nets (1100–1900) that play like real players of that rating.
-- **Grandmaster bots** — **24 grandmaster personas** across every era (Morphy, Tal, Fischer, Kasparov, Carlsen, and more), each with a photo, play-style description, famous-games button, peak Elo **and** an era-adjusted "today" estimate. Realistic time management, takebacks, hint ladders, and themeable sound effects (lichess / chess.com / realistic).
-- **Puzzles** — the complete **Lichess puzzle database** (~6 million) with a Glicko-2 rating, theme filters, **Custom / Rush / Daily** modes, a hint ladder, and retry-on-wrong.
+- **Famous-player bots** — **24 personas** across every era (Morphy, Tal, Fischer, Kasparov, Carlsen — plus GothamChess), each with a photo, play-style description, famous-games button, peak Elo **and** an era-adjusted "today" estimate. Realistic time management, takebacks, hint ladders, and themeable sound effects (lichess / chess.com / realistic).
+- **Puzzles** — **~4.7 million Lichess puzzles** (a quality-filtered build of the full Lichess dump — rarely-played or community-downvoted puzzles pruned, every theme preserved) with a Glicko-2 rating, theme filters, **Custom / Rush / Daily** modes, a hint ladder, and retry-on-wrong.
 - **School** — a structured **0 → 2000 Elo curriculum** (40 chapters) led by coach **Viktor**: interactive boards you play on, guided explanations, per-chapter tests, and placement that estimates your Elo and unlocks lessons up to your level.
 - **Openings explorer** — the full **Lichess opening book** (3,733 named ECO lines), searchable and replayable, with live opening detection that persists on the board.
 - **Online multiplayer** — **worldwide peer-to-peer play over WebRTC.** One player hosts and shares a short code; the other joins from anywhere — no server to run, no port forwarding, no account. Host-authoritative clocks, first-move grace, reconnect grace, draw/rematch, and "won on time" all behave like the big sites.
@@ -79,7 +79,7 @@ To keep the repository and installer small, the large, redistributable datasets 
 | Dataset | Used for | Source | License |
 |---|---|---|---|
 | **Stockfish 18** (per-OS binary) | analysis, chess bots | [official-stockfish/Stockfish](https://github.com/official-stockfish/Stockfish) | GPL-3.0 |
-| **Lichess puzzle database** | ~6M puzzles | [database.lichess.org](https://database.lichess.org/) | CC0-1.0 |
+| **Lichess puzzle database** | ~4.7M puzzles (quality-filtered build) | [database.lichess.org](https://database.lichess.org/) | CC0-1.0 |
 | **Fairy-Stockfish** *(optional)* | chess variants + xiangqi / shogi / janggi / makruk bots | [fairy-stockfish](https://github.com/fairy-stockfish/Fairy-Stockfish) | GPL-3.0 |
 | **KataGo** + nets *(optional)* | Go bots (incl. a human-like net) | [lightvector/KataGo](https://github.com/lightvector/KataGo) | MIT |
 | **lc0 + Maia nets** *(optional)* | human-like chess bots (1100–1900) | [lc0](https://github.com/LeelaChessZero/lc0) · [CSSLab/maia-chess](https://github.com/CSSLab/maia-chess) | GPL-3.0 / MIT |

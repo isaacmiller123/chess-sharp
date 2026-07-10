@@ -120,7 +120,7 @@ jobs:
           cat > "$RUNNER_TEMP/notes.md" <<'EOF'
           Offline board-game studio for Windows & macOS.
 
-          - **Chess** — Stockfish analysis with chess.com-grade game review, a 0→2000 School (coach Viktor), ~6M Lichess puzzles, 24 grandmaster bots, and human-like Maia opponents.
+          - **Chess** — Stockfish analysis with chess.com-style game review, a 0→2000 School (coach Viktor), ~4.7M Lichess puzzles, 24 famous-player bots, and human-like Maia opponents.
           - **Online multiplayer** — worldwide peer-to-peer: host, share a code, play anyone anywhere. No account, no port forwarding.
           - **20+ games** — chess variants, xiangqi, shogi, janggi, makruk, go, checkers, othello, connect four, gomoku, hex, morris — each local, vs a bot, or online, with 2D & 3D boards. Plus a custom-variant Lab.
 
