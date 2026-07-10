@@ -84,7 +84,14 @@ function gomokuWinLine(s: GomokuState): { v1: Vertex; v2: Vertex } | null {
   return null
 }
 
-export default function GoBoard({ kind, state, interactive, onMove, onAction }: GameBoardProps): JSX.Element {
+export default function GoBoard({
+  kind,
+  state,
+  interactive,
+  onMove,
+  onAction,
+  territory
+}: GameBoardProps): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
   const [hover, setHover] = useState<Vertex | null>(null)
@@ -160,7 +167,21 @@ export default function GoBoard({ kind, state, interactive, onMove, onAction }: 
   }, [isGo, goState, size, scoring, finalized])
 
   const paintMap = useMemo(() => {
-    if (!isGo || (!scoring && !finalized)) return undefined
+    if (!isGo) return undefined
+    if (!scoring && !finalized) {
+      // Live territory-estimate overlay (owner-fed KataGo ownership): shudan
+      // paints |value|·0.5 opacity, sign +1 = black fill — our grid is
+      // white-positive, so it flips. A dead-zone mutes near-neutral noise.
+      if (!territory || territory.length !== size * size) return undefined
+      const map = Array.from({ length: size }, (_, y) =>
+        Array.from({ length: size }, (_, x) => {
+          const own = territory[y * size + x]
+          return Math.abs(own) < 0.2 ? 0 : Math.max(-1, Math.min(1, -own))
+        })
+      )
+      return map as unknown as SignMap
+    }
+    // Scoring phase: the EXACT dead-stone territory paint (tenuki's ruling).
     const t = territoryOf(goState!)
     if (!t) return undefined
     const map: SignMap = Array.from({ length: size }, () => new Array<0 | 1 | -1>(size).fill(0))
@@ -173,7 +194,7 @@ export default function GoBoard({ kind, state, interactive, onMove, onAction }: 
       if (p) map[p.y][p.x] = -1
     }
     return map
-  }, [isGo, goState, size, scoring, finalized])
+  }, [isGo, goState, size, scoring, finalized, territory])
 
   const ghostStoneMap = useMemo(() => {
     if (!hover || !interactive || scoring || finalized || turn === null) return undefined

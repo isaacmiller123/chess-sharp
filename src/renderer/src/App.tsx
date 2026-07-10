@@ -7,6 +7,7 @@ import { CommandPalette } from './components/CommandPalette'
 import { ShortcutsHelp } from './components/ShortcutsHelp'
 import { Onboarding } from './components/Onboarding'
 import { OnlineReturnChip } from './features/play/OnlineReturnChip'
+import { UpdateToast } from './components/UpdateToast'
 import { useOnlineGame } from './features/play/online/useOnlineGame'
 import './components/shell-overlays.css'
 
@@ -77,7 +78,7 @@ function CurrentView({
         />
       )
     case 'games':
-      return <GamesView onOpenSettings={() => onNavigate('settings')} />
+      return <GamesView onOpenSettings={() => onNavigate('settings')} onOpenChessGame={onOpenGame} />
     case 'puzzles':
       return <PuzzlesView />
     case 'openings':
@@ -237,6 +238,12 @@ function AppShell(): JSX.Element {
       {onlineLive && view !== 'play' && (
         <OnlineReturnChip state={online} onReturn={() => navigate('play')} />
       )}
+      {/* Startup "new version" nudge (main pushes the status after its quiet
+          launch check). Raised above the return chip when both are showing. */}
+      <UpdateToast
+        raised={onlineLive && view !== 'play'}
+        onOpenSettings={() => navigate('settings')}
+      />
       {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} onNavigate={navigate} />}
       {shortcutsOpen && <ShortcutsHelp onClose={() => setShortcutsOpen(false)} isMac={isMac} />}
       {onboardingOpen && (

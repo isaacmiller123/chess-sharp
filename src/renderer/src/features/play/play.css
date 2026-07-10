@@ -416,6 +416,42 @@
 .play-clock.is-low.is-active .play-clock-time {
   animation: play-clock-blink 1s var(--ease-in-out) infinite;
 }
+/* Byo-yomi (go): the periods-left badge beside the digits. A consumed period
+   re-mounts the badge (React key), retriggering the one-beat flash. */
+.play-clock.is-byo {
+  gap: var(--space-1);
+}
+.play-clock-periods {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--text-tertiary);
+  padding: 1px var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  animation: play-clock-period-flash 700ms var(--ease-out);
+}
+.play-clock.is-active .play-clock-periods {
+  color: var(--text-secondary);
+}
+.play-clock.is-low .play-clock-periods {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+@keyframes play-clock-period-flash {
+  0% {
+    background: var(--danger-soft);
+    border-color: var(--danger);
+    color: var(--danger);
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 /* Flagged: frozen danger fill, no blink (the game is over). */
 .play-clock.is-flagged {
   background: var(--danger-soft);
@@ -436,6 +472,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .play-clock.is-low.is-active .play-clock-time,
+  .play-clock-periods,
   .chip-dot {
     animation: none;
   }

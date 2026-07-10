@@ -19,9 +19,13 @@ import { RotateCcw, Repeat } from 'lucide-react'
 import type { CatalogEntry } from './catalog'
 import { getGame, isRegisteredGame, type GameBoardProps } from '../../games/registry'
 import type { PlayerColor } from '../../games/kernel'
-import type { GoSpec, GoState } from '../../games/go'
+import type { GoHandicap, GoSpec, GoState } from '../../games/go'
+import { BYOYOMI_PRESETS, byoyomiPresetById } from '../play/byoyomi'
 import { Board3DHost, BoardModeToggle, useBoardMode } from './boardMode'
+import { GO_MAIN_PRESETS, GoClockPair, useLocalGoClock, type GoClockConfig } from './goClock'
+import { TerritoryControl, useTerritoryEstimate } from './territory'
 import { useOtbOrientation } from './useOtbOrientation'
+import { useSaveFinishedGame } from './useSaveFinishedGame'
 
 /** Per-idiom color naming (spec players stay white/black on the wire). */
 export function kernelColorLabel(kind: string, c: PlayerColor): string {
@@ -50,6 +54,8 @@ function lazyBoard(kind: string): ComponentType<GameBoardProps> {
 }
 
 const GO_SIZES = [9, 13, 19] as const
+/** 'Off' + the standard 2–9 hoshi handicaps (1 is just komi, not a thing). */
+const GO_HANDICAPS: readonly GoHandicap[] = [0, 2, 3, 4, 5, 6, 7, 8, 9]
 
 interface StateWithMoves {
   moves: readonly string[]
@@ -62,11 +68,28 @@ export function KernelOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
   const spec = game.spec
 
   const [goSize, setGoSize] = useState<9 | 13 | 19>(19)
-  const initOptions = useMemo(() => (kind === 'go' ? { size: goSize } : undefined), [kind, goSize])
+  const [goHandicap, setGoHandicap] = useState<GoHandicap>(0)
+  // Go clocks (QoL): main-time preset + Japanese byo-yomi preset; both 'off' =
+  // no clock at all (the historical untimed OTB default stays the default).
+  const [goMainId, setGoMainId] = useState('off')
+  const [goByoId, setGoByoId] = useState('off')
+  const initOptions = useMemo(
+    () =>
+      kind === 'go'
+        ? { size: goSize, ...(goHandicap >= 2 ? { handicap: goHandicap } : {}) }
+        : undefined,
+    [kind, goSize, goHandicap]
+  )
 
   const [ready, setReady] = useState(() => game.requiresPreload !== true)
   const [state, setState] = useState<unknown>(() => (game.requiresPreload ? null : spec.init(initOptions)))
   const [autoFlip, setAutoFlip] = useState(true)
+  // A side lost on time (local go clocks) — a terminal state the SPEC cannot
+  // know about, so it lives beside `result` and freezes the board the same way.
+  const [timeLoss, setTimeLoss] = useState<PlayerColor | null>(null)
+  // Bumped on every fresh game so the clock hook re-inits from its config.
+  const [clockEpoch, setClockEpoch] = useState(0)
+  const [territoryOn, setTerritoryOn] = useState(false)
   const { is3d } = useBoardMode(kind)
 
   useEffect(() => {
@@ -91,9 +114,42 @@ export function KernelOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
     () => (state !== null && ready && !result ? spec.legalMoves(state) : []),
     [spec, state, ready, result]
   )
-  const turn: PlayerColor = spec.players[moves.length % 2]
+  // spec.turn (when present) outranks parity: go's handicap makes WHITE open.
+  const turn: PlayerColor =
+    state !== null && ready && spec.turn ? spec.turn(state) : spec.players[moves.length % 2]
   const goScoring =
     kind === 'go' && state !== null && !result && (spec as unknown as GoSpec).isScoringPhase(state as GoState)
+
+  // Local go clocks: main + byo-yomi presets → the shared byo-yomi math. The
+  // opener thinks free (clock arms on the first committed move, like online's
+  // first-move grace); scoring phase and terminal states pause everything.
+  const goClockCfg = useMemo<GoClockConfig | null>(() => {
+    if (kind !== 'go') return null
+    const mainMs = GO_MAIN_PRESETS.find((p) => p.id === goMainId)?.ms ?? 0
+    const byo = byoyomiPresetById(goByoId).byo
+    return mainMs > 0 || byo ? { mainMs, byo } : null
+  }, [kind, goMainId, goByoId])
+  const clockRunning =
+    state !== null && ready && !result && !goScoring && timeLoss === null && moves.length > 0
+  const goClock = useLocalGoClock(goClockCfg, turn, clockRunning, clockEpoch, setTimeLoss)
+
+  // Territory estimate (KataGo ownership overlay + score strip) — hidden
+  // entirely unless the engine is installed; scoring phase has its own exact
+  // paint, so the live estimate stands down there.
+  const territory = useTerritoryEstimate(
+    kind === 'go' ? (state as GoState | null) : null,
+    kind === 'go' && territoryOn && !goScoring && !result && timeLoss === null
+  )
+
+  // Archive every finished OTB game (feature foundation: reviewable later).
+  useSaveFinishedGame(spec, state, result, {
+    white: kernelColorLabel(kind, 'white'),
+    black: kernelColorLabel(kind, 'black'),
+    event: 'Over the board',
+    source: 'play-otb',
+    opponentKind: 'human',
+    opponentLabel: 'Over the board'
+  })
 
   const onMove = useCallback(
     (move: string) => {
@@ -120,6 +176,8 @@ export function KernelOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
     (options?: unknown) => {
       if (!ready) return
       setState(spec.init(options ?? initOptions))
+      setTimeLoss(null)
+      setClockEpoch((e) => e + 1)
     },
     [spec, ready, initOptions]
   )
@@ -127,19 +185,21 @@ export function KernelOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
   const rotates = spec.flipPolicy === 'rotate'
   // Chess-OTB timing: flip a beat AFTER the committed move, instant repaint.
   const orientation: PlayerColor = useOtbOrientation(turn, rotates && autoFlip)
-  const canPass = legal.includes('pass')
-  const canSwap = legal.includes('swap')
+  const canPass = timeLoss === null && legal.includes('pass')
+  const canSwap = timeLoss === null && legal.includes('swap')
 
-  const resultLabel =
-    result &&
-    (result.winner === null
-      ? `Draw — ${result.reason.replace(/-/g, ' ')}`
-      : `${kernelColorLabel(kind, result.winner)} wins — ${result.reason.replace(/-/g, ' ')}`)
+  const resultLabel = timeLoss
+    ? `${kernelColorLabel(kind, timeLoss === 'white' ? 'black' : 'white')} wins — time`
+    : result &&
+      (result.winner === null
+        ? `Draw — ${result.reason.replace(/-/g, ' ')}`
+        : `${kernelColorLabel(kind, result.winner)} wins — ${result.reason.replace(/-/g, ' ')}`)
 
+  const over = result !== null || timeLoss !== null
   const dot = DOT_COLORS[kind]
   const turnLabel = goScoring
     ? 'Scoring — tap dead groups'
-    : result
+    : over
       ? 'Game over'
       : `${kernelColorLabel(kind, turn)} to move`
 
@@ -153,7 +213,7 @@ export function KernelOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
                 kind={kind as never}
                 state={state}
                 orientation={orientation}
-                interactive={!result}
+                interactive={!over}
                 onMove={onMove}
                 onAction={onAction}
               />
@@ -162,16 +222,17 @@ export function KernelOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
                 kind={kind as never}
                 state={state}
                 orientation={orientation}
-                interactive={!result}
+                interactive={!over}
                 onMove={onMove}
                 onAction={onAction}
+                territory={territoryOn && !goScoring ? territory.estimate?.ownership : undefined}
               />
             )
           ) : (
             <div className="kotb-loading">Loading rules engine…</div>
           )}
         </Suspense>
-        {result && (
+        {over && (
           <div className="votb-banner" role="status">
             <strong>{resultLabel}</strong>
             <button type="button" className="votb-btn is-primary" onClick={() => reset()}>
@@ -181,6 +242,14 @@ export function KernelOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
         )}
       </div>
       <aside className="votb-side">
+        {kind === 'go' && goClockCfg && (
+          <GoClockPair
+            clock={goClock}
+            turn={turn}
+            labels={{ black: 'Black', white: 'White' }}
+            over={over || goScoring}
+          />
+        )}
         <div className="votb-turn">
           <span
             className={`votb-turn-dot${dot ? '' : ` is-${turn}`}`}
@@ -201,13 +270,76 @@ export function KernelOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
                 className={`kotb-chip${goSize === sz ? ' is-active' : ''}`}
                 onClick={() => {
                   setGoSize(sz)
-                  reset({ size: sz })
+                  reset({ size: sz, ...(goHandicap >= 2 ? { handicap: goHandicap } : {}) })
                 }}
               >
                 {sz}×{sz}
               </button>
             ))}
           </div>
+        )}
+        {kind === 'go' && (
+          <div className="kotb-opt-row" role="group" aria-label="Handicap stones">
+            <span className="kotb-opt-name">Handicap</span>
+            {GO_HANDICAPS.map((h) => (
+              <button
+                key={h}
+                type="button"
+                className={`kotb-chip is-mini${goHandicap === h ? ' is-active' : ''}`}
+                title={h === 0 ? 'Even game' : `Black pre-places ${h} hoshi stones; White moves first; komi 0.5`}
+                onClick={() => {
+                  setGoHandicap(h)
+                  reset({ size: goSize, ...(h >= 2 ? { handicap: h } : {}) })
+                }}
+              >
+                {h === 0 ? 'Off' : h}
+              </button>
+            ))}
+          </div>
+        )}
+        {kind === 'go' && (
+          <>
+            <div className="kotb-opt-row" role="group" aria-label="Main time">
+              <span className="kotb-opt-name">Main time</span>
+              {GO_MAIN_PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`kotb-chip is-mini${goMainId === p.id ? ' is-active' : ''}`}
+                  onClick={() => {
+                    setGoMainId(p.id)
+                    reset()
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <div className="kotb-opt-row" role="group" aria-label="Byo-yomi overtime">
+              <span className="kotb-opt-name">Byo-yomi</span>
+              {BYOYOMI_PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`kotb-chip is-mini${goByoId === p.id ? ' is-active' : ''}`}
+                  title={
+                    p.byo
+                      ? `${p.byo.periods} overtime periods of ${p.byo.periodMs / 1000}s — a move inside a period resets it`
+                      : 'No overtime — main time only'
+                  }
+                  onClick={() => {
+                    setGoByoId(p.id)
+                    reset()
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        {kind === 'go' && (
+          <TerritoryControl territory={territory} on={territoryOn} onToggle={setTerritoryOn} />
         )}
         <BoardModeToggle kind={kind} />
         {rotates && (

@@ -43,6 +43,7 @@ import { ChessSetSystem } from './pieces/ChessSetPieces'
 import { hashString, makeFeltCanvas, canvasTexture } from './procedural'
 import { useArtPbr } from './materialHooks'
 import { CameraRig } from './CameraRig'
+import { TheaterRig } from './TheaterRig'
 import type { PreparedPiece } from './pieces/common'
 
 const DRAG_LIFT = 0.55
@@ -220,6 +221,7 @@ interface SceneProps {
   artBase: string | null | undefined
   onSquareClick?: Tabletop3DProps['onSquareClick']
   onPieceDrag?: Tabletop3DProps['onPieceDrag']
+  theater?: Tabletop3DProps['theater']
   controller: MotionController
   apiRef: { current: SceneApi | null }
 }
@@ -233,6 +235,7 @@ function TabletopScene({
   artBase,
   onSquareClick,
   onPieceDrag,
+  theater,
   controller,
   apiRef
 }: SceneProps): JSX.Element {
@@ -535,14 +538,20 @@ function TabletopScene({
       {/* The camera stays at the user's seat (theta 0): orientation is done by
           the LAYOUT mirroring the world (and seatYaw turning the pieces).
           Feeding seatYaw to the camera too walked it to the far side and
-          cancelled the mirror — the OTB auto-flip became a visual no-op. */}
-      <CameraRig
-        center={layout.center}
-        span={span}
-        topDown={topDown}
-        upright={upright}
-        enabled={!dragId}
-      />
+          cancelled the mirror — the OTB auto-flip became a visual no-op.
+          Replay Theater hands the camera (and the scene clock) to the
+          cinematic rig instead — no OrbitControls, choreography drives. */}
+      {theater ? (
+        <TheaterRig directive={theater} layout={layout} span={span} upright={upright} />
+      ) : (
+        <CameraRig
+          center={layout.center}
+          span={span}
+          topDown={topDown}
+          upright={upright}
+          enabled={!dragId}
+        />
+      )}
     </group>
   )
 }
@@ -559,6 +568,8 @@ export function Tabletop3D({
   onUnavailable,
   artBaseUrl,
   topDown = false,
+  theater,
+  onCanvasReady,
   className
 }: Tabletop3DProps & { ref?: Ref<Tabletop3DHandle> }): JSX.Element | null {
   const webgl = useMemo(() => detectWebGL(), [])
@@ -620,6 +631,7 @@ export function Tabletop3D({
           e.preventDefault()
           setLost(true)
         })
+        onCanvasReady?.(gl.domElement)
       }}
     >
       <TabletopScene
@@ -631,6 +643,7 @@ export function Tabletop3D({
         artBase={artBaseUrl}
         onSquareClick={onSquareClick}
         onPieceDrag={onPieceDrag}
+        theater={theater}
         controller={controller.current}
         apiRef={apiRef}
       />

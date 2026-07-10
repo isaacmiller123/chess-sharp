@@ -21,6 +21,7 @@ import {
   castlingSide
 } from 'chessops/variant'
 import { parseFen, makeFen } from 'chessops/fen'
+import { makeSan } from 'chessops/san'
 import { makeUci, parseUci } from 'chessops/util'
 import { isDrop } from 'chessops/types'
 import type { Move, Role, Rules } from 'chessops/types'
@@ -185,6 +186,17 @@ function resultOf(s: ChessVariantState): GameResult | null {
   return { winner, score, reason }
 }
 
+/** SAN for the move about to be played from `s` (kernel notate contract).
+ *  chessops makeSan is variant-aware through the Position (checkmate '#'
+ *  covers variant ends too) and handles crazyhouse drops ('N@f3') and both
+ *  castling encodings ('e1h1' king-takes-rook and 'e1g1'). Falls back to the
+ *  raw move string for anything unparseable/illegal. */
+function notateOf(s: ChessVariantState, moveStr: string): string {
+  const move = parseMove(s.pos, moveStr)
+  if (!move || !s.pos.isLegal(move)) return moveStr
+  return makeSan(s.pos, move)
+}
+
 function moveMetaOf(s: ChessVariantState, moveStr: string): MoveMeta {
   const pos = s.pos
   const move = parseMove(pos, moveStr)
@@ -238,6 +250,7 @@ function makeSpec(cfg: VariantConfig): GameSpec<ChessVariantState> {
     play: playOn,
     result: resultOf,
     moveMeta: moveMetaOf,
+    notate: notateOf,
     serializeOptions: (o: unknown): string => JSON.stringify(o ?? null)
   }
 }

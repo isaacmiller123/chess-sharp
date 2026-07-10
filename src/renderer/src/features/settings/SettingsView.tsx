@@ -16,6 +16,7 @@ import { PIECE_SETS, getPieceSet, normalizePieceSet } from '../../board/pieceSet
 import { GAMES_ART_CREDITS } from '@shared/credits'
 import { getSoundManager } from '../../sound'
 import DatasetsPanel from './DatasetsPanel'
+import UpdatesPanel from './UpdatesPanel'
 import './settings.css'
 
 /**
@@ -565,6 +566,8 @@ export function SettingsView() {
       </section>
 
       <DatasetsPanel />
+
+      <UpdatesPanel />
 
       <section className="card settings-card">
         <h2>Data</h2>

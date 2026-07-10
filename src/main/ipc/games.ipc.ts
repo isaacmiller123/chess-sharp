@@ -1,6 +1,13 @@
 import { z } from 'zod'
 import { handle } from './util'
-import { getGame, listGames, saveGame } from '../db/games.repo'
+import {
+  countGameKinds,
+  getGame,
+  listAllGames,
+  listGames,
+  listGameSources,
+  saveGame
+} from '../db/games.repo'
 import { applyGameResult } from '../db/ratings.repo'
 import { measuredElo } from '../ratings/botStrength'
 
@@ -31,6 +38,28 @@ export function registerGames(): void {
       offset: z.number().int().min(0).optional()
     }).strict(),
     ({ limit, offset }) => ({ games: listGames(limit ?? 25, offset ?? 0) })
+  )
+
+  // Library view: the FULL cross-mode archive (all kinds), newest first, plus
+  // the aggregates its filter chips are built from. Exact-match filters run
+  // server-side so pagination stays honest; win/loss/draw (user-relative)
+  // stays client-side because it needs user_color per row.
+  handle(
+    'games:listAll',
+    z
+      .object({
+        kind: z.string().max(64).optional(),
+        source: z.string().max(32).optional(),
+        result: z.string().max(16).optional(),
+        limit: z.number().int().min(1).max(200).optional(),
+        offset: z.number().int().min(0).optional()
+      })
+      .strict(),
+    (f) => ({
+      games: listAllGames(f),
+      kinds: countGameKinds(),
+      sources: listGameSources()
+    })
   )
 
   handle('games:get', z.object({ gameId: z.number().int() }).strict(), ({ gameId }) => ({

@@ -1334,11 +1334,15 @@ async function main() {
       onPeerJoin: () => {}, onPeerLeave: () => {}
     })
     await waitEvent(badInbox, (m) => m.t === 'hello', { label: 'host hello to bad guest' })
-    badMember.transport.send(JSON.stringify({ t: 'hello', v: 1, role: 'guest' }))
+    // A REAL previous build: wire v4 (games platform, pre-byo-yomi). The v5
+    // hello gate must refuse it politely — v5 changed the clock semantics
+    // (byo-yomi periods ride beside clockMs), so v4 peers can't interoperate.
+    eq(wire.PROTOCOL_VERSION, 5, 'PROTOCOL_VERSION is 5 (byo-yomi wire)')
+    badMember.transport.send(JSON.stringify({ t: 'hello', v: 4, role: 'guest' }))
     await waitEvent(he, (e) => e.type === 'error' && /version/i.test(e.message), { label: 'host version-mismatch error' })
-    ok(true, 'host rejects a v1 peer with a version-mismatch error')
+    ok(true, 'host rejects a v4 peer with a version-mismatch error')
     await waitEvent(badInbox, (m) => m.t === 'error' && /version/i.test(m.message), { label: 'bad guest version error msg' })
-    ok(true, 'the v1 peer is told about the version mismatch')
+    ok(true, 'the v4 peer is told about the version mismatch')
     badMember.transport.close(); host.leave()
   }
 
@@ -1462,6 +1466,164 @@ async function main() {
     eq((await guest.sendMove('e7e5')).ok, false, 'chess: black still cannot open at ply 0')
     eq((await host.sendMove('e2e4')).ok, true, 'chess: white still opens at ply 0')
     await waitEvent(ge, (e) => e.type === 'move' && e.uci === 'e2e4', { label: 'chess white-first move still relays' })
+    host.leave(); guest.leave()
+  }
+
+  // ==========================================================================
+  // 25. BYO-YOMI (wire v5) — Japanese overtime for go. The host's clock math:
+  //     main time debits as usual; the think that exhausts main SPILLS into
+  //     period 1; a move within the current period RESETS it to full (never
+  //     banked); a lapsed period is CONSUMED; the LAST period lapsing flags.
+  //     The per-side {periodsLeft, inByo} snapshot rides every move/clock/flag/
+  //     resync so the guest mirrors authority without doing math.
+  // ==========================================================================
+  const GO_BYO = (initialMs, periods, periodMs, hostColor = 'white') => ({
+    tc: { initialMs, incrementMs: 0, byoyomi: { periods, periodMs } },
+    hostColor,
+    game: { kind: 'go', firstMover: 'black' }
+  })
+  console.log('\n· byo-yomi: main→period entry, reset-on-move, period consumption …')
+  {
+    const clock = makeClock()
+    // Black-first go control: 1s main + 3×1s byo-yomi. HOST plays black so the
+    // host-authoritative math runs on the side we drive through byo-yomi.
+    const { host, guest, he, ge, gStart } = await connectPair(GO_BYO(1_000, 3, 1_000, 'black'), { clock })
+    eq(gStart.config.tc.byoyomi.periods, 3, 'start config carries byoyomi.periods (schema v5)')
+    eq(gStart.config.tc.byoyomi.periodMs, 1_000, 'start config carries byoyomi.periodMs')
+    // Black (host) opens — first-move grace, no debit, byo snapshot rides along.
+    eq((await host.sendMove('d4')).ok, true, 'byo: black opens at ply 0')
+    const gm1 = await waitEvent(ge, (e) => e.type === 'move' && e.uci === 'd4', { label: 'guest sees d4' })
+    ok(gm1.byo && gm1.byo.black.inByo === false && gm1.byo.black.periodsLeft === 3,
+      'move events carry the byo snapshot (black on main time, 3 periods ahead)')
+    // White (guest) replies within main time: plain main debit (approx — the
+    // host forgives rtt/2 of a guest move), no byo change.
+    clock.advance(500)
+    await guest.sendMove('q16')
+    const hm1 = await waitEvent(he, (e) => e.type === 'move' && e.uci === 'q16', { label: 'host sees q16' })
+    approx(hm1.clockMs.white, 500, 30, 'white main debited normally while on main time')
+    eq(hm1.byo.white.inByo, false, 'white still on main time')
+    // BLACK think 1.8s: main 1000 exhausted, 800ms spills into period 1 (200ms
+    // left when the move lands) → the move RESETS the period to full 1000, all
+    // 3 periods still in hand (a period lapses only when fully spent).
+    clock.advance(1_800)
+    eq((await host.sendMove('q4')).ok, true, 'byo: black moves after main ran out (inside period 1)')
+    const gm2 = await waitEvent(ge, (e) => e.type === 'move' && e.uci === 'q4', { label: 'guest sees q4' })
+    eq(gm2.byo.black.inByo, true, 'black entered byo-yomi when main lapsed mid-think')
+    eq(gm2.byo.black.periodsLeft, 3, 'move within period 1: no period consumed')
+    eq(gm2.clockMs.black, 1_000, 'move within a period RESETS it to the full period')
+    // White replies quickly to hand the turn back.
+    clock.advance(100)
+    await guest.sendMove('d16')
+    await waitEvent(he, (e) => e.type === 'move' && e.uci === 'd16', { label: 'host sees d16' })
+    // BLACK think 2.4s in byo-yomi: burns the current period (1s) + one more
+    // (1s) → 2 periods consumed, move lands 600ms into the LAST period → reset.
+    clock.advance(2_400)
+    eq((await host.sendMove('c3')).ok, true, 'byo: black survives on its last period')
+    const gm3 = await waitEvent(ge, (e) => e.type === 'move' && e.uci === 'c3', { label: 'guest sees c3' })
+    eq(gm3.byo.black.periodsLeft, 1, 'two lapsed periods consumed (3 → 1)')
+    eq(gm3.clockMs.black, 1_000, 'the surviving move still resets the (last) period')
+    // The guest's mirrored clock ack agrees (host→guest authority).
+    host.leave(); guest.leave()
+  }
+  console.log('\n· byo-yomi: main 0 = straight to period 1; flag when the LAST period lapses …')
+  {
+    const clock = makeClock()
+    // 0 main + 2×1s: both sides START in byo-yomi (a real, common go control).
+    const { host, guest, he, ge } = await connectPair(GO_BYO(0, 2, 1_000), { clock })
+    // Guest is black (first mover): opening move keeps the first-move grace.
+    eq((await guest.sendMove('d4')).ok, true, 'byo: black (guest) opens at ply 0')
+    await waitEvent(he, (e) => e.type === 'move' && e.uci === 'd4', { label: 'host sees d4 (flag suite)' })
+    // White (host) replies 300ms into its first period → reset to full.
+    clock.advance(300)
+    eq((await host.sendMove('q16')).ok, true, 'white replies inside period 1')
+    const gm = await waitEvent(ge, (e) => e.type === 'move' && e.uci === 'q16', { label: 'guest sees q16 (flag suite)' })
+    eq(gm.byo.white.inByo, true, 'main 0 + byo-yomi: white starts IN byo-yomi')
+    eq(gm.clockMs.white, 1_000, 'white reply reset its period to full')
+    // BLACK now on move with 2×1s in hand and never moves. Advance past its
+    // whole budget (2s); the host's re-armed flag watchdog rules the flag.
+    clock.advance(2_500)
+    const hf = await waitEvent(he, (e) => e.type === 'flag', { label: 'host flag (last period)', timeout: 4000 })
+    const gf = await waitEvent(ge, (e) => e.type === 'flag', { label: 'guest flag (last period)', timeout: 4000 })
+    eq(hf.by, 'black', 'flag falls on black when its LAST period lapses')
+    eq(hf.clockMs.black, 0, 'flagged side zeroed')
+    eq(hf.byo.black.periodsLeft, 0, 'flagged side has 0 periods left')
+    eq(gf.byo.black.periodsLeft, 0, 'guest mirrors the exhausted byo snapshot')
+    eq((await guest.sendMove('k10')).ok, false, 'move after byo-yomi flag refused')
+    host.leave(); guest.leave()
+  }
+  console.log('\n· byo-yomi: suspend fold burns periods; resync carries byo state …')
+  {
+    const clock = makeClock()
+    const room = makeRoom()
+    const factory = (code, listeners) => room.join(listeners).transport
+    const host = track(new MpNetSession(factory, { now: clock.now }))
+    const he = tap(host)
+    // White-first for simplicity: host (white) 1s main + 3×1s byo.
+    await host.host({ tc: { initialMs: 1_000, incrementMs: 0, byoyomi: { periods: 3, periodMs: 1_000 } }, hostColor: 'white' })
+    let guestId = null
+    const guestInbox = []
+    const mkGuestMember = (reuseId, resuming) => {
+      const member = room.join(
+        {
+          onMessage: (text, from) => {
+            const m = wire.parseWireMsg(text)
+            if (!m) return
+            guestInbox.push(m)
+            if (m.t === 'hello') {
+              member.transport.send(JSON.stringify(wire.makeHello('guest', 'ByoGhost')), from)
+              if (resuming) member.transport.send(JSON.stringify({ t: 'resumeReq', gameId: 1, havePly: 2 }), from)
+            }
+          },
+          onPeerJoin: () => {}, onPeerLeave: () => {}
+        },
+        reuseId ? { peerId: reuseId } : {}
+      )
+      return member
+    }
+    let guestMember = mkGuestMember()
+    guestId = guestMember.peerId
+    await waitEvent(he, (e) => e.type === 'start', { label: 'start (byo resync suite)' })
+    await host.sendMove('e2e4') // white move 1 free → black clock runs
+    await sleep(20)
+    // Black replies instantly (raw, ply 1) — black main untouched at 1000.
+    guestMember.transport.send(JSON.stringify({ t: 'move', gameId: 1, ply: 1, uci: 'e7e5', clockMs: { white: 1000, black: 1000 } }))
+    await waitEvent(he, (e) => e.type === 'move' && e.uci === 'e7e5', { label: 'host sees e7e5 (byo resync)' })
+    // WHITE burns into byo-yomi: think 1.8s → main 1000 lapses, 800 into period
+    // 1, move lands → reset. periodsLeft 3, inByo true.
+    clock.advance(1_800)
+    eq((await host.sendMove('g1f3')).ok, true, 'white moves from inside period 1')
+    // Black on move; it silently burns 2.2s, then the transport drops → the
+    // suspend FOLD must cross the main→byo boundary and consume the lapsed
+    // period (2200 = 1000 main + 1000 period + 200 into the next).
+    clock.advance(2_200)
+    guestMember.transport.close()
+    await waitEvent(he, (e) => e.type === 'peer-away', { label: 'peer-away (byo resync)', timeout: 1500 })
+    // Rebond with the same peerId → resume → resync answers the resumeReq.
+    guestMember = mkGuestMember(guestId, true)
+    await waitEvent(he, (e) => e.type === 'peer-back', { label: 'peer-back (byo resync)', timeout: 1500 })
+    const resync = await waitEvent(guestInbox, (m) => m.t === 'resync', { label: 'resync (byo)', timeout: 1500 })
+    ok(resync.byo, 'resync carries the byo snapshot')
+    eq(resync.byo.white.inByo, true, 'resync: white is in byo-yomi')
+    eq(resync.byo.white.periodsLeft, 3, 'resync: white kept its 3 periods (reset on move)')
+    eq(resync.clockMs.white, 1_000, 'resync: white period was reset by its move')
+    eq(resync.byo.black.inByo, true, 'resync: the suspend fold pushed black into byo-yomi')
+    eq(resync.byo.black.periodsLeft, 2, 'resync: the lapsed period stayed consumed across the fold')
+    eq(resync.clockMs.black, 800, 'resync: black has 800ms left of its current period')
+    host.leave(); guestMember.transport.close()
+  }
+  console.log('\n· byo-yomi absent: v4-shaped messages stay byte-identical …')
+  {
+    const { host, guest, he, pair } = await connectPair(CFG(60_000, 0))
+    // Sniff the raw wire: a plain-Fischer game's move message must carry NO
+    // `byo` key at all (schema-optional field truly absent, not null).
+    const guestSlot = [...pair.room.members.values()][1]
+    const seen = []
+    const origOnMessage = guestSlot.listeners.onMessage
+    guestSlot.listeners.onMessage = (text, from) => { seen.push(text); origOnMessage(text, from) }
+    await host.sendMove('e2e4')
+    for (let i = 0; i < 200 && !seen.some((t) => t.includes('"t":"move"')); i++) await sleep(5)
+    const rawMove = seen.find((t) => t.includes('"t":"move"'))
+    ok(rawMove && !rawMove.includes('byo'), 'no byo key on the wire without tc.byoyomi (v4-shaped)')
     host.leave(); guest.leave()
   }
 

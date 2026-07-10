@@ -121,6 +121,9 @@ export function adapterFromSpec<S>(spec: GameSpec<S>): OnlineGameAdapter<S> {
   let rulesReady = spec.preload === undefined
 
   const turn = (s: S): MpColor => {
+    // A spec that knows its own side-to-move (go: handicap can make WHITE open)
+    // outranks every structural derivation below.
+    if (spec.turn) return spec.turn(s)
     const st = shape(s)
     if (spec.family === 'chess' && typeof st.fen === 'string') {
       const toMove = st.fen.split(/\s+/)[1]

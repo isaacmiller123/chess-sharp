@@ -29,7 +29,7 @@
 //   other failure — bad code, no host, version mismatch, peer gone, malformed
 //   traffic, illegal/out-of-turn move — surfaces as an MpEvent and tears down.
 
-import type { MpEvent, MpGameConfig, MpColor, MpClocks } from '@shared/types'
+import type { MpEvent, MpGameConfig, MpColor, MpClocks, MpByo } from '@shared/types'
 import {
   type WireMsg,
   parseWireMsg,
@@ -41,6 +41,15 @@ import {
   normalizeRoomCode
 } from '@shared/mp/wire'
 import { timeControlCategory, type TimeControl } from '../timeControl'
+import {
+  afterMoveCredit,
+  consumeElapsed,
+  freshSideClock,
+  normalizeByoyomi,
+  totalBudgetMs,
+  type ByoyomiSpec,
+  type SideClock
+} from '../byoyomi'
 
 export type MpRole = 'host' | 'guest'
 
@@ -176,8 +185,13 @@ export class MpNetSession {
   private gameId = 0
   /** Which color the GUEST plays (host color is the opposite). */
   private guestColor: MpColor | null = null
-  /** Authoritative remaining time per side (host only). */
+  /** Authoritative remaining time per side (host only). With byo-yomi, a side
+   *  still on main time reads main-ms; once in byo-yomi it reads the CURRENT
+   *  period's remaining ms (see byoState). */
   private clocks: Clocks = { white: 0, black: 0 }
+  /** v5 byo-yomi snapshot (periods left + inByo per side), or null for plain
+   *  Fischer. Host-authoritative; the guest mirrors whatever rides the wire. */
+  private byoState: MpByo | null = null
   /** Whose move it is right now. null before start / after game end. */
   private toMove: MpColor | null = null
   /** Monotonic time (ms) when the side-to-move's clock started ticking. 0 while
@@ -327,7 +341,8 @@ export class MpNetSession {
       const ply = this.plyCount
       const clocks = this.commitMove(this.myColor, uci, 0)
       if (!clocks) return { ok: false } // flagged during commit — handled inside
-      this.sendWire({ t: 'move', gameId: this.gameId, ply, uci, clockMs: clocks })
+      const byo = this.byoSnapshot()
+      this.sendWire({ t: 'move', gameId: this.gameId, ply, uci, clockMs: clocks, ...(byo ? { byo } : {}) })
       return { ok: true }
     }
 
@@ -576,14 +591,14 @@ export class MpNetSession {
         this.onStart(msg.gameId, msg.yourColor, msg.config, msg.name)
         return
       case 'move':
-        this.onWireMove(msg.ply, msg.uci, msg.clockMs)
+        this.onWireMove(msg.ply, msg.uci, msg.clockMs, msg.byo)
         return
       case 'clock':
-        this.onWireClock(msg.clockMs, msg.toMove)
+        this.onWireClock(msg.clockMs, msg.toMove, msg.byo)
         return
       case 'flag':
         // Trust the host's flag verdict (guest); the host doesn't receive its own.
-        this.applyFlag(msg.by, msg.clockMs)
+        this.applyFlag(msg.by, msg.clockMs, msg.byo)
         return
       case 'abort':
         this.applyAbort(msg.reason)
@@ -625,7 +640,7 @@ export class MpNetSession {
         this.onResumeReq(msg.gameId, msg.havePly)
         return
       case 'resync':
-        this.onResync(msg.gameId, msg.moves, msg.clockMs, msg.toMove, msg.yourColor, msg.config)
+        this.onResync(msg.gameId, msg.moves, msg.clockMs, msg.toMove, msg.yourColor, msg.config, msg.byo)
         return
       case 'bye':
         this.onPeerGone()
@@ -673,10 +688,15 @@ export class MpNetSession {
 
   private onHello(peerVersion: number, peerRole: MpRole, peerName: string | undefined, fromPeer: string): void {
     if (peerVersion !== PROTOCOL_VERSION) {
-      // Version mismatch: tell the peer, tell our UI, and drop.
-      this.sendWire({ t: 'error', message: `version mismatch (host expects v${PROTOCOL_VERSION})` })
+      // Version mismatch: tell the peer, tell our UI, and drop. Both messages
+      // point at Settings → Updates — the fix is always "update both apps"
+      // (OnlineTab also surfaces a live update nudge next to this error).
+      this.sendWire({
+        t: 'error',
+        message: `version mismatch (host expects v${PROTOCOL_VERSION}) — update both apps in Settings → Updates`
+      })
       this.fail(
-        `The other player is running an incompatible version (protocol v${peerVersion} vs v${PROTOCOL_VERSION}).`
+        `The other player is running an incompatible version (protocol v${peerVersion} vs v${PROTOCOL_VERSION}). Update both apps in Settings → Updates.`
       )
       return
     }
@@ -805,7 +825,15 @@ export class MpNetSession {
    *  Arms the abort watchdog. */
   private beginGame(): void {
     const initial = this.config?.tc.initialMs ?? 0
-    this.clocks = { white: initial, black: initial }
+    const byo = this.byoCfg()
+    const fresh = freshSideClock(initial, byo)
+    this.clocks = { white: fresh.remainingMs, black: fresh.remainingMs }
+    this.byoState = byo
+      ? {
+          white: { periodsLeft: fresh.periodsLeft, inByo: fresh.inByo },
+          black: { periodsLeft: fresh.periodsLeft, inByo: fresh.inByo }
+        }
+      : null
     this.over = false
     this.inGame = true
     this.suspended = false
@@ -825,9 +853,35 @@ export class MpNetSession {
     if (this.role === 'host') this.armAbortWatchdog()
   }
 
-  /** Whether this game runs a clock at all (initialMs 0 ⇒ untimed/unlimited). */
+  /** Whether this game runs a clock at all (initialMs 0 ⇒ untimed/unlimited —
+   *  unless byo-yomi is configured, which is a real clock even with main 0). */
   private get timed(): boolean {
-    return (this.config?.tc.initialMs ?? 0) > 0
+    return (this.config?.tc.initialMs ?? 0) > 0 || this.byoCfg() !== null
+  }
+
+  /** The game's validated byo-yomi spec, or null for plain Fischer (v5). */
+  private byoCfg(): ByoyomiSpec | null {
+    return normalizeByoyomi(this.config?.tc.byoyomi ?? null)
+  }
+
+  /** One side's clock as the pure byoyomi SideClock (math view over
+   *  clocks[side] + byoState[side]). */
+  private sideClock(side: MpColor): SideClock {
+    const b = this.byoState?.[side]
+    return { remainingMs: this.clocks[side], periodsLeft: b?.periodsLeft ?? 0, inByo: b?.inByo ?? false }
+  }
+
+  /** Write a pure SideClock back into clocks/byoState. */
+  private storeSideClock(side: MpColor, c: SideClock): void {
+    this.clocks[side] = c.remainingMs
+    if (this.byoState) this.byoState[side] = { periodsLeft: c.periodsLeft, inByo: c.inByo }
+  }
+
+  /** Defensive copy of the byo snapshot for wire/event payloads (undefined when
+   *  the game has no byo-yomi — keeps v4-shaped messages byte-identical). */
+  private byoSnapshot(): MpByo | undefined {
+    if (!this.byoState) return undefined
+    return { white: { ...this.byoState.white }, black: { ...this.byoState.black } }
   }
 
   private currentTimeControl(): TimeControl {
@@ -869,18 +923,22 @@ export class MpNetSession {
       return { ...this.clocks }
     }
 
-    // Normal Fischer debit + increment from the replier's move 1 onward.
+    // Normal debit from the replier's move 1 onward: plain Fischer, or (v5)
+    // byo-yomi — the think burns main time first, spills into periods, and a
+    // move made within a period resets it (afterMoveCredit); the increment is
+    // only credited while still on main time.
     const now = this.now()
     const elapsed = Math.max(0, now - this.turnStartedAt - Math.max(0, lagForgiveMs))
-    const remaining = this.clocks[mover] - elapsed
-    if (remaining < 0) {
+    const byo = this.byoCfg()
+    const burned = consumeElapsed(this.sideClock(mover), elapsed, byo)
+    if (burned.flagged) {
       // Flag fall on the mover's own clock — they lose on time.
-      this.clocks[mover] = 0
+      this.storeSideClock(mover, burned.clock)
       this.flagLoss(mover)
       return null
     }
     const inc = this.config?.tc.incrementMs ?? 0
-    this.clocks[mover] = remaining + inc
+    this.storeSideClock(mover, afterMoveCredit(burned.clock, byo, inc))
     this.recordMove(uci)
     // Flip the turn; the other side's clock now starts ticking.
     this.toMove = mover === 'white' ? 'black' : 'white'
@@ -898,22 +956,26 @@ export class MpNetSession {
 
   /** Arm a watchdog that fires when the side-to-move would flag. On fire it
    *  RECOMPUTES remaining from the monotonic base and re-arms for any residual
-   *  (never trusts the timer's punctuality — D3). Host-only. */
+   *  (never trusts the timer's punctuality — D3). Host-only. With byo-yomi the
+   *  budget is main + every period still ahead (a side only truly flags when
+   *  its LAST period lapses); the mid-think period bookkeeping is settled by
+   *  consumeElapsed at commit/pause time. */
   private armFlagTimer(): void {
     this.clearFlagTimer()
     if (!this.timed || this.over || !this.toMove || this.turnStartedAt === 0) return
     const side = this.toMove
-    const fireIn = Math.max(0, this.clocks[side] - (this.now() - this.turnStartedAt))
+    const budget = totalBudgetMs(this.sideClock(side), this.byoCfg())
+    const fireIn = Math.max(0, budget - (this.now() - this.turnStartedAt))
     this.flagTimer = setTimeout(() => {
       this.flagTimer = null
       if (this.over || this.suspended || this.toMove !== side || this.turnStartedAt === 0) return
-      const remaining = this.clocks[side] - (this.now() - this.turnStartedAt)
+      const remaining =
+        totalBudgetMs(this.sideClock(side), this.byoCfg()) - (this.now() - this.turnStartedAt)
       if (remaining > 0) {
         // Fired early (timer imprecision / throttling): re-arm for the residual.
         this.armFlagTimer()
         return
       }
-      this.clocks[side] = 0
       this.flagLoss(side)
     }, fireIn)
   }
@@ -926,15 +988,18 @@ export class MpNetSession {
   }
 
   /** The side `loser` ran out of time. Its own event: flag{by, clocks} with the
-   *  loser zeroed; the store adjudicates insufficient-material draw vs win. */
+   *  loser zeroed (and, with byo-yomi, its periods exhausted); the store
+   *  adjudicates insufficient-material draw vs win. */
   private flagLoss(loser: MpColor): void {
     if (this.over) return
     const gid = this.gameId
     this.clocks[loser] = 0
+    if (this.byoState) this.byoState[loser] = { periodsLeft: 0, inByo: true }
     this.endGame()
     const clockMs = { ...this.clocks }
-    this.sendWire({ t: 'flag', gameId: gid, by: loser, clockMs })
-    this.emitEvent({ type: 'flag', gameId: gid, by: loser, clockMs })
+    const byo = this.byoSnapshot()
+    this.sendWire({ t: 'flag', gameId: gid, by: loser, clockMs, ...(byo ? { byo } : {}) })
+    this.emitEvent({ type: 'flag', gameId: gid, by: loser, clockMs, ...(byo ? { byo } : {}) })
   }
 
   /** Arm the first-move abort watchdog (host-only). Fires if the side that owes
@@ -977,7 +1042,7 @@ export class MpNetSession {
   /** A 'move' wire message arrived. Host: it's the guest's move — enforce turn +
    *  ply order, time it with lag forgiveness, relay the authoritative clocks.
    *  Guest: it's the host's authoritative move. Both drop out-of-order plies. */
-  private onWireMove(ply: number, uci: string, clockMs: Clocks): void {
+  private onWireMove(ply: number, uci: string, clockMs: Clocks, byo?: MpByo): void {
     if (this.over || this.suspended) return
     // Reject duplicates / out-of-order: the next expected ply is plyCount.
     if (ply !== this.plyCount) return
@@ -996,32 +1061,61 @@ export class MpNetSession {
       const committedPly = this.plyCount
       const authoritative = this.commitMove(this.guestColor as MpColor, uci, lagForgive)
       if (!authoritative) return // guest flagged; flagLoss already fired
+      const authByo = this.byoSnapshot()
       // Surface the guest's move to the HOST renderer with authoritative clocks…
-      this.emitEvent({ type: 'move', gameId: this.gameId, ply: committedPly, uci, clockMs: authoritative })
+      this.emitEvent({
+        type: 'move',
+        gameId: this.gameId,
+        ply: committedPly,
+        uci,
+        clockMs: authoritative,
+        ...(authByo ? { byo: authByo } : {})
+      })
       // …and ack the guest with the authoritative clocks (D5) so its clock updates.
       if (this.toMove) {
-        this.sendWire({ t: 'clock', gameId: this.gameId, clockMs: authoritative, toMove: this.toMove })
+        this.sendWire({
+          t: 'clock',
+          gameId: this.gameId,
+          clockMs: authoritative,
+          toMove: this.toMove,
+          ...(authByo ? { byo: authByo } : {})
+        })
       }
     } else {
       // Guest: trust the host's move AND its authoritative clocks (clockMs is
-      // authoritative host→guest). Record it, adopt the clocks, flip the turn.
-      // Turn parity keys off the FIRST MOVER (even ply = first mover's turn),
-      // not a hardcoded white.
+      // authoritative host→guest; v5: the byo snapshot rides along). Record it,
+      // adopt the clocks, flip the turn. Turn parity keys off the FIRST MOVER
+      // (even ply = first mover's turn), not a hardcoded white.
       this.clocks = { ...clockMs }
+      if (byo) this.byoState = { white: { ...byo.white }, black: { ...byo.black } }
       this.recordMove(uci)
       const first = this.firstMover()
       const second: MpColor = first === 'white' ? 'black' : 'white'
       this.toMove = this.plyCount % 2 === 0 ? first : second
-      this.emitEvent({ type: 'move', gameId: this.gameId, ply, uci, clockMs: { ...clockMs } })
+      this.emitEvent({
+        type: 'move',
+        gameId: this.gameId,
+        ply,
+        uci,
+        clockMs: { ...clockMs },
+        ...(byo ? { byo: { white: { ...byo.white }, black: { ...byo.black } } } : {})
+      })
     }
   }
 
   /** Host→guest clock ack/resync. Guest mirrors the authoritative snapshot. */
-  private onWireClock(clockMs: Clocks, toMove: MpColor): void {
+  private onWireClock(clockMs: Clocks, toMove: MpColor, byo?: MpByo): void {
     if (this.role === 'host' || this.over) return
     this.clocks = { ...clockMs }
+    if (byo) this.byoState = { white: { ...byo.white }, black: { ...byo.black } }
     this.toMove = toMove
-    this.emitEvent({ type: 'clock', gameId: this.gameId, clockMs: { ...clockMs }, toMove })
+    this.emitEvent({
+      type: 'clock',
+      gameId: this.gameId,
+      clockMs: { ...clockMs },
+      toMove,
+      ...(byo ? { byo: { white: { ...byo.white }, black: { ...byo.black } } } : {})
+    })
   }
 
   private onStart(gameId: number, yourColor: MpColor, config: MpGameConfig, name: string | undefined): void {
@@ -1068,11 +1162,18 @@ export class MpNetSession {
 
   // ---- inbound flag / abort / gameOver ---------------------------------------
 
-  private applyFlag(by: MpColor, clockMs: Clocks): void {
+  private applyFlag(by: MpColor, clockMs: Clocks, byo?: MpByo): void {
     if (this.over) return
     this.clocks = { ...clockMs }
+    if (byo) this.byoState = { white: { ...byo.white }, black: { ...byo.black } }
     this.endGame()
-    this.emitEvent({ type: 'flag', gameId: this.gameId, by, clockMs: { ...clockMs } })
+    this.emitEvent({
+      type: 'flag',
+      gameId: this.gameId,
+      by,
+      clockMs: { ...clockMs },
+      ...(byo ? { byo: { white: { ...byo.white }, black: { ...byo.black } } } : {})
+    })
   }
 
   private applyAbort(reason: 'no-first-move' | 'manual'): void {
@@ -1132,9 +1233,12 @@ export class MpNetSession {
     this.peerId = null
     // Pause the authoritative clock: freeze how much of the current turn elapsed
     // by folding it into the remaining time, and stop turnStartedAt from ticking.
+    // With byo-yomi the fold crosses period boundaries exactly like a commit
+    // would (periods burned before the pause stay burned; no move, no reset).
     if (this.role === 'host' && this.timed && this.toMove && this.turnStartedAt > 0) {
       const elapsed = Math.max(0, this.now() - this.turnStartedAt)
-      this.clocks[this.toMove] = Math.max(0, this.clocks[this.toMove] - elapsed)
+      const burned = consumeElapsed(this.sideClock(this.toMove), elapsed, this.byoCfg())
+      this.storeSideClock(this.toMove, burned.clock)
       this.turnStartedAt = 0
     }
     this.clearFlagTimer()
@@ -1202,7 +1306,9 @@ export class MpNetSession {
       yourColor: this.guestColor,
       // v4: carry the game config (kind + options) so a resumed guest can
       // rebuild any game, not just chess.
-      ...(this.config ? { config: this.config } : {})
+      ...(this.config ? { config: this.config } : {}),
+      // v5: byo-yomi survives the reconnect (consumed periods stay consumed).
+      ...(this.byoState ? { byo: this.byoSnapshot() } : {})
     })
   }
 
@@ -1217,7 +1323,8 @@ export class MpNetSession {
     clockMs: Clocks,
     toMove: MpColor,
     yourColor: MpColor,
-    config?: MpGameConfig
+    config?: MpGameConfig,
+    byo?: MpByo
   ): void {
     if (this.role !== 'guest') return
     // v4: adopt the game config when it rides along (kind + options survive the
@@ -1227,6 +1334,8 @@ export class MpNetSession {
     this.moves = [...moves]
     this.plyCount = moves.length
     this.clocks = { ...clockMs }
+    // v5: adopt the byo-yomi snapshot (consumed periods stay consumed).
+    if (byo) this.byoState = { white: { ...byo.white }, black: { ...byo.black } }
     this.toMove = toMove
     this.myColor = yourColor
     this.over = false
@@ -1234,7 +1343,13 @@ export class MpNetSession {
     this.suspended = false
     // Surface the authoritative clocks + turn immediately (peer-back already fired
     // on rebond); the store re-anchors its clock snapshot from this.
-    this.emitEvent({ type: 'clock', gameId, clockMs: { ...clockMs }, toMove })
+    this.emitEvent({
+      type: 'clock',
+      gameId,
+      clockMs: { ...clockMs },
+      toMove,
+      ...(byo ? { byo: { white: { ...byo.white }, black: { ...byo.black } } } : {})
+    })
   }
 
   private clearGraceTimer(): void {
@@ -1399,6 +1514,7 @@ export class MpNetSession {
     this.gameId = 0
     this.guestColor = null
     this.clocks = { white: 0, black: 0 }
+    this.byoState = null
     this.toMove = null
     this.turnStartedAt = 0
     this.plyCount = 0

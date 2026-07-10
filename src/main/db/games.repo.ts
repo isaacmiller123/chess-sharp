@@ -82,6 +82,66 @@ export function listGames(limit = 25, offset = 0): GameRow[] {
     .all(limit, offset) as unknown as GameRow[]
 }
 
+export interface ListAllGamesFilter {
+  /** Exact game_kind ('chess' | 'go' | … | 'custom-<id>'). Omit = every kind. */
+  kind?: string
+  /** Exact source ('play' | 'online' | …). Omit = every source. */
+  source?: string
+  /** Exact result string ('1-0' | '0-1' | '1/2-1/2'). Omit = every result. */
+  result?: string
+  limit?: number
+  offset?: number
+}
+
+/**
+ * The full cross-mode archive (Library view): every kind, newest first, with
+ * optional exact-match filters. Unlike listGames above this deliberately does
+ * NOT hide non-chess rows — the Library routes chess rows to Analysis and
+ * everything else to the game replay viewer, so nothing here can mis-render.
+ */
+export function listAllGames(f: ListAllGamesFilter = {}): GameRow[] {
+  const where: string[] = []
+  const args: (string | number)[] = []
+  if (f.kind) {
+    where.push('game_kind = ?')
+    args.push(f.kind)
+  }
+  if (f.source) {
+    where.push('source = ?')
+    args.push(f.source)
+  }
+  if (f.result) {
+    where.push('result = ?')
+    args.push(f.result)
+  }
+  const sql =
+    'SELECT * FROM game' +
+    (where.length > 0 ? ` WHERE ${where.join(' AND ')}` : '') +
+    ' ORDER BY created_at DESC LIMIT ? OFFSET ?'
+  return getAppDb()
+    .prepare(sql)
+    .all(...args, f.limit ?? 60, f.offset ?? 0) as unknown as GameRow[]
+}
+
+/** Distinct game_kind values with row counts (Library filter chips). */
+export function countGameKinds(): { kind: string; count: number }[] {
+  return getAppDb()
+    .prepare(
+      'SELECT game_kind AS kind, COUNT(*) AS count FROM game GROUP BY game_kind ORDER BY count DESC, kind ASC'
+    )
+    .all() as unknown as { kind: string; count: number }[]
+}
+
+/** Distinct source values (Library mode filter). Nulls are skipped. */
+export function listGameSources(): string[] {
+  const rows = getAppDb()
+    .prepare(
+      'SELECT DISTINCT source FROM game WHERE source IS NOT NULL ORDER BY source ASC'
+    )
+    .all() as unknown as { source: string }[]
+  return rows.map((r) => r.source)
+}
+
 export function getGame(id: number): GameRow | null {
   return (getAppDb().prepare('SELECT * FROM game WHERE id=?').get(id) as GameRow | undefined) ?? null
 }

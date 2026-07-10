@@ -1,0 +1,485 @@
+/* Library (saved-game archive) + game replay viewer.
+   Reuses the games-page layout system (.votb grid, .game-playbar strip,
+   .votb-side rail — games.css) and the global eval-bar/board-controls
+   (app.css); this file only adds the list, chips, move list and replay
+   chrome. */
+
+/* ---- Library list ---------------------------------------------------------- */
+
+.library-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-height: 0;
+}
+
+.lib-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.lib-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.lib-subfilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: center;
+}
+.lib-chip {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+.lib-chip:hover {
+  border-color: var(--border-strong);
+}
+.lib-chip.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-active);
+}
+.lib-chip.is-sub {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--fs-xs);
+}
+.lib-chip-count {
+  margin-left: var(--space-1);
+  color: var(--text-muted);
+  font-size: 0.85em;
+}
+.lib-refresh {
+  margin-left: auto;
+}
+
+.lib-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.lib-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+.lib-row:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+.lib-row:hover .lib-open {
+  color: var(--accent);
+}
+
+.lib-kind-badge {
+  flex: none;
+  min-width: 86px;
+  text-align: center;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+.lib-kind-badge.lib-kind-chess {
+  background: var(--accent-soft);
+  color: var(--accent-active);
+}
+
+.lib-chip-result {
+  flex: none;
+  min-width: 44px;
+  text-align: center;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+}
+.lib-chip-result.is-win {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.lib-chip-result.is-loss {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.lib-chip-result.is-draw,
+.lib-chip-result.is-open {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+.lib-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1;
+}
+.lib-opponent {
+  font-weight: var(--fw-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lib-meta {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+.lib-dot {
+  color: var(--text-muted);
+}
+.lib-open {
+  flex: none;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.lib-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-9) var(--space-5);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+  text-align: center;
+}
+.lib-more {
+  align-self: center;
+}
+
+.lib-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.lib-skel-row {
+  height: 58px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--bg-subtle) 37%, var(--surface-2) 63%);
+  background-size: 400% 100%;
+  animation: lib-shimmer 1.4s ease infinite;
+}
+@keyframes lib-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+/* ---- Replay viewer ---------------------------------------------------------- */
+
+.replay-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  flex: 1;
+  min-height: 0;
+}
+/* Height budget: topbar ~58 + content padding 48 + section tabs ~44 +
+   playbar ~42 + gaps ~28 + controls row ~48 = the board must fit in the rest
+   so the transport controls stay above the fold. */
+.replay-votb {
+  --votb-h: calc(100vh - 320px);
+}
+.replay-stage-row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: stretch;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+}
+.replay-stage-row .eval-bar {
+  /* stretch beside whatever board the kind renders */
+  min-height: 200px;
+}
+.replay-board-host {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  flex: 1;
+}
+.replay-stage-row .votb-cfb {
+  flex: 1;
+}
+.replay-controls {
+  margin-top: var(--space-4);
+}
+
+/* Go winrate readout: a slim horizontal bar above the board. Black fills from
+   the left (dark), white remainder to the right — label centered on top. */
+.replay-go-eval {
+  position: relative;
+  width: min(100%, var(--votb-h));
+  height: 20px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--eval-white);
+  border: 1px solid var(--border);
+}
+.replay-go-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--eval-black);
+  transition: width var(--dur-base) var(--ease-out);
+}
+.replay-go-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: var(--fw-bold);
+  color: var(--text-inverse);
+  mix-blend-mode: difference;
+}
+.replay-go-pending {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Sidebar */
+.replay-side {
+  gap: var(--space-4);
+}
+.replay-header-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.replay-players {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.replay-player {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--fw-medium);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.replay-meta {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.replay-truncated {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--warning);
+  font-size: var(--fs-xs);
+}
+
+/* Move list */
+.replay-moves-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 120px;
+}
+.replay-moves {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: var(--space-2) 0;
+}
+.replay-move-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-3);
+}
+.replay-move-num {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  text-align: right;
+  padding-right: var(--space-2);
+}
+.replay-move {
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.replay-move:hover {
+  background: var(--surface-2);
+}
+.replay-move.is-current {
+  background: var(--accent-soft);
+  color: var(--accent-active);
+  font-weight: var(--fw-semibold);
+}
+.replay-move-fill {
+  min-height: 1em;
+}
+
+/* Exploration branch: indented, tinted block under its mainline row. */
+.replay-branch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin: var(--space-1) var(--space-3) var(--space-2) 34px;
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+}
+.replay-branch-marker {
+  color: var(--accent);
+  font-size: var(--fs-xs);
+}
+.replay-move.is-branch {
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+.replay-move.is-branch.is-current {
+  color: var(--accent-active);
+}
+
+.replay-speeds {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+.replay-speed {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.replay-speed.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-active);
+}
+.replay-back-btn {
+  align-self: stretch;
+}
+.replay-turn {
+  margin-top: 0;
+}
+.replay-hint {
+  margin-top: auto;
+}
+
+/* Error card */
+.replay-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.replay-error-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-lg);
+  background: var(--warning-soft);
+  color: var(--text-primary);
+}
+.replay-error-card p {
+  margin: 0;
+}
+
+/* Games-view section tabs (Games | Library) */
+.games-sections {
+  display: inline-flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+.games-section-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+.games-section-tab:hover {
+  border-color: var(--border-strong);
+}
+.games-section-tab.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-active);
+}
+
+@media (max-width: 980px) {
+  .replay-votb {
+    --votb-h: calc(100vh - 300px);
+  }
+}

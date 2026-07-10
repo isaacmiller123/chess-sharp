@@ -4,7 +4,8 @@ import type {
   DatasetProgress,
   EngineBestmove,
   EngineLine,
-  ReviewProgress
+  ReviewProgress,
+  UpdateStatus
 } from '@shared/types'
 
 // The single typed surface exposed to the renderer. Mirrors the IPC channels in
@@ -25,6 +26,8 @@ export const api: Api = {
     play: (req) => ipcRenderer.invoke('engine:play', req),
     playVariant: (req) => ipcRenderer.invoke('engine:playVariant', req),
     playGo: (req) => ipcRenderer.invoke('engine:playGo', req),
+    evalVariant: (req) => ipcRenderer.invoke('engine:evalVariant', req),
+    estimateGo: (req) => ipcRenderer.invoke('engine:estimateGo', req),
     status: () => ipcRenderer.invoke('engine:status', {}),
     newGame: (instance) => ipcRenderer.invoke('engine:newGame', { instance }),
     onLine: (cb) => {
@@ -65,6 +68,7 @@ export const api: Api = {
   games: {
     save: (input) => ipcRenderer.invoke('games:save', input),
     list: (req) => ipcRenderer.invoke('games:list', req ?? {}),
+    listAll: (req) => ipcRenderer.invoke('games:listAll', req ?? {}),
     get: (gameId) => ipcRenderer.invoke('games:get', { gameId }),
     reportResult: (req) => ipcRenderer.invoke('games:reportResult', req)
   },
@@ -136,6 +140,19 @@ export const api: Api = {
     list: () => ipcRenderer.invoke('customVariants:list', {}),
     get: (id) => ipcRenderer.invoke('customVariants:get', { id }),
     delete: (id) => ipcRenderer.invoke('customVariants:delete', { id })
+  },
+  dialog: {
+    saveFile: (req) => ipcRenderer.invoke('dialog:saveFile', req)
+  },
+  updates: {
+    status: () => ipcRenderer.invoke('updates:status', {}),
+    check: () => ipcRenderer.invoke('updates:check', {}),
+    download: () => ipcRenderer.invoke('updates:download', {}),
+    onStatus: (cb) => {
+      const listener = (_e: IpcRendererEvent, data: UpdateStatus) => cb(data)
+      ipcRenderer.on('updates:status', listener)
+      return () => ipcRenderer.removeListener('updates:status', listener)
+    }
   }
   // Multiplayer is renderer-owned (WebRTC over trystero); it no longer crosses
   // IPC. See src/renderer/src/features/play/online/mpClient.ts.

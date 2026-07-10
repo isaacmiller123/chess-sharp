@@ -8,6 +8,7 @@ import type { GameKind } from '../../games/kernel'
 import { useBoardSound } from '../../games/boards/useBoardSound'
 import { Board3DHost, BoardModeToggle, useBoardMode } from './boardMode'
 import { useOtbOrientation } from './useOtbOrientation'
+import { useSaveFinishedGame } from './useSaveFinishedGame'
 
 /**
  * Local over-the-board play for the WHOLE chess family (all 14 kinds), driven
@@ -118,6 +119,16 @@ export function VariantOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
   const orientation = useOtbOrientation(turn, rotates && autoFlip)
   const sides = SIDE_NAMES[kind] ?? ['White', 'Black']
   const sideName = (color: 'white' | 'black'): string => (color === 'white' ? sides[0] : sides[1])
+
+  // Archive every finished OTB game (feature foundation: reviewable later).
+  useSaveFinishedGame(spec, state, outcome, {
+    white: sides[0],
+    black: sides[1],
+    event: 'Over the board',
+    source: 'play-otb',
+    opponentKind: 'human',
+    opponentLabel: 'Over the board'
+  })
 
   const resultLabel =
     outcome &&

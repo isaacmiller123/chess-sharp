@@ -30,6 +30,7 @@ import { KernelOnlineGame } from './online/KernelOnlineGame'
 import { liveMs, LeaveConfirm, OnlineStatusBar, PeerStrips, RematchStrip } from './online/OnlineChrome'
 import { useGameTree } from '../../state/gameTree'
 import { useSettings } from '../../state/settings'
+import { applyUpdate, useUpdates } from '../../state/updates'
 import {
   applyMove,
   checkColor,
@@ -44,9 +45,15 @@ import { useSound } from '../../sound/useSound'
 import { GameView } from './GameView'
 import { TimeControlPicker } from './TimeControlPicker'
 import { timeControlById, formatClock, type TimeControl } from './timeControl'
+import { BYOYOMI_PRESETS, byoyomiPresetById } from './byoyomi'
+import type { GoHandicap } from '../../games/go'
 import './online.css'
 
 type ColorChoice = MpColor | 'random'
+
+/** Go host-row chips: board sizes + 'Off' + 2..9 handicap stones. */
+const GO_SIZES = [9, 13, 19] as const
+const GO_HANDICAPS: readonly GoHandicap[] = [0, 2, 3, 4, 5, 6, 7, 8, 9]
 
 /** What the host surface needs to know about this tab: nothing live ('idle'),
  *  a session is open but no game yet ('lobby'), or a game is live ('game'). Kept
@@ -65,6 +72,31 @@ export interface OnlineTabProps {
   /** Pre-seed the host card's game picker (GamePage Online tab passes its
    *  kind). Chess remains the default — and the picker stays changeable. */
   initialGameKind?: GameKind
+}
+
+/** True for the hello-gate failure (mpSession's version-mismatch copy) —
+ *  the one lobby error a new build actually fixes. */
+function isVersionMismatchError(message: string): boolean {
+  return /version/i.test(message) && /(mismatch|incompatible)/i.test(message)
+}
+
+/** Shown under a version-mismatch lobby error when an update is genuinely
+ *  waiting: one click starts it (in-place on Windows, browser .dmg download on
+ *  macOS — decided by main). The error copy itself already points the OTHER
+ *  player at Settings → Updates. */
+function VersionMismatchNudge(): JSX.Element | null {
+  const updates = useUpdates()
+  if (!updates || (updates.state !== 'available' && updates.state !== 'ready')) return null
+  return (
+    <div className="online-update-nudge">
+      <span>
+        <strong>Chess# v{updates.latestVersion}</strong> is out — updating both apps fixes this.
+      </span>
+      <button type="button" className="btn" onClick={() => void applyUpdate()}>
+        {updates.state === 'ready' ? 'Restart & update' : 'Update now'}
+      </button>
+    </div>
+  )
 }
 
 export default function OnlineTab({
@@ -97,6 +129,12 @@ export default function OnlineTab({
   const [gameKind, setGameKind] = useState<GameKind>(() =>
     initialGameKind && isRegisteredGame(initialGameKind) ? initialGameKind : 'chess'
   )
+  // Go-only host options (QoL): board size, handicap stones, byo-yomi periods.
+  // They ride the wire in config.game.options / config.tc.byoyomi — the joiner
+  // adopts whatever arrives in start/resync, no local selection involved.
+  const [goSize, setGoSize] = useState<9 | 13 | 19>(19)
+  const [goHandicap, setGoHandicap] = useState<GoHandicap>(0)
+  const [goByoId, setGoByoId] = useState('off')
   const [joinCode, setJoinCode] = useState('')
   const [copied, setCopied] = useState(false)
   // Client-side form validation (empty code / unlimited TC) lives here so it's
@@ -232,8 +270,15 @@ export default function OnlineTab({
       return
     }
     setFormError(null)
+    // Go rides its QoL options on the wire: byo-yomi in tc (v5), size/handicap
+    // in game.options (opaque blob the joiner's kernel init consumes).
+    const goByo = gameKind === 'go' ? byoyomiPresetById(goByoId).byo : null
     const cfg: MpGameConfig = {
-      tc: { initialMs: hostTc.baseMs, incrementMs: hostTc.incMs },
+      tc: {
+        initialMs: hostTc.baseMs,
+        incrementMs: hostTc.incMs,
+        ...(goByo ? { byoyomi: goByo } : {})
+      },
       hostColor: hostColorChoice,
       // Wire v4: chess stays the implicit default (config byte-identical to
       // pre-v4 hosts); other kinds ride in config.game. Chess960 resolves its
@@ -244,13 +289,16 @@ export default function OnlineTab({
               kind: gameKind,
               ...(gameKind === 'chess960'
                 ? { options: { positionNumber: Math.floor(Math.random() * 960) } }
+                : {}),
+              ...(gameKind === 'go'
+                ? { options: { size: goSize, ...(goHandicap >= 2 ? { handicap: goHandicap } : {}) } }
                 : {})
             }
           }
         : {})
     }
     onlineStore.host(cfg)
-  }, [hostTc, hostColorChoice, gameKind])
+  }, [hostTc, hostColorChoice, gameKind, goSize, goHandicap, goByoId])
 
   const doJoin = useCallback(() => {
     const trimmed = joinCode.trim()
@@ -343,20 +391,25 @@ export default function OnlineTab({
       </header>
 
       {(formError || state.error) && (
-        <div className="online-error" role="alert">
-          <AlertTriangle size={15} aria-hidden />
-          <span>{formError || state.error}</span>
-          <button
-            className="icon-btn online-error-x"
-            onClick={() => {
-              setFormError(null)
-              onlineStore.dismissError()
-            }}
-            aria-label="Dismiss"
-          >
-            <X size={14} />
-          </button>
-        </div>
+        <>
+          <div className="online-error" role="alert">
+            <AlertTriangle size={15} aria-hidden />
+            <span>{formError || state.error}</span>
+            <button
+              className="icon-btn online-error-x"
+              onClick={() => {
+                setFormError(null)
+                onlineStore.dismissError()
+              }}
+              aria-label="Dismiss"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          {!formError && state.error && isVersionMismatchError(state.error) && (
+            <VersionMismatchNudge />
+          )}
+        </>
       )}
 
       {state.phase === 'hosting' && state.code ? (
@@ -391,6 +444,67 @@ export default function OnlineTab({
               <span className="online-label">Game</span>
               <GamePicker value={gameKind} onChange={setGameKind} disabled={busy} />
             </div>
+
+            {gameKind === 'go' && (
+              <div className="online-field">
+                <span className="online-label">Go options</span>
+                <div className="goopt">
+                  <div className="goopt-row" role="group" aria-label="Board size">
+                    <span className="goopt-name">Board</span>
+                    {GO_SIZES.map((sz) => (
+                      <button
+                        key={sz}
+                        type="button"
+                        className={`goopt-chip${goSize === sz ? ' on' : ''}`}
+                        aria-pressed={goSize === sz}
+                        onClick={() => setGoSize(sz)}
+                      >
+                        <span className="num">{sz}×{sz}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="goopt-row" role="group" aria-label="Handicap stones">
+                    <span className="goopt-name">Handicap</span>
+                    {GO_HANDICAPS.map((h) => (
+                      <button
+                        key={h}
+                        type="button"
+                        className={`goopt-chip${goHandicap === h ? ' on' : ''}`}
+                        aria-pressed={goHandicap === h}
+                        title={h === 0 ? 'Even game' : `Black starts with ${h} hoshi stones; White moves first; komi 0.5`}
+                        onClick={() => setGoHandicap(h)}
+                      >
+                        <span className="num">{h === 0 ? 'Off' : h}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="goopt-row" role="group" aria-label="Byo-yomi overtime">
+                    <span className="goopt-name">Byo-yomi</span>
+                    {BYOYOMI_PRESETS.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className={`goopt-chip${goByoId === p.id ? ' on' : ''}`}
+                        aria-pressed={goByoId === p.id}
+                        title={
+                          p.byo
+                            ? `${p.byo.periods} overtime periods of ${p.byo.periodMs / 1000}s — a move inside a period resets it`
+                            : 'No overtime — main time only'
+                        }
+                        onClick={() => setGoByoId(p.id)}
+                      >
+                        <span className="num">{p.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {goHandicap >= 2 && (
+                    <p className="online-note">
+                      Black pre-places {goHandicap} stones, White moves first, komi drops to 0.5.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="online-field">
               <span className="online-label">Time control</span>
@@ -630,15 +744,22 @@ function OnlineGame({
   // Live remaining ms from the store snapshot; `interp` hands the Clock the
   // authoritative snapshot so it self-ticks at 100ms (B2/D5/MP-02) — the coarse
   // ms value keeps GameView's ClockSide contract and drives the active glow.
+  // (byo is stripped from the spread: OnlineClock.byo is the v5 PER-GAME shape;
+  // ClockInterp.byo is per-side and only go games — KernelOnlineGame — build it.)
+  const chessInterp = (side: Color) => {
+    if (!state.clock) return undefined
+    const { byo: _byo, ...clock } = state.clock
+    return { ...clock, side, baseMs }
+  }
   const opponentClock = {
     ms: liveMs(state.clock, opponentColor),
     active: clockLive && turn === opponentColor && atTip,
-    interp: state.clock ? { ...state.clock, side: opponentColor, baseMs } : undefined
+    interp: chessInterp(opponentColor)
   }
   const userClock = {
     ms: liveMs(state.clock, userColor),
     active: clockLive && turn === userColor && atTip,
-    interp: state.clock ? { ...state.clock, side: userColor, baseMs } : undefined,
+    interp: chessInterp(userColor),
     onLowTime
   }
   const opponentSub = timed ? formatClock(opponentClock.ms) : 'Online'

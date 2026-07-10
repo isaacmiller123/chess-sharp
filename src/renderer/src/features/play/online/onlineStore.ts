@@ -18,8 +18,9 @@
 // session hands it, and it applies moves locally with chessops purely to render
 // the board and to detect board-terminal endings (→ mp.gameEnded).
 
-import type { MpColor, MpEvent, MpGameConfig, MpClocks } from '@shared/types'
+import type { MpByo, MpColor, MpEvent, MpGameConfig, MpClocks } from '@shared/types'
 import { mp } from './mpClient'
+import { afterMoveCredit, consumeElapsed, normalizeByoyomi, type SideClock } from '../byoyomi'
 import { applyMove, INITIAL_FEN, type Color, type GameResult } from '../../../chess/chess'
 import {
   adapterFromSpec,
@@ -66,12 +67,16 @@ function soundNameForMove(m: { san: string; capture: boolean; check: boolean }):
 // ---------------------------------------------------------------------------
 
 export interface OnlineClock {
-  /** Remaining ms per side at `atMono`. */
+  /** Remaining ms per side at `atMono`. With byo-yomi, a side that is `inByo`
+   *  reads its CURRENT period's remaining ms here (main time before that). */
   snapshot: { white: number; black: number }
   /** performance.now() instant the snapshot was taken. */
   atMono: number
   /** Side currently burning time (interpolate it down), or null when idle. */
   running: 'white' | 'black' | null
+  /** v5: per-side byo-yomi snapshot (periods left / inByo), present only when
+   *  the game's tc has byoyomi. Display readers pair it with config.tc.byoyomi. */
+  byo?: MpByo
 }
 
 export interface OnlineState {
@@ -297,11 +302,24 @@ class OnlineStore {
   // ---- clock snapshot ------------------------------------------------------
 
   /** Adopt an authoritative clock snapshot, timestamped to now (monotonic). The
-   *  running side is whoever is on move, unless the game is over/idle (null). */
-  private setClock(clocks: MpClocks, running: 'white' | 'black' | null): void {
+   *  running side is whoever is on move, unless the game is over/idle (null).
+   *  The byo snapshot (v5) is adopted when the event carries one and carried
+   *  forward otherwise, so optimistic re-anchors never drop it. */
+  private setClock(clocks: MpClocks, running: 'white' | 'black' | null, byo?: MpByo): void {
+    const carried = byo ?? this.state.clock?.byo
     this.set({
-      clock: { snapshot: { white: clocks.white, black: clocks.black }, atMono: performance.now(), running }
+      clock: {
+        snapshot: { white: clocks.white, black: clocks.black },
+        atMono: performance.now(),
+        running,
+        ...(carried ? { byo: carried } : {})
+      }
     })
+  }
+
+  /** The game's byo-yomi spec (null = plain Fischer). */
+  private byoSpec(): ReturnType<typeof normalizeByoyomi> {
+    return normalizeByoyomi(this.state.config?.tc.byoyomi ?? null)
   }
 
   // ---- game lifecycle ------------------------------------------------------
@@ -440,19 +458,38 @@ class OnlineStore {
   private resumedClock(): OnlineClock | null {
     const c = this.state.clock
     if (!c || !this.live) return c
-    return { snapshot: { ...c.snapshot }, atMono: performance.now(), running: this.adapter.turn(this.gameState) }
+    return {
+      snapshot: { ...c.snapshot },
+      atMono: performance.now(),
+      running: this.adapter.turn(this.gameState),
+      ...(c.byo ? { byo: c.byo } : {})
+    }
   }
 
-  /** Freeze the current clock (stop interpolating) at its displayed value. */
+  /** Freeze the current clock (stop interpolating) at its displayed value.
+   *  With byo-yomi the freeze crosses period boundaries exactly like the host
+   *  will rule (display-only; the next authoritative snapshot corrects drift). */
   private frozenClock(): OnlineClock | null {
     const c = this.state.clock
     if (!c) return null
     if (c.running === null) return c
     const now = performance.now()
     const elapsed = Math.max(0, now - c.atMono)
-    const snap = { ...c.snapshot }
-    snap[c.running] = Math.max(0, snap[c.running] - elapsed)
-    return { snapshot: snap, atMono: now, running: null }
+    const side = c.running
+    const burned = consumeElapsed(
+      {
+        remainingMs: c.snapshot[side],
+        periodsLeft: c.byo?.[side].periodsLeft ?? 0,
+        inByo: c.byo?.[side].inByo ?? false
+      },
+      elapsed,
+      this.byoSpec()
+    ).clock
+    const snap = { ...c.snapshot, [side]: burned.remainingMs }
+    const byo = c.byo
+      ? { ...c.byo, [side]: { periodsLeft: burned.periodsLeft, inByo: burned.inByo } }
+      : undefined
+    return { snapshot: snap, atMono: now, running: null, ...(byo ? { byo } : {}) }
   }
 
   /** Persist a finished game exactly once (≥2 plies + a real result). Aborted /
@@ -545,17 +582,17 @@ class OnlineStore {
         return
 
       case 'move':
-        this.onRemoteMove(ev.gameId, ev.ply, ev.uci, ev.clockMs)
+        this.onRemoteMove(ev.gameId, ev.ply, ev.uci, ev.clockMs, ev.byo)
         return
 
       case 'clock':
         // Host ack after committing our move, and periodic re-sync. Trust it.
         if (ev.gameId !== this.state.gameId) return
-        this.setClock(ev.clockMs, this.live ? ev.toMove : null)
+        this.setClock(ev.clockMs, this.live ? ev.toMove : null, ev.byo)
         return
 
       case 'flag':
-        this.onFlag(ev.gameId, ev.by, ev.clockMs)
+        this.onFlag(ev.gameId, ev.by, ev.clockMs, ev.byo)
         return
 
       case 'abort':
@@ -640,7 +677,7 @@ class OnlineStore {
   }
 
   /** Apply a move the REMOTE peer made (drop stale gameId / out-of-order ply). */
-  private onRemoteMove(gameId: number, ply: number, uci: string, clockMs: MpClocks): void {
+  private onRemoteMove(gameId: number, ply: number, uci: string, clockMs: MpClocks, byo?: MpByo): void {
     if (gameId !== this.state.gameId) return
     if (ply !== this.state.plyCount) return // duplicate / out-of-order — drop (D8)
     const meta = this.adapter.moveMeta(this.gameState, uci) ?? { san: uci, capture: false, check: false }
@@ -649,7 +686,7 @@ class OnlineStore {
     this.pushMove(uci, next, meta)
     this.sound(this.moveSound(meta))
     // Adopt the authoritative clocks; the side now on move is the running side.
-    this.setClock(clockMs, this.live ? this.adapter.turn(next) : null)
+    this.setClock(clockMs, this.live ? this.adapter.turn(next) : null, byo)
     this.detectTerminal(next)
   }
 
@@ -667,10 +704,10 @@ class OnlineStore {
    *  SAME position both stores hold, so results agree: chess family applies
    *  the lichess insufficient-material draw, everything else is a plain loss
    *  on time (the fallback below, for adapters without the hook). */
-  private onFlag(gameId: number, by: MpColor, clockMs: MpClocks): void {
+  private onFlag(gameId: number, by: MpColor, clockMs: MpClocks, byo?: MpByo): void {
     if (gameId !== this.state.gameId) return
     // Zero the flagged side's displayed clock from the message.
-    this.setClock(clockMs, null)
+    this.setClock(clockMs, null, byo)
     const adjudicated = this.adapter.flagResult?.(this.gameState, by)
     if (adjudicated) {
       this.endGame(adjudicated.result, adjudicated.reason, { save: true })
@@ -686,13 +723,22 @@ class OnlineStore {
   async host(cfg: MpGameConfig): Promise<void> {
     const kind = cfg.game?.kind ?? 'chess'
     // Wire v4: the session is game-agnostic — it cannot know that go/gomoku/
-    // othello/checkers open with BLACK. Stamp the registry spec's first mover
-    // (players[0]) into the game selector so the move ORDER travels in the
-    // config; the joiner adopts it from start/resync automatically. Only
-    // stamped when black-first: absent = white, so chess (and every white-
-    // first game) stays byte-identical on the wire.
+    // othello/checkers open with BLACK. Stamp the game's first mover into the
+    // selector so the move ORDER travels in the config; the joiner adopts it
+    // from start/resync automatically. The first mover is options-aware via
+    // spec.turn on a fresh init (go: handicap ≥ 2 → WHITE opens); parity games
+    // fall back to players[0]. Only a non-white first mover is stamped: absent
+    // = white, so chess (and every white-first game) stays byte-identical.
     if (cfg.game && !cfg.game.firstMover) {
-      const first = getGame(kind as GameKind)?.spec.players[0]
+      const spec = getGame(kind as GameKind)?.spec
+      let first = spec?.players[0]
+      if (spec?.turn) {
+        try {
+          first = spec.turn(spec.init(cfg.game.options))
+        } catch {
+          /* corrupt options fail later in beginGame with a friendly error */
+        }
+      }
       if (first === 'black') {
         cfg = { ...cfg, game: { ...cfg.game, firstMover: 'black' } }
       }
@@ -784,7 +830,30 @@ class OnlineStore {
     // re-time which side burns.
     if (this.state.clock && this.live) {
       const c = this.frozenClock()
-      if (c) this.setClock(c.snapshot, this.adapter.turn(next))
+      if (c) {
+        // v5: optimistically credit OUR committed move like the host will —
+        // in byo-yomi the current period resets to full (the authoritative
+        // ack corrects any drift, but without this our period would keep
+        // draining visually until the opponent's next message).
+        let snap = c.snapshot
+        let byo = c.byo
+        const spec = this.byoSpec()
+        if (spec && byo) {
+          const mine = this.state.myColor
+          const credited = afterMoveCredit(
+            {
+              remainingMs: snap[mine],
+              periodsLeft: byo[mine].periodsLeft,
+              inByo: byo[mine].inByo
+            } as SideClock,
+            spec,
+            0 // increment is host-credited; don't double-guess it here
+          )
+          snap = { ...snap, [mine]: credited.remainingMs }
+          byo = { ...byo, [mine]: { periodsLeft: credited.periodsLeft, inByo: credited.inByo } }
+        }
+        this.setClock(snap, this.adapter.turn(next), byo)
+      }
     }
     // The kernel-terminal check runs on the confirmed position.
     this.detectTerminal(next)

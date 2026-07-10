@@ -44,6 +44,34 @@
       "port": 8792
     },
     {
+      "name": "updates-preview",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8794",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "out/renderer"
+      ],
+      "port": 8794
+    },
+    {
+      "name": "library-preview",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8795",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "out/renderer"
+      ],
+      "port": 8795
+    },
+    {
       "name": "cfb-preview",
       "runtimeExecutable": "python",
       "runtimeArgs": [

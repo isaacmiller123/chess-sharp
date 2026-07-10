@@ -26,15 +26,21 @@ import { Bot, Download, RotateCcw, Swords } from 'lucide-react'
 import { resolveBotProvider, BotUnavailableError, BOT_LEVEL_NAMES } from '../../games/bots'
 import type { GameKind, PlayerColor } from '../../games/kernel'
 import { getGame, type GameBoardProps } from '../../games/registry'
-import type { GoSpec, GoState } from '../../games/go'
+import type { GoHandicap, GoSpec, GoState } from '../../games/go'
 import { useBoardSound } from '../../games/boards/useBoardSound'
+import { BYOYOMI_PRESETS, byoyomiPresetById } from '../play/byoyomi'
 import type { CatalogEntry } from './catalog'
 import { kernelColorLabel } from './KernelOtb'
 import { Board3DHost, BoardModeToggle, useBoardMode } from './boardMode'
+import { GO_MAIN_PRESETS, GoClockPair, useLocalGoClock, type GoClockConfig } from './goClock'
+import { TerritoryControl, useTerritoryEstimate } from './territory'
+import { useSaveFinishedGame } from './useSaveFinishedGame'
 
 type Phase = 'setup' | 'playing'
 
 const GO_SIZES = [9, 13, 19] as const
+/** 'Off' + the standard 2–9 hoshi handicaps (games/go.ts placement tables). */
+const GO_HANDICAPS: readonly GoHandicap[] = [0, 2, 3, 4, 5, 6, 7, 8, 9]
 
 // Lazy board components cached per kind (same discipline as KernelOtb).
 const BOARD_CACHE = new Map<string, ComponentType<GameBoardProps>>()
@@ -69,8 +75,16 @@ export function KernelBot({
   const [level, setLevel] = useState(3)
   const [userColor, setUserColor] = useState<PlayerColor>(spec.players[0])
   const [goSize, setGoSize] = useState<9 | 13 | 19>(9)
+  const [goHandicap, setGoHandicap] = useState<GoHandicap>(0)
+  // Go clocks (QoL): main + byo-yomi presets, both 'off' by default (untimed).
+  const [goMainId, setGoMainId] = useState('off')
+  const [goByoId, setGoByoId] = useState('off')
   const [state, setState] = useState<unknown>(null)
   const [thinking, setThinking] = useState(false)
+  // A side lost on time (local go clocks) — terminal beside spec outcome.
+  const [timeLoss, setTimeLoss] = useState<PlayerColor | null>(null)
+  const [clockEpoch, setClockEpoch] = useState(0)
+  const [territoryOn, setTerritoryOn] = useState(false)
   const { is3d } = useBoardMode(kind)
   // Go engine availability: null = probing, then katagoReady. Non-go kinds are
   // always available (in-process bots).
@@ -103,19 +117,58 @@ export function KernelBot({
 
   useBoardSound(kind, state)
 
-  const initOptions = isGo ? { size: goSize } : undefined
+  const initOptions = isGo
+    ? { size: goSize, ...(goHandicap >= 2 ? { handicap: goHandicap } : {}) }
+    : undefined
   const moves = ((state ?? {}) as { moves?: readonly string[] }).moves ?? []
   const outcome = state !== null ? spec.result(state) : null
   const legal = useMemo(
     () => (state !== null && !outcome ? spec.legalMoves(state) : []),
     [spec, state, outcome]
   )
-  const turn: PlayerColor = spec.players[moves.length % 2]
+  // spec.turn (when present) outranks parity: go's handicap makes WHITE open.
+  const turn: PlayerColor =
+    state !== null && spec.turn ? spec.turn(state) : spec.players[moves.length % 2]
   const goScoring =
     isGo && state !== null && !outcome && (spec as unknown as GoSpec).isScoringPhase(state as GoState)
   // The bot only ever answers board moves; in go's scoring phase (no legal
   // moves, result pending) the HUMAN resolves dead stones for both sides.
-  const isUserTurn = phase === 'playing' && !outcome && !goScoring && turn === userColor
+  const isUserTurn =
+    phase === 'playing' && !outcome && !goScoring && timeLoss === null && turn === userColor
+
+  // Local go clocks (both sides tick — the bot burns real think time too).
+  const goClockCfg = useMemo<GoClockConfig | null>(() => {
+    if (!isGo) return null
+    const mainMs = GO_MAIN_PRESETS.find((p) => p.id === goMainId)?.ms ?? 0
+    const byo = byoyomiPresetById(goByoId).byo
+    return mainMs > 0 || byo ? { mainMs, byo } : null
+  }, [isGo, goMainId, goByoId])
+  const clockRunning =
+    phase === 'playing' &&
+    state !== null &&
+    !outcome &&
+    !goScoring &&
+    timeLoss === null &&
+    moves.length > 0
+  const goClock = useLocalGoClock(goClockCfg, turn, clockRunning, clockEpoch, setTimeLoss)
+
+  // Territory estimate overlay + strip (hidden entirely without KataGo).
+  const territory = useTerritoryEstimate(
+    isGo && phase === 'playing' ? (state as GoState | null) : null,
+    isGo && phase === 'playing' && territoryOn && !goScoring && !outcome && timeLoss === null
+  )
+
+  // Archive every finished bot game (feature foundation: reviewable later).
+  const botLabel = `Bot L${level}`
+  useSaveFinishedGame(spec, state, outcome, {
+    white: userColor === 'white' ? 'You' : botLabel,
+    black: userColor === 'black' ? 'You' : botLabel,
+    event: 'Play vs Bot',
+    source: 'play-bot',
+    userColor,
+    opponentKind: 'engine',
+    opponentLabel: `${botLabel} · ${BOT_LEVEL_NAMES[level - 1]}`
+  })
 
   const applyMove = useCallback(
     (move: string): void => {
@@ -126,7 +179,8 @@ export function KernelBot({
 
   // Bot turn: ask the provider once per position; drop stale replies.
   useEffect(() => {
-    if (phase !== 'playing' || outcome || goScoring || turn === userColor || state === null) return
+    if (phase !== 'playing' || outcome || goScoring || timeLoss !== null) return
+    if (turn === userColor || state === null) return
     if (legal.length === 0) return
     const seq = gameSeq.current
     let cancelled = false
@@ -163,7 +217,7 @@ export function KernelBot({
     return () => {
       cancelled = true
     }
-  }, [phase, state, turn, userColor, outcome, goScoring, legal, provider, level, spec, onToast, isGo])
+  }, [phase, state, turn, userColor, outcome, goScoring, timeLoss, legal, provider, level, spec, onToast, isGo])
 
   const onUserMove = useCallback(
     (move: string) => {
@@ -194,9 +248,11 @@ export function KernelBot({
     gameSeq.current++
     setState(spec.init(initOptions))
     setThinking(false)
+    setTimeLoss(null)
+    setClockEpoch((e) => e + 1)
     setPhase('playing')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spec, goSize])
+  }, [spec, goSize, goHandicap])
 
   const backToSetup = useCallback(() => {
     gameSeq.current++
@@ -207,11 +263,14 @@ export function KernelBot({
   const canPass = isUserTurn && legal.includes('pass')
   const canSwap = isUserTurn && legal.includes('swap')
 
-  const resultLabel =
-    outcome &&
-    (outcome.winner === null
-      ? `Draw — ${outcome.reason.replace(/-/g, ' ')}`
-      : `${outcome.winner === userColor ? 'You win' : 'Bot wins'} — ${outcome.reason.replace(/-/g, ' ')}`)
+  const resultLabel = timeLoss
+    ? `${timeLoss === userColor ? 'Bot wins' : 'You win'} — time`
+    : outcome &&
+      (outcome.winner === null
+        ? `Draw — ${outcome.reason.replace(/-/g, ' ')}`
+        : `${outcome.winner === userColor ? 'You win' : 'Bot wins'} — ${outcome.reason.replace(/-/g, ' ')}`)
+
+  const over = outcome !== null || timeLoss !== null
 
   if (phase === 'setup') {
     return (
@@ -263,6 +322,69 @@ export function KernelBot({
                 </button>
               ))}
             </div>
+          )}
+
+          {isGo && (
+            <>
+              <div className="kotb-opt-row" role="group" aria-label="Handicap stones">
+                <span className="kotb-opt-name">Handicap</span>
+                {GO_HANDICAPS.map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    className={`kotb-chip is-mini${goHandicap === h ? ' is-active' : ''}`}
+                    aria-pressed={goHandicap === h}
+                    title={
+                      h === 0
+                        ? 'Even game'
+                        : `Black pre-places ${h} hoshi stones; White moves first; komi 0.5`
+                    }
+                    onClick={() => setGoHandicap(h)}
+                  >
+                    {h === 0 ? 'Off' : h}
+                  </button>
+                ))}
+              </div>
+              <div className="kotb-opt-row" role="group" aria-label="Main time">
+                <span className="kotb-opt-name">Main time</span>
+                {GO_MAIN_PRESETS.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={`kotb-chip is-mini${goMainId === p.id ? ' is-active' : ''}`}
+                    aria-pressed={goMainId === p.id}
+                    onClick={() => setGoMainId(p.id)}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <div className="kotb-opt-row" role="group" aria-label="Byo-yomi overtime">
+                <span className="kotb-opt-name">Byo-yomi</span>
+                {BYOYOMI_PRESETS.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={`kotb-chip is-mini${goByoId === p.id ? ' is-active' : ''}`}
+                    aria-pressed={goByoId === p.id}
+                    title={
+                      p.byo
+                        ? `${p.byo.periods} overtime periods of ${p.byo.periodMs / 1000}s — a move inside a period resets it`
+                        : 'No overtime — main time only'
+                    }
+                    onClick={() => setGoByoId(p.id)}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              {goHandicap >= 2 && (
+                <p className="vbot-level-hint">
+                  Black pre-places {goHandicap} stones, White moves first, komi drops to 0.5.
+                  {userColor === 'black' ? ' You take the handicap stones.' : ' The bot takes the handicap stones.'}
+                </p>
+              )}
+            </>
           )}
 
           <div className="vbot-colors" role="radiogroup" aria-label="Play as">
@@ -324,7 +446,7 @@ export function KernelBot({
             state={state}
             orientation={userColor === 'black' && spec.flipPolicy === 'rotate' ? 'black' : 'white'}
             // Scoring phase (go): the human marks dead stones for BOTH sides.
-            interactive={isUserTurn || goScoring}
+            interactive={isUserTurn || (goScoring && timeLoss === null)}
             onMove={onUserMove}
             onAction={onAction}
           />
@@ -335,13 +457,14 @@ export function KernelBot({
               state={state}
               orientation={userColor === 'black' && spec.flipPolicy === 'rotate' ? 'black' : 'white'}
               // Scoring phase (go): the human marks dead stones for BOTH sides.
-              interactive={isUserTurn || goScoring}
+              interactive={isUserTurn || (goScoring && timeLoss === null)}
               onMove={onUserMove}
               onAction={onAction}
+              territory={territoryOn && !goScoring ? territory.estimate?.ownership : undefined}
             />
           </Suspense>
         )}
-        {outcome && (
+        {over && (
           <div className="votb-banner" role="status">
             <strong>{resultLabel}</strong>
             <button type="button" className="votb-btn is-primary" onClick={start}>
@@ -351,11 +474,22 @@ export function KernelBot({
         )}
       </div>
       <aside className="votb-side">
+        {isGo && goClockCfg && (
+          <GoClockPair
+            clock={goClock}
+            turn={turn}
+            labels={{
+              black: userColor === 'black' ? 'You' : 'Bot',
+              white: userColor === 'white' ? 'You' : 'Bot'
+            }}
+            over={over || goScoring}
+          />
+        )}
         <div className="votb-turn">
           <span className={`votb-turn-dot is-${turn}`} aria-hidden />
           {goScoring
             ? 'Scoring — tap dead groups'
-            : outcome
+            : over
               ? 'Game over'
               : isUserTurn
                 ? 'Your move'
@@ -375,6 +509,9 @@ export function KernelBot({
             </span>
           )}
         </div>
+        {isGo && (
+          <TerritoryControl territory={territory} on={territoryOn} onToggle={setTerritoryOn} />
+        )}
         <BoardModeToggle kind={kind} />
         {canPass && (
           <button type="button" className="votb-btn" onClick={() => onUserMove('pass')}>

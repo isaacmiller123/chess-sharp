@@ -1,8 +1,10 @@
 import { app, type WebContents } from 'electron'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { z } from 'zod'
 import { parseFen, makeFen } from 'chessops/fen'
 import { handle } from './util'
-import { ENGINE_ELO_FLOOR, FAIRY_VARIANT_KINDS } from '../../shared/types'
+import { ENGINE_ELO_FLOOR, FAIRY_VARIANT_KINDS, type EvalVariantResult } from '../../shared/types'
 import { StockfishPool } from '../engine/StockfishPool'
 import { MaiaPool } from '../engine/MaiaPool'
 import { FairyStockfishPool } from '../engine/FairyPool'
@@ -10,6 +12,7 @@ import { KatagoPool } from '../engine/KatagoPool'
 import { maiaAvailable } from '../datasets/maia'
 import { fairyEngineInstalled } from '../datasets/fairyStockfish'
 import { katagoAvailable, katagoNetInstalled } from '../datasets/katago'
+import { getCustomVariant } from '../db/customVariants.repo'
 import type { BestMove, InfoLine, UciEngine } from '../engine/UciEngine'
 
 const pool = new StockfishPool()
@@ -122,6 +125,114 @@ const playVariantSchema = z
   })
   .strict()
 
+// ---- Replay-viewer eval (engine:evalVariant) ---------------------------------
+//
+// One bounded single-line Fairy-Stockfish search for the Library replay
+// viewer's eval bar: any chess-family kind — standard chess, the 13 routed
+// variants, or a Variant Lab custom ('custom-<id>'). Customs are resolved by
+// loading the SAVED variants.ini onto the engine via VariantPath (written to a
+// per-id file under userData; the ini's first [section] is the UCI_Variant).
+
+const evalVariantSchema = z
+  .object({
+    // Built-in kinds or a custom slug — the resolver below is the authority.
+    kind: z.string().min(1).max(64),
+    fen: z.string().regex(VARIANT_FEN_RE),
+    movetimeMs: z.number().int().min(50).max(2000).optional()
+  })
+  .strict()
+
+/** Mirrors renderer games/customVariants.ts SECTION_RE (first ini section =
+ *  the variant the engine must select). Kept in sync by test-replay-pipe. */
+const INI_SECTION_RE = /^\s*\[([A-Za-z0-9_-]+)(?::([A-Za-z0-9_-]+))?\]\s*$/m
+
+/** kind → { engine UCI_Variant id, chess960 flag, VariantPath for customs }.
+ *  Throws on unknown kinds — the schema's string passthrough is NOT trust. */
+function resolveEvalVariant(kind: string): {
+  variant: string
+  chess960: boolean
+  variantPath?: string
+} {
+  if (kind === 'chess') return { variant: 'chess', chess960: false }
+  if ((FAIRY_VARIANT_KINDS as readonly string[]).includes(kind)) {
+    const k = kind as (typeof FAIRY_VARIANT_KINDS)[number]
+    return { variant: FAIRY_UCI_VARIANT[k], chess960: kind === 'chess960' }
+  }
+  if (kind.startsWith('custom-')) {
+    const id = kind.slice('custom-'.length)
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(id) || id.length > 48) {
+      throw new Error(`evalVariant: bad custom variant id '${id}'`)
+    }
+    const row = getCustomVariant(id)
+    if (!row) throw new Error(`evalVariant: unknown custom variant '${id}'`)
+    const head = INI_SECTION_RE.exec(row.iniText)
+    if (!head) throw new Error(`evalVariant: custom variant '${id}' has no [section] header`)
+    return { variant: head[1], chess960: false, variantPath: writeVariantIni(id, row.iniText) }
+  }
+  throw new Error(`evalVariant: unsupported kind '${kind}'`)
+}
+
+/** Write (content-diffed) the custom variant's ini under userData so the
+ *  NATIVE engine can load it; returns the file path for VariantPath. */
+const variantIniCache = new Map<string, string>() // id → last written iniText
+function writeVariantIni(id: string, iniText: string): string {
+  const dir = join(app.getPath('userData'), 'variant-lab')
+  const file = join(dir, `${id}.ini`)
+  if (variantIniCache.get(id) !== iniText) {
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(file, iniText, 'utf-8')
+    variantIniCache.set(id, iniText)
+  }
+  return file
+}
+
+/**
+ * One bounded single-line search; resolves with the LAST scored info line
+ * (side-to-move relative, UCI convention). Terminal positions ('bestmove
+ * (none)', no info) resolve to {}. Every exit path detaches its listeners —
+ * same discipline as collectCandidates above.
+ */
+function evalOnce(eng: UciEngine, fen: string, movetimeMs: number): Promise<EvalVariantResult> {
+  return new Promise((resolve, reject) => {
+    let last: InfoLine | null = null
+    let done = false
+    const onInfo = (info: InfoLine): void => {
+      if (info.scoreCp !== undefined || info.mate !== undefined) last = info
+    }
+    const cleanup = (): void => {
+      clearTimeout(timer)
+      eng.off('info', onInfo)
+      eng.off('bestmove', onBest)
+      eng.off('exit', onExit)
+      eng.off('engineError', onErr)
+    }
+    const onBest = (): void => {
+      if (done) return
+      done = true
+      cleanup()
+      if (!last) resolve({})
+      else if (last.mate !== undefined) resolve({ mate: last.mate })
+      else resolve({ cp: last.scoreCp })
+    }
+    const fail = (e: Error): void => {
+      if (done) return
+      done = true
+      cleanup()
+      reject(e)
+    }
+    const onExit = (): void => fail(new Error('engine exited during eval'))
+    const onErr = (err: Error): void =>
+      fail(err instanceof Error ? err : new Error('engine error during eval'))
+    // Hard ceiling well above any movetime the schema admits.
+    const timer = setTimeout(() => fail(new Error('eval timeout')), 15000)
+    eng.on('info', onInfo)
+    eng.once('bestmove', onBest)
+    eng.once('exit', onExit)
+    eng.once('engineError', onErr)
+    void eng.search(fen, { kind: 'movetime', value: movetimeMs }, 1)
+  })
+}
+
 // ---- Go bots (games platform, spec §Bots: go → KataGo GTP ipc) ---------------
 //
 // The request carries the whole game (GTP replays move-by-move), in the go
@@ -136,6 +247,9 @@ const playGoSchema = z
     // Full float komi range seen in practice; the value is number-validated so
     // interpolation into the GTP command line is injection-safe.
     komi: z.number().min(-361).max(361),
+    // Pre-placed black handicap stones (games/go.ts handicapPlacement); when
+    // non-empty, WHITE owns moves[0] and the even plies thereafter.
+    handicap: z.array(z.string().regex(GO_VERTEX_RE)).max(9).optional(),
     moves: z.array(z.string().regex(GO_VERTEX_RE)).max(1000),
     level: z.number().int().min(1).max(5)
   })
@@ -612,6 +726,45 @@ export function registerEngine(): void {
       }
       return { move: await katagoPool.play(req) }
     })
+  )
+
+  // Replay-viewer eval bar (chess family incl. customs). Shares the fairy
+  // chain so an eval can never interleave with a variant bot's search on the
+  // one long-lived engine.
+  handle('engine:evalVariant', evalVariantSchema, ({ kind, fen, movetimeMs }) =>
+    serializeFairy(async (): Promise<EvalVariantResult> => {
+      if (!fairyEngineInstalled()) {
+        throw new Error('Fairy-Stockfish is not installed — import the engines dataset first.')
+      }
+      const target = resolveEvalVariant(kind)
+      const eng = await fairyPool.get(target.variant, target.chess960, target.variantPath)
+      await eng.stop() // drain any abandoned search — same discipline as playVariant
+      // Full strength for an honest eval (playVariant may have weakened it).
+      eng.setOption('UCI_LimitStrength', false)
+      return evalOnce(eng, fen, movetimeMs ?? 300)
+    })
+  )
+
+  // One-shot go estimate (winrate/lead/ownership). Same GTP chain as playGo:
+  // the estimate engine is its own process, but the chain keeps pool spawns +
+  // replays strictly ordered.
+  handle(
+    'engine:estimateGo',
+    z
+      .object({
+        size: z.union([z.literal(9), z.literal(13), z.literal(19)]),
+        komi: z.number().min(-361).max(361),
+        handicap: z.array(z.string().regex(GO_VERTEX_RE)).max(9).optional(),
+        moves: z.array(z.string().regex(GO_VERTEX_RE)).max(1000)
+      })
+      .strict(),
+    (req) =>
+      serializeGo(async () => {
+        if (!katagoAvailable()) {
+          throw new Error('KataGo is not installed — download the Go engine in Settings → Datasets.')
+        }
+        return katagoPool.estimate(req)
+      })
   )
 
   // Windows-safe lifecycle: kill all engine children when the app quits.

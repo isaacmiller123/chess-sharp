@@ -7,6 +7,7 @@
 // the contract without pulling the three bundle.
 
 import type { GameKind } from '../kernel'
+import type { TheaterDirective } from './theater'
 
 /** Board plane style. 'holes' = upright connect-four frame. */
 export type TabletopLayoutKind = 'cells' | 'intersections' | 'holes'
@@ -125,6 +126,12 @@ export interface Tabletop3DProps {
   artBaseUrl?: string | null
   /** Camera preset toggle: default 35° player-side tilt vs top-down. */
   topDown?: boolean
+  /** Replay Theater directive (a ref — mutations never re-render). Present =
+   *  the cinematic TheaterRig owns the camera + scene clock; OrbitControls
+   *  and camera presets are not mounted. See games/three/theater.ts. */
+  theater?: { current: TheaterDirective }
+  /** Fires once with the live WebGL canvas (Replay Theater export records it). */
+  onCanvasReady?(canvas: HTMLCanvasElement): void
   className?: string
 }
 

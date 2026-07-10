@@ -9,6 +9,7 @@ import {
 } from '../../../games/customVariants'
 import { useSound } from '../../../sound/useSound'
 import { useOtbOrientation } from '../useOtbOrientation'
+import { useSaveFinishedGame } from '../useSaveFinishedGame'
 import CustomBoard from './CustomBoard'
 
 type Phase =
@@ -75,13 +76,29 @@ export function PlayCustom({
     })
   }, [])
 
-  // Hook stays above the early returns (hook-after-return caused a prior
+  // Hooks stay above the early returns (hook-after-return caused a prior
   // crash — see CLAUDE.md). Chess-OTB flip timing: turn a beat after the move.
   const result =
     phase.t === 'ready' ? (phase.entry.spec as GameSpec<CustomVariantState>).result(phase.game) : null
   const turn: 'white' | 'black' =
     phase.t === 'ready' && phase.game.fen.split(' ')[1] === 'b' ? 'black' : 'white'
   const orientation = useOtbOrientation(turn, autoFlip && !result)
+
+  // Archive every finished Lab game under its 'custom-<id>' kind (feature
+  // foundation: reviewable later; replay re-registers the variant by id).
+  useSaveFinishedGame(
+    phase.t === 'ready' ? (phase.entry.spec as GameSpec<CustomVariantState>) : null,
+    phase.t === 'ready' ? phase.game : null,
+    result,
+    {
+      white: 'White',
+      black: 'Black',
+      event: `Variant Lab — ${def.name}`,
+      source: 'custom',
+      opponentKind: 'human',
+      opponentLabel: 'Over the board'
+    }
+  )
 
   if (phase.t === 'loading') {
     return (

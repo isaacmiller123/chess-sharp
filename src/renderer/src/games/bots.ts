@@ -41,7 +41,7 @@ import {
 } from './checkers'
 import type { ChessVariantState } from './chessVariants'
 import type { FfishState } from './ffishVariants'
-import { GO_SPEC, vertexToPoint, type GoState } from './go'
+import { GO_SPEC, handicapPlacement, vertexToPoint, type GoState } from './go'
 import { GOMOKU_BOT } from './gomokuBot'
 import type { GameKind } from './kernel'
 import { getGame } from './registry'
@@ -217,6 +217,9 @@ const katagoProvider: BotProvider = {
       const { move } = await api.engine.playGo({
         size: s.size,
         komi: s.komi,
+        // Handicap stones ride as explicit vertices so both rules engines
+        // (tenuki here, KataGo there) agree on the exact points.
+        ...(s.handicap >= 2 ? { handicap: handicapPlacement(s.size, s.handicap) } : {}),
         moves: [...s.moves],
         level: clampLevel(level)
       })

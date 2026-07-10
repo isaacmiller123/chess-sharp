@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState, type JSX } from 'react'
-import { ChevronRight, FlaskConical } from 'lucide-react'
+import { ChevronRight, Dices, FlaskConical, Library } from 'lucide-react'
 import { Board } from '../../board/Board'
 import { pieceSetClass } from '../../board/pieceSets'
 import { useSettings } from '../../state/settings'
@@ -10,10 +10,15 @@ import './games.css'
 // The Lab hero card is styled by the editor's stylesheet (vl-hero) — imported
 // eagerly so the hero renders styled before the lazy EditorView chunk loads.
 import './editor/editor.css'
+// Same for the section tabs (games-sections), styled by the Library sheet.
+import '../library/library.css'
 
 // Variant Lab (features/games/editor) — code-split: the builder + ffish tooling
 // only load when the user opens the Lab.
 const EditorView = lazy(() => import('./editor/EditorView'))
+// Library (features/library) — code-split: the archive list + replay viewer
+// only load when the user opens the Library section.
+const LibraryView = lazy(() => import('../library/LibraryView'))
 
 /**
  * Games library — the storefront. Card grid over the game catalog: playable
@@ -24,14 +29,18 @@ const EditorView = lazy(() => import('./editor/EditorView'))
  * real home).
  */
 export default function GamesView({
-  onOpenSettings
+  onOpenSettings,
+  onOpenChessGame
 }: {
   /** Deep link to the Settings view (bot engine install prompts). */
   onOpenSettings?: () => void
+  /** Route a saved CHESS game into the full Analysis/review view (Library). */
+  onOpenChessGame?: (gameId: number) => void
 }): JSX.Element {
   const { settings } = useSettings()
   const [selected, setSelected] = useState<CatalogEntry | null>(null)
   const [labOpen, setLabOpen] = useState(false)
+  const [section, setSection] = useState<'games' | 'library'>('games')
 
   if (labOpen) {
     return (
@@ -49,6 +58,48 @@ export default function GamesView({
 
   if (selected) {
     return <GamePage entry={selected} onBack={() => setSelected(null)} onOpenSettings={onOpenSettings} />
+  }
+
+  // Section tabs: the storefront ('games') and the cross-mode saved-game
+  // Library ('library' — features/library, replayable on every kind's board).
+  const sectionTabs = (
+    <div className="games-sections" role="tablist" aria-label="Games sections">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={section === 'games'}
+        className={`games-section-tab${section === 'games' ? ' is-active' : ''}`}
+        onClick={() => setSection('games')}
+      >
+        <Dices size={15} aria-hidden /> Play
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={section === 'library'}
+        className={`games-section-tab${section === 'library' ? ' is-active' : ''}`}
+        onClick={() => setSection('library')}
+      >
+        <Library size={15} aria-hidden /> Library
+      </button>
+    </div>
+  )
+
+  if (section === 'library') {
+    return (
+      <div className="games-view">
+        {sectionTabs}
+        <Suspense
+          fallback={
+            <div className="view-loading" role="status">
+              <span className="view-spinner" aria-hidden />
+            </div>
+          }
+        >
+          <LibraryView onOpenChessGame={(id) => onOpenChessGame?.(id)} />
+        </Suspense>
+      </div>
+    )
   }
 
   const boardCls = `board-wrap board-${settings.boardTheme} ${pieceSetClass(settings.pieceSet)}`
@@ -88,6 +139,7 @@ export default function GamesView({
 
   return (
     <div className="games-view">
+      {sectionTabs}
       <p className="games-intro">
         One library, many boards. Every game ships with local play, five bot levels, online
         matches and an illustrated manual.

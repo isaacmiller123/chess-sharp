@@ -3,6 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import os from 'node:os'
 import { registerIpc } from './ipc/registry'
+import { initUpdates } from './updates/updateService'
 import { installCsp, hardenWindow } from './security'
 import { createWindow } from './window'
 import { installAppMenu } from './menu'
@@ -36,6 +37,9 @@ app.whenReady().then(() => {
   installCsp(app.isPackaged)
   installAppMenu()
   registerIpc()
+  // Quiet startup update check (packaged builds; skipped for --smoke-wasm so
+  // the self-test never touches the network).
+  if (!SMOKE_WASM) initUpdates()
   const win = createWindow({ smokeWasm: SMOKE_WASM })
   if (SMOKE_WASM) installSmokeWasm(win)
   hardenWindow(win)

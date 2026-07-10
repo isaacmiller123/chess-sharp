@@ -475,6 +475,8 @@ export class SoundManager {
   private readonly lastVariant = new Map<SoundName, string>()
   /** Monotone token so a newer previewTheme() supersedes an older one. */
   private previewSeq = 0
+  /** Recording tap fed by the master gain (Replay Theater export). */
+  private recordDest: MediaStreamAudioDestinationNode | null = null
   private readonly boundUnlock: () => void
 
   constructor(opts: SoundManagerOptions = {}) {
@@ -600,6 +602,28 @@ export class SoundManager {
     }
   }
 
+  /**
+   * Recording tap: a MediaStream carrying everything routed through the master
+   * gain (all board/UI sounds at the user's volume). Replay Theater's export
+   * mixes its audio track into the canvas capture so the .webm keeps the move
+   * sounds. Lazy + cached; lives until dispose(). Null when audio is
+   * unavailable (the export then records video-only).
+   */
+  recordingStream(): MediaStream | null {
+    const ctx = this.ensureContext()
+    if (!ctx || !this.master) return null
+    if (!this.recordDest) {
+      try {
+        this.recordDest = ctx.createMediaStreamDestination()
+        this.master.connect(this.recordDest)
+      } catch {
+        this.recordDest = null
+        return null
+      }
+    }
+    return this.recordDest.stream
+  }
+
   /** Release audio resources. Safe to call multiple times. */
   dispose(): void {
     try {
@@ -609,6 +633,7 @@ export class SoundManager {
     }
     this.ctx = null
     this.master = null
+    this.recordDest = null
     this.unlocked = false
     this.decoded.clear()
     this.decoding.clear()

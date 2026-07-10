@@ -35,6 +35,13 @@ const WILL_3D: ReadonlySet<string> = new Set([
   'connect4'
 ])
 
+/** Non-hook probe: does this kind get a 3D table on THIS machine? (WILL-tier
+ *  kind + WebGL present — the same gate useBoardMode applies, minus the user
+ *  preference.) Replay Theater uses it to pick its 3D stage vs 2D autoplay. */
+export function tabletop3dOffered(kind: string): boolean {
+  return WILL_3D.has(kind) && isTabletopSupported()
+}
+
 export function useBoardMode(kind: string): {
   /** Render the 3D board now (toggle on AND this machine can). */
   is3d: boolean

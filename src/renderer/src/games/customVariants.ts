@@ -234,6 +234,8 @@ interface FfishBoardLike {
   isCapture(uciMove: string): boolean
   numberLegalMoves(): number
   isInsufficientMaterial(): boolean
+  /** SAN for a LEGAL uci move at the current position (default Notation.SAN). */
+  sanMove(uciMove: string): string
 }
 
 function makeBoard(variant: string, fen?: string): FfishBoardLike {
@@ -330,6 +332,16 @@ function makeCustomSpec(def: CustomVariantDef, runtimeName: string): GameSpec<Cu
         const promote = PROMO_RE.test(move)
         const sound = check ? 'check' : promote ? 'promote' : capture ? 'capture' : 'move'
         return { capture, sound }
+      })
+    },
+    // SAN via ffish (kernel notate contract) — legality-checked first, since
+    // sanMove on an illegal move is undefined behavior in the WASM.
+    notate: (s: CustomVariantState, move: string): string => {
+      if (!MOVE_RE.test(move)) return move
+      return withBoard(s, (board) => {
+        const legal = board.legalMoves().trim()
+        if (legal.length === 0 || !legal.split(/\s+/).includes(move)) return move
+        return board.sanMove(move)
       })
     },
     serializeOptions: (o: unknown): string => JSON.stringify(o ?? null)

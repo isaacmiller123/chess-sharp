@@ -1,0 +1,72 @@
+/* ============================================================
+   Update toast (UpdateToast.tsx) — bottom-right, non-blocking.
+   Same fixed-chip family as .online-return-chip (online.css);
+   `is-raised` steps it above that chip when both are showing.
+   Tokens from tokens.css; motion is neutralized by the global
+   prefers-reduced-motion guard in global.css.
+   ============================================================ */
+.update-toast {
+  position: fixed;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  z-index: var(--z-toast);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 440px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+  animation: update-toast-in var(--dur-base) var(--ease-out) both;
+}
+/* The online return chip owns the corner — sit above it. */
+.update-toast.is-raised {
+  bottom: calc(var(--space-5) + 64px);
+}
+@keyframes update-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.update-toast-icon {
+  flex: none;
+  color: var(--accent);
+}
+.update-toast-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.update-toast-copy strong {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+.update-toast-copy span {
+  font-size: var(--fs-xs, var(--fs-sm));
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+.update-toast-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: var(--space-2);
+}
+.update-toast-actions .btn {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.update-toast-x {
+  flex: none;
+  color: var(--text-muted, var(--text-secondary));
+}

@@ -15,6 +15,8 @@ import { registerSchool } from './school.ipc'
 import { registerPersonas } from './personas.ipc'
 import { registerDatasets } from './datasets.ipc'
 import { registerCustomVariants } from './customVariants.ipc'
+import { registerDialog } from './dialog.ipc'
+import { registerUpdates } from './updates.ipc'
 
 // Composes every IPC domain. Called once from main after `whenReady`.
 export function registerIpc(): void {
@@ -35,4 +37,6 @@ export function registerIpc(): void {
   registerPersonas()
   registerDatasets()
   registerCustomVariants()
+  registerDialog()
+  registerUpdates()
 }

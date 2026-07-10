@@ -62,6 +62,8 @@ const {
   GO_SPEC: go,
   GOMOKU_SPEC: gomoku,
   GOMOKU_CENTER,
+  HANDICAP_KOMI,
+  handicapPlacement,
   vertexToPoint,
   pointToVertex,
   signMapOf,
@@ -102,7 +104,12 @@ try {
   ok(go.board.layout === 'intersections' && go.clock.byoyomi === true, 'go: intersections board, byo-yomi flagged')
   let s = go.init()
   ok(s.size === 19 && s.komi === 6.5 && s.scoring === 'area', 'go: defaults 19x19, komi 6.5, area')
-  eq(go.serializeOptions({ size: 9 }), '{"size":9,"komi":6.5,"scoring":"area"}', 'go: serializeOptions normalizes defaults')
+  eq(s.handicap, 0, 'go: default handicap 0 (even game)')
+  eq(
+    go.serializeOptions({ size: 9 }),
+    '{"size":9,"komi":6.5,"scoring":"area","handicap":0}',
+    'go: serializeOptions normalizes defaults'
+  )
   s = go.init({ size: 9 })
   eq(s.size, 9, 'go: init size 9')
   eq(turnOf(s), 'black', 'go: black to move at start')
@@ -152,6 +159,76 @@ try {
   ok(!go.legalMoves(s).includes('e5'), 'go: ko point not enumerated')
   s = playAll(go, s, ['j9', 'h9']) // white ko threat elsewhere, black answers
   ok(go.play(s, 'e5') !== null, 'go: ko recapture legal after exchange (superko: new position)')
+
+  // ---- go: handicap (hoshi placement goldens + komi + white-first turn) --------
+  console.log('go: handicap')
+  // Placement goldens — the standard hoshi tables per size (tenuki order:
+  // top-right, bottom-left, bottom-right, top-left, then middles).
+  eq(JSON.stringify(handicapPlacement(19, 2)), '["q16","d4"]', 'handicap: 19x19 h2 = q16 d4')
+  eq(
+    JSON.stringify(handicapPlacement(19, 4)),
+    '["q16","d4","q4","d16"]',
+    'handicap: 19x19 h4 = the four corner hoshi'
+  )
+  eq(
+    JSON.stringify(handicapPlacement(19, 9)),
+    '["q16","d4","q4","d16","d10","q10","k16","k4","k10"]',
+    'handicap: 19x19 h9 = all nine hoshi'
+  )
+  eq(
+    JSON.stringify(handicapPlacement(13, 5)),
+    '["k10","d4","k4","d10","g7"]',
+    'handicap: 13x13 h5 = corners + tengen'
+  )
+  eq(
+    JSON.stringify(handicapPlacement(9, 3)),
+    '["g7","c3","g3"]',
+    'handicap: 9x9 h3 (2-3-3 offset rule: hoshi on the 3rd line)'
+  )
+  eq(
+    JSON.stringify(handicapPlacement(9, 9)),
+    '["g7","c3","g3","c7","c5","g5","e7","e3","e5"]',
+    'handicap: 9x9 h9 = all nine points'
+  )
+  for (const size of [9, 13, 19]) {
+    for (let h = 2; h <= 9; h++) {
+      const placed = handicapPlacement(size, h)
+      eq(placed.length, h, `handicap: ${size}x${size} h${h} places ${h} stones`)
+      eq(new Set(placed).size, h, `handicap: ${size}x${size} h${h} points are distinct`)
+    }
+  }
+  eq(handicapPlacement(19, 0).length, 0, 'handicap: 0 places nothing')
+  // init(): stones pre-placed for black (tenuki agrees with our table), WHITE
+  // moves first, komi auto-drops to the conventional 0.5.
+  let hs = go.init({ size: 9, handicap: 4 })
+  eq(hs.handicap, 4, 'handicap: state carries the option')
+  eq(hs.komi, HANDICAP_KOMI, 'handicap: komi auto-adjusts to 0.5')
+  eq(go.init({ size: 9, handicap: 4, komi: 5.5 }).komi, 5.5, 'handicap: explicit komi still wins')
+  eq(go.init({ size: 9 }).komi, 6.5, 'handicap: even game keeps full komi')
+  eq(turnOf(hs), 'white', 'handicap: WHITE moves first with stones down')
+  eq(go.turn(hs), 'white', 'handicap: spec.turn seam agrees (kernel consumers use it)')
+  const hMap = signMapOf(hs)
+  for (const v of handicapPlacement(9, 4)) {
+    eq(signAt(hs, v, hMap), 1, `handicap: black stone pre-placed at ${v} (tenuki table match)`)
+  }
+  eq(go.legalMoves(hs).length, 82 - 4, 'handicap: pre-placed points are not legal moves')
+  ok(!go.legalMoves(hs).includes('g7'), 'handicap: hoshi g7 occupied')
+  hs = playAll(go, hs, ['e5'])
+  eq(turnOf(hs), 'black', 'handicap: black replies after the white opener')
+  eq(signAt(hs, 'e5'), -1, 'handicap: the first move is a WHITE stone')
+  eq(go.notate(go.init({ size: 9, handicap: 2 }), 'e5'), 'W E5', 'handicap: first move notates as white')
+  eq(
+    go.serializeOptions({ size: 9, handicap: 2 }),
+    '{"size":9,"komi":0.5,"scoring":"area","handicap":2}',
+    'handicap: serializeOptions carries handicap + adjusted komi (wire config)'
+  )
+  let hThrew = false
+  try {
+    go.init({ size: 9, handicap: 1 })
+  } catch {
+    hThrew = true
+  }
+  ok(hThrew, 'handicap: 1 is rejected (that is just komi, not a placement)')
 
   // ---- go: pass-pass → scoring phase → finalized area score -------------------
   console.log('go: scoring (all stones alive)')

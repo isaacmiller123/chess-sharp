@@ -24,6 +24,7 @@ import { useSound } from '../../../sound/useSound'
 import { PlayerChip } from '../PlayerChip'
 import { ResultBanner } from '../ResultBanner'
 import { formatClock } from '../timeControl'
+import { normalizeByoyomi } from '../byoyomi'
 import { onlineStore, type OnlineState } from './onlineStore'
 import { liveMs, LeaveConfirm, OnlineStatusBar, PeerStrips, RematchStrip } from './OnlineChrome'
 import { Board3DHost, BoardModeToggle, useBoardMode } from '../../games/boardMode'
@@ -62,10 +63,11 @@ export function KernelOnlineGame({
   const opponentColor: Color = userColor === 'white' ? 'black' : 'white'
   const opponentName = state.opponentName || 'Opponent'
 
-  // Whose move is it? Parity against the spec's move order — the adapter's own
-  // rule, so board glow and input gating always agree with the store.
+  // Whose move is it? spec.turn when the game defines one (go: handicap makes
+  // WHITE open), else parity against the spec's move order — exactly the
+  // adapter's rule, so board glow and input gating always agree with the store.
   const players = entry?.spec.players ?? (['white', 'black'] as const)
-  const turn: Color = players[state.plyCount % 2]
+  const turn: Color = entry?.spec.turn ? entry.spec.turn(state.boardState) : players[state.plyCount % 2]
 
   // Input is frozen while the peer is away/left (fair play + frozen authority).
   const inputFrozen = over || !!state.peerAway || state.peerLeft
@@ -86,23 +88,38 @@ export function KernelOnlineGame({
   }, [settings.confirmResign, resignArmed])
 
   // Clocks: host-authoritative snapshot, self-ticked by the Clock component.
-  const timed = (state.config?.tc.initialMs ?? 0) > 0
+  // v5: byo-yomi makes a control timed even at main 0, and each side's interp
+  // carries its own byo snapshot + the game's period spec.
+  const byoSpec = normalizeByoyomi(state.config?.tc.byoyomi ?? null)
+  const timed = (state.config?.tc.initialMs ?? 0) > 0 || byoSpec !== null
   const baseMs = state.config?.tc.initialMs ?? 0
   const clockLive = timed && !over && !state.peerAway
   const onLowTime = useCallback(() => {
     if (settings.lowTimeWarning) play('lowTime')
   }, [play, settings.lowTimeWarning])
+  const sideInterp = (side: Color) => {
+    if (!state.clock) return undefined
+    // Re-shape the store's per-GAME byo snapshot into the Clock's per-SIDE one.
+    const { byo, ...clock } = state.clock
+    return {
+      ...clock,
+      side,
+      baseMs,
+      ...(byoSpec ? { byoSpec } : {}),
+      ...(byo ? { byo: { ...byo[side] } } : {})
+    }
+  }
   const opponentClock = {
     ms: liveMs(state.clock, opponentColor),
     active: clockLive && turn === opponentColor,
     over,
-    interp: state.clock ? { ...state.clock, side: opponentColor, baseMs } : undefined
+    interp: sideInterp(opponentColor)
   }
   const userClock = {
     ms: liveMs(state.clock, userColor),
     active: clockLive && turn === userColor,
     over,
-    interp: state.clock ? { ...state.clock, side: userColor, baseMs } : undefined,
+    interp: sideInterp(userColor),
     onLowTime
   }
 

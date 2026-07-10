@@ -927,6 +927,135 @@
   border-color: var(--accent);
   color: var(--accent);
 }
+/* Labeled chip rows (go handicap / main time / byo-yomi) — denser than the
+   size row: a fixed-width name column + compact mini chips. */
+.kotb-opt-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.kotb-opt-name {
+  flex: none;
+  width: 72px;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.kotb-chip.is-mini {
+  flex: none;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  min-width: 30px;
+}
+
+/* ---- Local go clocks (goClock.tsx: MAIN → BY n×30s byo-yomi rows) ---------- */
+.goclock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.goclock-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.goclock-row.is-active {
+  border-color: var(--accent);
+}
+.goclock-name {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.goclock-tag {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1px var(--space-1);
+  white-space: nowrap;
+}
+.goclock-tag.is-byo {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--border));
+  background: var(--danger-soft);
+}
+
+/* ---- Territory estimate (territory.tsx: toggle + KataGo score strip) ------- */
+.territory {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.territory-toggle.is-on {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.territory-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+.territory-bar {
+  position: relative;
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #f2f2f0; /* white's share — literal stone tones, both themes */
+  border: 1px solid var(--border);
+}
+.territory-bar-black {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: #26282c;
+  transition: width 400ms var(--ease-out);
+}
+.territory-label {
+  white-space: nowrap;
+  font-weight: var(--fw-medium);
+}
+.territory-pending {
+  color: var(--text-muted);
+}
+.territory-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: territory-pulse 1.2s var(--ease-in-out) infinite;
+}
+@keyframes territory-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .territory-dot {
+    animation: none;
+  }
+}
 
 /* ---- 2D/3D board mode (boardMode.tsx) --------------------------------------
    Segmented control in the OTB/Bot side panels + the online controls strip,

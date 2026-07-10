@@ -33,7 +33,16 @@ import type { MpGameConfig } from '@shared/types'
 //     is committed/relayed (authority unchanged) — the wire only bounds size.
 //   - resync additionally carries the game config so a resumed guest can rebuild
 //     a non-chess game. v3 peers are refused politely by the hello version gate.
-export const PROTOCOL_VERSION = 4
+//
+// v5 over v4: Japanese byo-yomi (go quality-of-life).
+//   - MpGameConfig.tc gains optional `byoyomi { periods, periodMs }`.
+//   - move/clock/flag/resync gain an optional per-side `byo` snapshot
+//     ({ periodsLeft, inByo } each) riding beside clockMs — with byo-yomi the
+//     clockMs NUMBER means "current period remaining" once a side is inByo, so
+//     the clock semantics themselves changed → v4 peers must be refused (the
+//     hello version gate already does). Absent tc.byoyomi keeps every message
+//     byte-identical to v4.
+export const PROTOCOL_VERSION = 5
 
 const roleSchema = z.enum(['host', 'guest'])
 
@@ -89,8 +98,17 @@ export function makeHello(role: 'host' | 'guest', name?: string, appVersion?: st
 export const mpTimeControlSchema = z
   .object({
     // 0 == untimed/unlimited (no clock at all); otherwise a real starting budget.
+    // (With byoyomi present, initialMs 0 is a REAL control: straight to period 1.)
     initialMs: z.number().int().min(0),
-    incrementMs: z.number().int().min(0)
+    incrementMs: z.number().int().min(0),
+    // v5: Japanese byo-yomi (absent = plain Fischer, byte-identical to v4).
+    byoyomi: z
+      .object({
+        periods: z.number().int().min(1).max(30),
+        periodMs: z.number().int().min(1_000)
+      })
+      .strict()
+      .optional()
   })
   .strict()
 
@@ -125,6 +143,12 @@ void _assertMpGameConfig
 const colorSchema = z.enum(['white', 'black'])
 const clocksSchema = z.object({ white: z.number(), black: z.number() }).strict()
 
+/** v5: per-side byo-yomi snapshot riding beside clockMs when the config has
+ *  byo-yomi. `periodsLeft` INCLUDES the running period; once `inByo` the side's
+ *  clockMs number is current-period remaining (main-time remaining before). */
+const byoSideSchema = z.object({ periodsLeft: z.number().int().min(0), inByo: z.boolean() }).strict()
+export const byoSchema = z.object({ white: byoSideSchema, black: byoSideSchema }).strict()
+
 /** v4 move string: a game-defined canonical move codec (chess: UCI like 'e2e4'/
  *  'e7e8q'; go: 'pd4'/'pass'; …). The wire only bounds it (non-empty, ≤64 chars);
  *  LEGALITY is enforced by the host-side game kernel before commit/relay. The
@@ -146,13 +170,15 @@ export const wireMsgSchema = z.discriminatedUnion('t', [
     .strict(),
   // either direction: the sender's move (uci) at a given 0-based ply + the
   // sender's clocks after it. clockMs is authoritative only host -> guest.
+  // v5: `byo` rides along whenever the config has byo-yomi (host-authoritative).
   z
     .object({
       t: z.literal('move'),
       gameId: z.number().int(),
       ply: z.number().int().min(0),
       uci: moveStrSchema,
-      clockMs: clocksSchema
+      clockMs: clocksSchema,
+      byo: byoSchema.optional()
     })
     .strict(),
   // host -> guest: authoritative clock ack after committing a guest move, and a
@@ -162,12 +188,20 @@ export const wireMsgSchema = z.discriminatedUnion('t', [
       t: z.literal('clock'),
       gameId: z.number().int(),
       clockMs: clocksSchema,
-      toMove: colorSchema
+      toMove: colorSchema,
+      byo: byoSchema.optional()
     })
     .strict(),
-  // time-out. REPLACES resign-for-flag. clockMs has the loser (`by`) at 0.
+  // time-out. REPLACES resign-for-flag. clockMs has the loser (`by`) at 0
+  // (with byo-yomi, the loser's periodsLeft is 0 too).
   z
-    .object({ t: z.literal('flag'), gameId: z.number().int(), by: colorSchema, clockMs: clocksSchema })
+    .object({
+      t: z.literal('flag'),
+      gameId: z.number().int(),
+      by: colorSchema,
+      clockMs: clocksSchema,
+      byo: byoSchema.optional()
+    })
     .strict(),
   // first-move grace expired or a player aborted; no result is recorded.
   z
@@ -209,7 +243,9 @@ export const wireMsgSchema = z.discriminatedUnion('t', [
       yourColor: colorSchema,
       // v4: the game config rides along so a resumed guest can rebuild any game
       // (optional so a config-less resync still parses; chess needs no rebuild).
-      config: mpGameConfigSchema.optional()
+      config: mpGameConfigSchema.optional(),
+      // v5: byo-yomi state survives a reconnect (periods consumed stay consumed).
+      byo: byoSchema.optional()
     })
     .strict(),
   // graceful goodbye before leaving the room.

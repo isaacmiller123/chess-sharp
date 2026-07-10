@@ -28,17 +28,24 @@ import type { GameResult, GameSpec, MoveMeta, PlayerColor } from './kernel'
 
 export type GoSize = 9 | 13 | 19
 export type GoScoring = 'area' | 'territory'
+/** Standard hoshi handicap: 0 = even game; 1 is not a thing (that's just komi). */
+export type GoHandicap = 0 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 
 export interface GoOptions {
   size?: GoSize
   komi?: number
   scoring?: GoScoring
+  /** Pre-placed black hoshi stones (tenuki placement tables); WHITE moves
+   *  first when handicap ≥ 2, and komi defaults down to 0.5. */
+  handicap?: GoHandicap
 }
 
 export interface GoState {
   readonly size: GoSize
   readonly komi: number
   readonly scoring: GoScoring
+  /** Handicap stones pre-placed for black (0 or 2..9). White opens when ≥ 2. */
+  readonly handicap: GoHandicap
   /** Codec moves in play order: 'd4' vertices + 'pass'. */
   readonly moves: readonly string[]
   /** Scoring-phase dead-stone TOGGLES (vertices), applied in order after replay. */
@@ -48,15 +55,22 @@ export interface GoState {
 }
 
 const GO_SIZES: readonly GoSize[] = [9, 13, 19]
-const DEFAULT_OPTIONS: Required<GoOptions> = { size: 19, komi: 6.5, scoring: 'area' }
+const GO_HANDICAPS: readonly GoHandicap[] = [0, 2, 3, 4, 5, 6, 7, 8, 9]
+const DEFAULT_OPTIONS: Required<GoOptions> = { size: 19, komi: 6.5, scoring: 'area', handicap: 0 }
+/** Conventional komi for a handicap game (the stones ARE the compensation). */
+export const HANDICAP_KOMI = 0.5
 
 function normalizeOptions(options?: unknown): Required<GoOptions> {
   const o = (options ?? {}) as GoOptions
   const size = o.size ?? DEFAULT_OPTIONS.size
   if (!GO_SIZES.includes(size)) throw new Error(`go: unsupported board size ${size}`)
-  const komi = typeof o.komi === 'number' ? o.komi : DEFAULT_OPTIONS.komi
+  const handicap = o.handicap ?? DEFAULT_OPTIONS.handicap
+  if (!GO_HANDICAPS.includes(handicap)) throw new Error(`go: unsupported handicap ${handicap}`)
+  // Handicap games default to the conventional 0.5 komi (no draw, no double
+  // compensation); an explicit komi option still wins.
+  const komi = typeof o.komi === 'number' ? o.komi : handicap >= 2 ? HANDICAP_KOMI : DEFAULT_OPTIONS.komi
   const scoring = o.scoring === 'territory' ? 'territory' : DEFAULT_OPTIONS.scoring
-  return { size, komi, scoring }
+  return { size, komi, scoring, handicap }
 }
 
 // ---------------------------------------------------------------------------
@@ -86,6 +100,41 @@ export function pointToVertex(y: number, x: number, size: number): string {
 }
 
 // ---------------------------------------------------------------------------
+// Handicap placement — the standard hoshi tables, mirroring tenuki's
+// BoardState._initialFor exactly (tenuki does the actual placement inside
+// gameFor via `handicapStones`; this export exists so engine requests and
+// tests can name the same vertices without reaching into tenuki internals).
+
+/** The hoshi vertices tenuki pre-places for `handicap` black stones on a
+ *  9/13/19 board, in tenuki's own placement order. Empty for handicap 0. */
+export function handicapPlacement(size: GoSize, handicap: GoHandicap): string[] {
+  if (handicap < 2) return []
+  const off = size > 11 ? 3 : 2 // hoshi offset from the edge (tenuki rule)
+  const mid = (size - 1) / 2
+  const v = (y: number, x: number): string => pointToVertex(y, x, size)
+  const topRight = v(off, size - off - 1)
+  const bottomLeft = v(size - off - 1, off)
+  const bottomRight = v(size - off - 1, size - off - 1)
+  const topLeft = v(off, off)
+  const middle = v(mid, mid)
+  const middleLeft = v(mid, off)
+  const middleRight = v(mid, size - off - 1)
+  const middleTop = v(off, mid)
+  const middleBottom = v(size - off - 1, mid)
+  const tables: Record<number, string[]> = {
+    2: [topRight, bottomLeft],
+    3: [topRight, bottomLeft, bottomRight],
+    4: [topRight, bottomLeft, bottomRight, topLeft],
+    5: [topRight, bottomLeft, bottomRight, topLeft, middle],
+    6: [topRight, bottomLeft, bottomRight, topLeft, middleLeft, middleRight],
+    7: [topRight, bottomLeft, bottomRight, topLeft, middleLeft, middleRight, middle],
+    8: [topRight, bottomLeft, bottomRight, topLeft, middleLeft, middleRight, middleTop, middleBottom],
+    9: [topRight, bottomLeft, bottomRight, topLeft, middleLeft, middleRight, middleTop, middleBottom, middle]
+  }
+  return tables[handicap]
+}
+
+// ---------------------------------------------------------------------------
 // State → tenuki Game (lazy, cached; a state's game is NEVER mutated after
 // construction, so cache hits are safe).
 
@@ -98,7 +147,10 @@ function gameFor(s: GoState): TenukiGame {
     boardSize: s.size,
     komi: s.komi,
     scoring: s.scoring,
-    koRule: 'positional-superko'
+    koRule: 'positional-superko',
+    // Fixed hoshi placement (tenuki's own tables — handicapPlacement mirrors
+    // them); with ≥ 2 stones tenuki makes WHITE the side to move.
+    handicapStones: s.handicap
   })
   for (const move of s.moves) {
     const applied =
@@ -123,8 +175,8 @@ function gameFor(s: GoState): TenukiGame {
 // Spec functions
 
 function initGo(options?: unknown): GoState {
-  const { size, komi, scoring } = normalizeOptions(options)
-  return { size, komi, scoring, moves: [], deadMarks: [], finalized: false }
+  const { size, komi, scoring, handicap } = normalizeOptions(options)
+  return { size, komi, scoring, handicap, moves: [], deadMarks: [], finalized: false }
 }
 
 function legalMovesOf(s: GoState): string[] {
@@ -210,7 +262,8 @@ export function scoreDetail(s: GoState): { black: number; white: number } | null
   return g.score()
 }
 
-/** Side to move ('black' moves first). Meaningless once the game is over. */
+/** Side to move — black first in an even game, WHITE first when handicap ≥ 2
+ *  (tenuki owns the rule). Meaningless once the game is over. */
 export function turnOf(s: GoState): PlayerColor {
   return gameFor(s).currentPlayer()
 }
@@ -268,6 +321,19 @@ export function territoryOf(s: GoState): { black: string[]; white: string[] } | 
   }
 }
 
+/** Notation for the move about to be played (kernel notate contract): color
+ *  prefix + uppercase vertex — 'B D4' / 'W Q16' (columns skip I, per the
+ *  codec); 'pass' stays bare. Mover comes from turnOf, so handicap games
+ *  (white opens) notate correctly. Shared with gomoku via goLikeNotation. */
+export function goLikeNotation(mover: PlayerColor, move: string): string {
+  if (move === 'pass') return 'pass'
+  return `${mover === 'black' ? 'B' : 'W'} ${move.toUpperCase()}`
+}
+
+function notateOf(s: GoState, move: string): string {
+  return goLikeNotation(turnOf(s), move)
+}
+
 // ---------------------------------------------------------------------------
 // The spec
 
@@ -281,12 +347,17 @@ export const GO_SPEC: GoSpec = {
   // (GoState.size) — boards must read the state, not this static shape.
   board: { layout: 'intersections', files: 19, ranks: 19 },
   flipPolicy: 'none',
-  clock: { supported: true, byoyomi: true }, // byo-yomi wired later; Fischer now
+  clock: { supported: true, byoyomi: true },
   init: initGo,
   legalMoves: legalMovesOf,
   play: playOn,
   result: resultOf,
   moveMeta: moveMetaOf,
+  // Options can flip the opening side (handicap ≥ 2 → white first), so go
+  // implements the kernel's optional turn() instead of relying on players[]
+  // parity (see GameSpec.turn).
+  turn: turnOf,
+  notate: notateOf,
   serializeOptions: (o: unknown): string => JSON.stringify(normalizeOptions(o)),
   isScoringPhase,
   markDead,

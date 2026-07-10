@@ -9,7 +9,7 @@ import {
   resolveKatagoPath,
   type KatagoNetId
 } from '../datasets/katago'
-import type { PlayGoRequest } from '../../shared/types'
+import type { EstimateGoRequest, EstimateGoResult, PlayGoRequest } from '../../shared/types'
 
 // Lazy pool of KataGo GTP processes for the Go bots (docs/GAMES-PLATFORM-SPEC.md
 // §Bots: go → KataGo GTP ipc) — one persistent engine per LEVEL, because a
@@ -54,6 +54,30 @@ const HUMAN_PROFILES = ['rank_15k', 'rank_9k', 'rank_4k', 'rank_1k', 'rank_3d'] 
 
 function clampLevel(level: number): number {
   return Math.max(1, Math.min(5, Math.round(level)))
+}
+
+/**
+ * The `whiteOwnership` float grid from a kata-raw-nn payload: size*size values
+ * in −1..1, printed row-major from the TOP row (Shudan orientation — exactly
+ * the shared EstimateGoResult contract). Empty array when the section is
+ * absent or short (older engine builds) — the overlay hides, scalars still work.
+ */
+function parseOwnershipGrid(text: string, size: number): number[] {
+  const lines = text.split('\n')
+  const start = lines.findIndex((l) => l.trim() === 'whiteOwnership')
+  if (start < 0) return []
+  const out: number[] = []
+  for (let i = start + 1; i < lines.length && out.length < size * size; i++) {
+    const parts = lines[i].trim().split(/\s+/)
+    // A named section header (letters) ends the grid.
+    if (parts.length === 0 || !/^-?[0-9.]/.test(parts[0])) break
+    for (const p of parts) {
+      const v = Number(p)
+      if (!Number.isFinite(v)) return []
+      out.push(v)
+    }
+  }
+  return out.length === size * size ? out : []
 }
 
 /** The level's standard net, degrading to whichever standard net IS on disk
@@ -143,15 +167,99 @@ export class KatagoPool {
       await eng.boardsize(req.size)
       await eng.clearBoard()
       await eng.komi(req.komi)
+      // Handicap stones are pre-placed black moves, after which WHITE opens —
+      // the parity flip below mirrors games/go.ts (tenuki owns the rule).
+      const handicap = req.handicap ?? []
+      for (const v of handicap) await eng.play('black', v)
+      const opener = handicap.length > 0 ? 1 : 0
       for (let i = 0; i < req.moves.length; i++) {
-        // players[0] = black in the go spec: even indices are black moves.
-        await eng.play(i % 2 === 0 ? 'black' : 'white', req.moves[i])
+        // players[0] = black in the go spec (white with handicap): even offset
+        // indices belong to the opener.
+        await eng.play((i + opener) % 2 === 0 ? 'black' : 'white', req.moves[i])
       }
-      const color = req.moves.length % 2 === 0 ? 'black' : 'white'
+      const color = (req.moves.length + opener) % 2 === 0 ? 'black' : 'white'
       const move = await eng.genmove(color, 120000)
       // Resignation is disabled by config; translate defensively anyway — the
       // kernel codec is vertices|pass only.
       return move === 'resign' ? 'pass' : move
+    } catch (err) {
+      eng.kill()
+      if (this.engines.get(key) === eng) this.engines.delete(key)
+      throw err instanceof Error ? err : new Error(String(err))
+    }
+  }
+
+  /** The dedicated estimate engine: strongest installed STANDARD net (per the
+   *  shared EstimateGoRequest contract), tiny visit budget — kata-raw-nn does
+   *  a single forward pass, so visits never matter; the budget only caps a
+   *  stray genmove if one is ever sent here. */
+  private estimateConfig(): { key: string; args: string[] } {
+    const cfg = resolveKatagoConfigPath()
+    const net = resolveStandardNet('b10c128')
+    return {
+      key: `estimate-${net}`,
+      args: [
+        'gtp',
+        '-config',
+        cfg,
+        '-model',
+        katagoNetPath(net),
+        '-override-config',
+        'maxVisits=8,allowResignation=false,ponderingEnabled=false,numSearchThreads=2'
+      ]
+    }
+  }
+
+  /**
+   * One-shot position estimate (engine:estimateGo — shared/types.ts
+   * EstimateGoRequest/EstimateGoResult): replay the game (same stateless
+   * discipline as play), then read the raw net heads via the KataGo GTP
+   * extension `kata-raw-nn 0` — a single forward pass, no search, no genmove,
+   * so it returns in tens of milliseconds even on the eigen (CPU) build.
+   * Feeds both the replay viewer's winrate/score readout (whiteWin/whiteLead)
+   * and the territory overlay (whiteOwnership grid). Returns null when the
+   * engine doesn't speak the extension — callers hide the readout instead of
+   * erroring.
+   */
+  async estimate(req: EstimateGoRequest): Promise<EstimateGoResult | null> {
+    if (!katagoAvailable()) {
+      throw new Error('KataGo is not installed — download the Go engine in Settings → Datasets.')
+    }
+    const { key, args } = this.estimateConfig()
+    let eng = this.engines.get(key)
+    if (!eng) {
+      fs.mkdirSync(katagoDir(), { recursive: true })
+      eng = new GtpClient(resolveKatagoPath(), args, katagoDir())
+      await eng.start(60000)
+      this.engines.set(key, eng)
+    }
+    try {
+      await eng.boardsize(req.size)
+      await eng.clearBoard()
+      await eng.komi(req.komi)
+      // Handicap stones are pre-placed black moves; white then opens (the
+      // request's moves array starts with white when handicap is non-empty).
+      const handicap = req.handicap ?? []
+      for (const v of handicap) await eng.play('black', v)
+      const opener = handicap.length > 0 ? 1 : 0
+      for (let i = 0; i < req.moves.length; i++) {
+        await eng.play((i + opener) % 2 === 0 ? 'black' : 'white', req.moves[i])
+      }
+      const r = await eng.send('kata-raw-nn 0', 30000)
+      if (!r.ok) return null // engine build without the extension — graceful
+      // Payload is `key value` scalar lines plus `key` + float-grid sections.
+      const num = (name: string): number | null => {
+        const m = new RegExp(`^${name}\\s+(-?[0-9.eE+]+)$`, 'm').exec(r.text)
+        const v = m ? Number(m[1]) : NaN
+        return Number.isFinite(v) ? v : null
+      }
+      const whiteWin = num('whiteWin')
+      if (whiteWin === null) return null
+      return {
+        whiteWin,
+        whiteLead: num('whiteLead') ?? 0,
+        ownership: parseOwnershipGrid(r.text, req.size)
+      }
     } catch (err) {
       eng.kill()
       if (this.engines.get(key) === eng) this.engines.delete(key)

@@ -165,6 +165,93 @@ const MOCK_PLACEMENT: PlacementState = {
   games: []
 }
 
+// Library preview rows: one of each archive shape so the Games → Library list
+// and the replay viewer are fully drivable in the browser harness — a chess
+// PGN row (routes to Analysis), an envelope with stored notation (atomic), an
+// envelope replaying live notation (go 9x9), and a LEGACY generic-text row
+// (othello). Moves are real and legal — the replay pipe validates them through
+// the actual rules engines, so a drift here shows up as a truncation warning.
+const MOCK_GAME_ROW = {
+  white_name: 'You',
+  black_name: 'Guest',
+  user_color: 'white' as const,
+  opponent_kind: 'human',
+  opponent_label: 'Guest',
+  opponent_elo: null,
+  accuracy_white: null,
+  accuracy_black: null,
+  est_elo_low: null,
+  est_elo_high: null,
+  reviewed: 0
+}
+const MOCK_LIBRARY_GAMES = [
+  {
+    ...MOCK_GAME_ROW,
+    id: 101,
+    created_at: Date.now() - 3600_000,
+    result: '1-0',
+    source: 'play',
+    game_kind: 'chess',
+    accuracy_white: 91.2,
+    opponent_label: 'Stockfish 1500',
+    pgn: '[Event "Vs bot"]\n[White "You"]\n[Black "Stockfish 1500"]\n[Result "1-0"]\n\n1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 1-0'
+  },
+  {
+    ...MOCK_GAME_ROW,
+    id: 102,
+    created_at: Date.now() - 86400_000,
+    result: '1-0',
+    source: 'otb',
+    game_kind: 'atomic',
+    pgn: JSON.stringify({
+      v: 1,
+      kind: 'atomic',
+      moves: ['e2e4', 'd7d5', 'e4d5', 'g8f6', 'b1c3', 'f6d5'],
+      result: '1-0',
+      meta: {
+        notated: ['e4', 'd5', 'exd5', 'Nf6', 'Nc3', 'Nd5'],
+        reason: 'variant',
+        white: 'You',
+        black: 'Guest',
+        event: 'Over the board',
+        date: '2026.07.09'
+      }
+    })
+  },
+  {
+    ...MOCK_GAME_ROW,
+    id: 103,
+    created_at: Date.now() - 2 * 86400_000,
+    result: '0-1',
+    source: 'online',
+    user_color: 'black' as const,
+    game_kind: 'go',
+    pgn: JSON.stringify({
+      v: 1,
+      kind: 'go',
+      moves: ['e5', 'c3', 'g5', 'c5', 'e3', 'c7', 'g3', 'pass', 'pass'],
+      result: '0-1',
+      meta: {
+        reason: 'score',
+        white: 'Guest',
+        black: 'You',
+        options: { size: 9, komi: 5.5 },
+        event: 'Online game',
+        date: '2026.07.08'
+      }
+    })
+  },
+  {
+    ...MOCK_GAME_ROW,
+    id: 104,
+    created_at: Date.now() - 3 * 86400_000,
+    result: '1/2-1/2',
+    source: 'online',
+    game_kind: 'othello',
+    pgn: '[Event "Online game"]\n[White "You"]\n[Black "Guest"]\n[Result "1/2-1/2"]\n[Variant "othello"]\n\nd3 c3 1/2-1/2'
+  }
+]
+
 let handleSeq = 0
 const lineSubs = new Set<(l: EngineLine) => void>()
 
@@ -236,6 +323,13 @@ export function installMock(): void {
       playGo: async () => {
         throw new Error('KataGo is not installed — download the Go engine in Settings → Datasets.')
       },
+      // Replay-viewer eval: no engines in the browser mock — the bar hides.
+      evalVariant: async () => {
+        throw new Error('Fairy-Stockfish is unavailable in the browser dev mock.')
+      },
+      estimateGo: async () => {
+        throw new Error('KataGo is not installed — download the Go engine in Settings → Datasets.')
+      },
       status: async () => ({
         analysisReady: true,
         playReady: true,
@@ -305,7 +399,21 @@ export function installMock(): void {
     games: {
       save: async () => ({ gameId: 1 }),
       list: async () => ({ games: [] }),
-      get: async () => ({ game: null }),
+      listAll: async ({ kind, source } = {}) => ({
+        games: MOCK_LIBRARY_GAMES.filter(
+          (g) => (!kind || g.game_kind === kind) && (!source || g.source === source)
+        ),
+        kinds: [
+          { kind: 'chess', count: 1 },
+          { kind: 'atomic', count: 1 },
+          { kind: 'go', count: 1 },
+          { kind: 'othello', count: 1 }
+        ],
+        sources: ['play', 'otb', 'online']
+      }),
+      get: async (gameId) => ({
+        game: MOCK_LIBRARY_GAMES.find((g) => g.id === gameId) ?? null
+      }),
       reportResult: async () => ({ ratingAfter: 1010, delta: 10 })
     },
     openings: {
@@ -470,7 +578,54 @@ export function installMock(): void {
         mockCustomVariants.delete(id)
         return { ok: true }
       }
-    }
+    },
+    // Save dialog: the browser preview has no OS dialog — trigger a plain
+    // download so Replay Theater's export stays fully testable in the harness.
+    dialog: {
+      saveFile: async (req) => {
+        const blob = new Blob([req.data as BlobPart])
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = req.suggestedName
+        a.click()
+        window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
+        return { ok: true, path: req.suggestedName }
+      }
+    },
+    // Updates: the browser preview is neither installable nor updatable — a
+    // static manual-mode snapshot that reports up-to-date on check. Add
+    // `&mockUpdate=available` (or `=ready`, the Windows post-download state) to
+    // the preview URL to seed a fake newer version so the startup toast and the
+    // Settings → Updates offer render for visual checks.
+    updates: (() => {
+      const seeded = new URLSearchParams(window.location.search).get('mockUpdate')
+      const status =
+        seeded === 'available' || seeded === 'ready'
+          ? ({
+              state: seeded,
+              currentVersion: 'mock',
+              mode: seeded === 'ready' ? 'auto' : 'manual',
+              latestVersion: '9.9.9',
+              downloadUrl: 'https://example.com/Chess-9.9.9-arm64.dmg',
+              releaseUrl: 'https://example.com/releases',
+              checkedAt: Date.now()
+            } as const)
+          : ({ state: 'idle', currentVersion: 'mock', mode: 'manual' } as const)
+      return {
+        status: async () => status,
+        check: async () =>
+          seeded
+            ? { ...status, checkedAt: Date.now() }
+            : { state: 'up-to-date' as const, currentVersion: 'mock', mode: 'manual' as const, checkedAt: Date.now() },
+        download: async () => ({
+          ok: false,
+          action: 'none' as const,
+          error: 'not available in the browser preview'
+        }),
+        onStatus: () => () => {}
+      }
+    })()
     // NOTE: multiplayer is no longer part of window.api — the renderer owns the
     // WebRTC session directly (features/play/online/mpClient), so there's nothing
     // to mock here anymore.

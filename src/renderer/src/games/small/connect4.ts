@@ -108,5 +108,14 @@ export const CONNECT4_SPEC: GameSpec<Connect4State> = {
   moveMeta(): MoveMeta {
     return { capture: false, sound: 'move' }
   },
+  /** Notation = the LANDING SQUARE 'd4' (column letter a–g + landing rank 1–6,
+   *  rank 1 at the bottom) — the codec's bare column digit tells a reader
+   *  nothing about height. Documented kernel-wide in GameSpec.notate. */
+  notate(s: Connect4State, move: string): string {
+    if (!/^[1-7]$/.test(move)) return move
+    const col = Number(move) - 1
+    if (s.heights[col] >= 6) return move
+    return `${String.fromCharCode(97 + col)}${s.heights[col] + 1}`
+  },
   serializeOptions: (o: unknown): string => JSON.stringify(o ?? null)
 }

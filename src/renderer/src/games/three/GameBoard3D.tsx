@@ -50,6 +50,7 @@ import type { OthelloState } from '../small/othello'
 import { c4Bit, type Connect4State } from '../small/connect4'
 import { useBoardSound } from '../boards/useBoardSound'
 import { Tabletop3D } from './Tabletop3D'
+import { diffFocus, type TheaterDirective } from './theater'
 import type { TabletopBoardShape, TabletopPiece, TabletopPos } from './types'
 
 // ---------------------------------------------------------------------------
@@ -136,7 +137,7 @@ function bitboardOccupancy(black: bigint, white: bigint): OccPiece[] {
   return out
 }
 
-function occupancyOf(kind: GameKind, state: unknown, scoring: boolean): OccPiece[] {
+export function occupancyOf(kind: GameKind, state: unknown, scoring: boolean): OccPiece[] {
   switch (kind) {
     case 'go': {
       const s = state as GoState
@@ -324,6 +325,15 @@ export function checkersDragMove(
 export interface GameBoard3DProps extends GameBoardProps {
   /** WebGL missing / lost / no provider — the host swaps back to the 2D board. */
   onUnavailable?(reason: string): void
+  /** Replay Theater directive ref — passed through to Tabletop3D (cinematic
+   *  rig). The bridge stamps `directive.shot` on every state commit, deriving
+   *  the action square from the occupancy diff (see games/three/theater.ts). */
+  theater?: { current: TheaterDirective }
+  /** Theater playback tells the bridge what the LAST committed move was
+   *  (capture flag from spec.moveMeta); ply −1/0 = start position, no shot. */
+  theaterShot?: { ply: number; capture: boolean } | null
+  /** Fires once with the live WebGL canvas (theater export records it). */
+  onCanvasReady?(canvas: HTMLCanvasElement): void
 }
 
 export default function GameBoard3D({
@@ -333,7 +343,10 @@ export default function GameBoard3D({
   interactive,
   onMove,
   onAction,
-  onUnavailable
+  onUnavailable,
+  theater,
+  theaterShot,
+  onCanvasReady
 }: GameBoard3DProps): JSX.Element {
   const spec = getGame(kind)!.spec
   const isChessFamily = spec.family === 'chess'
@@ -387,6 +400,28 @@ export default function GameBoard3D({
     return next
   }, [occ, kind, size, state])
 
+  // Theater choreography: on every committed ply, derive the action square
+  // from the occupancy diff and stamp the directive's shot — TheaterRig frames
+  // it (and slow-mos captures) from there. Scrubs work too: any state diff has
+  // a centroid. Ply ≤ 0 (start position) clears the shot.
+  const shotTrack = useRef<{ ply: number; occ: OccPiece[] }>({ ply: 0, occ: [] })
+  useEffect(() => {
+    if (!theater) return
+    const prev = shotTrack.current
+    const ply = theaterShot?.ply ?? 0
+    if (ply !== prev.ply) {
+      theater.current.shot =
+        ply <= 0
+          ? null
+          : {
+              atMs: performance.now(),
+              capture: theaterShot?.capture === true,
+              focus: diffFocus(prev.occ, occ)
+            }
+    }
+    shotTrack.current = { ply, occ }
+  }, [theater, theaterShot, occ])
+
   const onSquareClick = useCallback(
     (pos: TabletopPos): void => {
       if (kind === 'go' && scoring) {
@@ -433,6 +468,8 @@ export default function GameBoard3D({
         onSquareClick={onSquareClick}
         onPieceDrag={draggable ? onPieceDrag : undefined}
         onUnavailable={onUnavailable}
+        theater={theater}
+        onCanvasReady={onCanvasReady}
         className="b3d-canvas"
       />
       {scoring && (

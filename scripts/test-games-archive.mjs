@@ -194,8 +194,140 @@ export { recomputeVsBotGlicko } from ${JSON.stringify(path.join(repoRoot, 'src/m
   }
 }
 
+// ---- 4. archive envelope (src/shared/gameArchive.ts) ---------------------------
+// The pgn-column contract for NON-chess kinds: encode/parse round trip, format
+// sniffing against real PGN / legacy tag text, strict-parse rejects, and an
+// end-to-end archive → replay pipe through a real kernel spec.
+console.log('archive envelope (shared/gameArchive + games/archive)')
+{
+  const { execSync } = await import('node:child_process')
+  const { pathToFileURL, fileURLToPath } = await import('node:url')
+  const { mkdtempSync, writeFileSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const path = (await import('node:path')).default
+
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+  const dir = mkdtempSync(path.join(tmpdir(), 'game-archive-env-'))
+  const entryPath = path.join(dir, 'entry.mjs')
+  writeFileSync(
+    entryPath,
+    `export * from ${JSON.stringify(path.join(repoRoot, 'src/shared/gameArchive.ts'))}
+export { archiveFinishedGame, replayOptionsOf } from ${JSON.stringify(path.join(repoRoot, 'src/renderer/src/games/archive.ts'))}
+export { notateGame } from ${JSON.stringify(path.join(repoRoot, 'src/renderer/src/games/kernel.ts'))}
+export { CONNECT4_SPEC } from ${JSON.stringify(path.join(repoRoot, 'src/renderer/src/games/small/connect4.ts'))}
+export { GO_SPEC } from ${JSON.stringify(path.join(repoRoot, 'src/renderer/src/games/go.ts'))}
+export { CHESS_VARIANT_SPECS } from ${JSON.stringify(path.join(repoRoot, 'src/renderer/src/games/chessVariants.ts'))}
+`
+  )
+  const out = path.join(dir, 'archive.bundle.mjs')
+  execSync(
+    `npx esbuild ${entryPath} --bundle --platform=node --format=esm --loader:.css=empty ` +
+      `--alias:@shared=${path.join(repoRoot, 'src/shared')} --outfile=${out}`,
+    { stdio: 'pipe', cwd: repoRoot }
+  )
+  const A = await import(pathToFileURL(out).href)
+
+  // -- encode/parse round trip ----------------------------------------------------
+  const env = {
+    v: 1,
+    kind: 'gomoku',
+    moves: ['h8', 'h9', 'j8'],
+    result: '0-1',
+    meta: { notated: ['B H8', 'W H9', 'B J8'], reason: 'five-in-a-row', white: 'You', black: 'Bot L3' }
+  }
+  const text = A.encodeGameArchive(env)
+  check('encode emits one JSON object, v first', text.startsWith('{"v":1,'), text.slice(0, 24))
+  const back = A.parseGameArchive(text)
+  check('round trip preserves the envelope', JSON.stringify(back) === JSON.stringify(env))
+  const minimal = A.parseGameArchive(A.encodeGameArchive({ v: 1, kind: 'ttt', moves: [], result: '1/2-1/2' }))
+  check('meta-less minimal envelope is valid', minimal !== null && minimal.meta === undefined)
+
+  // -- sniffing: envelopes vs the two text formats sharing the column --------------
+  check('isArchiveJson accepts an envelope', A.isArchiveJson(text))
+  check('isArchiveJson accepts leading whitespace', A.isArchiveJson('  \n' + text))
+  check('isArchiveJson rejects real chess PGN', !A.isArchiveJson('[Event "Casual"]\n\n1. e4 e5 1-0'))
+  check(
+    'isArchiveJson rejects the legacy online tag format',
+    !A.isArchiveJson('[Variant "gomoku"]\n\nh8 a1 f8 0-1\n')
+  )
+  check('isArchiveJson rejects bare movetext', !A.isArchiveJson('1. e4 e5'))
+
+  // -- strict parse rejects ---------------------------------------------------------
+  check('parse rejects corrupt JSON', A.parseGameArchive('{"v":1,"kind":') === null)
+  check('parse rejects a FUTURE version', A.parseGameArchive('{"v":2,"kind":"go","moves":[],"result":"1-0"}') === null)
+  check('parse rejects a missing kind', A.parseGameArchive('{"v":1,"moves":[],"result":"1-0"}') === null)
+  check(
+    'parse rejects non-string moves',
+    A.parseGameArchive('{"v":1,"kind":"go","moves":[3],"result":"1-0"}') === null
+  )
+  check(
+    'parse rejects an unknown result token',
+    A.parseGameArchive('{"v":1,"kind":"go","moves":[],"result":"*"}') === null
+  )
+  check(
+    'parse rejects a malformed meta.notated',
+    A.parseGameArchive('{"v":1,"kind":"go","moves":["d4"],"result":"1-0","meta":{"notated":"B D4"}}') === null
+  )
+
+  // -- end-to-end: finished game → archiveFinishedGame → parse → kernel replay ------
+  {
+    const c4 = A.CONNECT4_SPEC
+    let s = c4.init()
+    const line = ['4', '5', '4', '5', '4', '5', '4'] // white wins the d-column
+    for (const mv of line) s = c4.play(s, mv)
+    const result = c4.result(s)
+    check('connect4 fixture reaches 1-0', result?.score === '1-0' && result.winner === 'white')
+    const pgn = A.archiveFinishedGame({
+      spec: c4,
+      start: c4.init(),
+      moves: s.moves,
+      result,
+      white: 'You',
+      black: 'Bot L2',
+      event: 'Play vs Bot'
+    })
+    const parsed = A.parseGameArchive(pgn)
+    check('archiveFinishedGame emits a parseable v1 envelope', parsed !== null && parsed.kind === 'connect4')
+    check('envelope moves are the wire codec verbatim', parsed.moves.join(' ') === line.join(' '))
+    check(
+      'envelope notation is the landing-square form',
+      parsed.meta?.notated?.join(' ') === 'd1 e1 d2 e2 d3 e3 d4'
+    )
+    check('envelope carries the result + reason', parsed.result === '1-0' && parsed.meta?.reason === 'connect4')
+    check('envelope names both players', parsed.meta?.white === 'You' && parsed.meta?.black === 'Bot L2')
+    // Replay EXACTLY as the Library viewer does: init(meta.options) + play().
+    let r = c4.init(parsed.meta?.options)
+    for (const mv of parsed.moves) {
+      r = c4.play(r, mv)
+      if (r === null) break
+    }
+    check('parsed envelope replays through the kernel spec', r !== null && c4.result(r)?.score === '1-0')
+  }
+
+  // -- replay options: start-position fidelity ---------------------------------------
+  {
+    const go = A.GO_SPEC
+    const goStart = go.init({ size: 9, handicap: 2 })
+    const opts = A.replayOptionsOf(go, goStart)
+    const replayed = go.init(opts)
+    check(
+      'go replay options reproduce size + handicap (white to open)',
+      replayed.size === 9 && replayed.handicap === 2 && go.turn(replayed) === 'white',
+      JSON.stringify(opts)
+    )
+    const c960 = A.CHESS_VARIANT_SPECS.chess960
+    const start960 = c960.init({ positionNumber: 42 })
+    const opts960 = A.replayOptionsOf(c960, start960)
+    check(
+      'chess960 replay options pin the shuffled start FEN',
+      c960.init(opts960).fen === start960.fen,
+      JSON.stringify(opts960)
+    )
+  }
+}
+
 if (failures) {
   console.error(`\n${failures} FAILED`)
   process.exit(1)
 }
-console.log('\nALL GREEN — games-archive migration + filter')
+console.log('\nALL GREEN — games-archive migration + filter + envelope')

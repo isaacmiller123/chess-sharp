@@ -39,6 +39,14 @@ export interface GameBoardProps {
    * degrade to a read-only scoring view when the owner passes no handler.
    */
   onAction?(action: string): void
+  /**
+   * Owner-supplied territory-ownership overlay (go only; other boards ignore
+   * it): size×size floats in −1..1, row-major from the TOP-LEFT, positive =
+   * white territory (the shared EstimateGoResult convention). GoBoard shades
+   * intersections proportionally while the game is LIVE — the scoring phase's
+   * own exact territory paint always outranks it.
+   */
+  territory?: readonly number[] | null
 }
 
 export type GameRendererLoader = () => Promise<{ default: ComponentType<GameBoardProps> }>

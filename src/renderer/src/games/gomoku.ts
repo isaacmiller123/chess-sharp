@@ -15,7 +15,7 @@
 // canonical opening for bot providers.
 
 import type { GameResult, GameSpec, MoveMeta, PlayerColor } from './kernel'
-import { GO_COL_LETTERS, pointToVertex, vertexToPoint } from './go'
+import { GO_COL_LETTERS, goLikeNotation, pointToVertex, vertexToPoint } from './go'
 
 export const GOMOKU_SIZE = 15
 /** Center of the standard 15×15 board — canonical bot opening move. */
@@ -149,6 +149,8 @@ export const GOMOKU_SPEC: GameSpec<GomokuState> = {
   play: playOn,
   result: resultOf,
   moveMeta: moveMetaOf,
+  // Same 'B H8' / 'W Q16' convention as go ('pass' never occurs in gomoku).
+  notate: (s: GomokuState, move: string): string => goLikeNotation(turnOfGomoku(s), move),
   serializeOptions: (o: unknown): string =>
     JSON.stringify({ size: ((o ?? {}) as GomokuOptions).size ?? GOMOKU_SIZE })
 }

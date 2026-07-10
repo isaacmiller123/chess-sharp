@@ -2,6 +2,18 @@ appId: org.chesssharp.app
 productName: Chess#
 directories:
   output: release
+# Update feed (src/main/updates). Declaring the GitHub provider makes
+# electron-builder emit latest.yml / latest-mac.yml (+ *.blockmap) into release/
+# and bake app-update.yml into the packaged app so electron-updater knows where
+# the feed lives. Nothing publishes from here — CI packages with --publish never
+# and attaches the files to the GitHub Release itself. Windows auto-updates in
+# place off this feed (unsigned NSIS works); macOS can NOT (Squirrel.Mac refuses
+# unsigned bundles) — the mac path is check + notify + browser download of the
+# right dmg (see src/main/updates/updateLogic.ts).
+publish:
+  provider: github
+  owner: isaacmiller123
+  repo: chess-sharp
 asar: true
 files:
   - "out/**"

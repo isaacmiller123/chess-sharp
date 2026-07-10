@@ -73,7 +73,8 @@ jobs:
                    test-small-games test-custom-variants test-mp test-mp-store \
                    test-est-elo test-ratings-integrity test-manuals test-board3d \
                    test-cg-keys test-custom-board-keys test-flip \
-                   test-games-archive test-settings-persist test-school-replace; do
+                   test-games-archive test-settings-persist test-school-replace \
+                   test-updater; do
             echo "== $t =="; node scripts/$t.mjs
           done
 
@@ -109,8 +110,11 @@ jobs:
       # loser's create fails harmlessly (|| true) and both then upload their own
       # platform's files (--clobber makes re-runs idempotent). `gh` is
       # preinstalled on all runners; the ambient GITHUB_TOKEN has contents:write
-      # (see permissions above). Only user-facing files are attached — installers
-      # and zips, not blockmaps/update metadata (the app has no auto-updater).
+      # (see permissions above). Besides the installers/zips, the update feed
+      # files MUST be attached too: latest.yml + *.blockmap (win leg) feed
+      # electron-updater's in-place Windows auto-update, and latest-mac.yml (mac
+      # leg) is harmless metadata kept for symmetry — the mac app checks the
+      # releases API instead (unsigned build, see src/main/updates).
       - name: Publish installers to the GitHub Release (tag builds only)
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
@@ -127,10 +131,10 @@ jobs:
           **Windows:** `Chess-Setup-*.exe` (installer) or `Chess-Portable-*.exe` (no install).
           **macOS:** the `.dmg` for your chip (arm64 = Apple Silicon, x64 = Intel).
 
-          Both players must run the same version for online play. Builds are unsigned: Windows SmartScreen → More info → Run anyway; macOS → right-click the app → Open (first launch only). On first run, use Settings → Datasets to import the engine and puzzle database.
+          Both players must run the same version for online play — the app checks for updates on launch (Windows updates itself; macOS offers the new `.dmg` to install over the old app). Builds are unsigned: Windows SmartScreen → More info → Run anyway; macOS → right-click the app → Open (first launch only). On first run, use Settings → Datasets to import the engine and puzzle database.
           EOF
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
             --title "Chess# $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" \
             2>/dev/null || true
-          files=$(ls release/*.exe release/*.dmg release/*.zip 2>/dev/null || true)
+          files=$(ls release/*.exe release/*.dmg release/*.zip release/*.blockmap release/latest*.yml 2>/dev/null || true)
           [ -n "$files" ] && gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber $files

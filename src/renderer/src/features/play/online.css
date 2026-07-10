@@ -744,3 +744,70 @@
 .kernel-board-loading .spin {
   animation: online-spin 0.9s linear infinite;
 }
+
+/* ---- Version-mismatch update nudge (under the error banner) --------------- */
+.online-update-nudge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.online-update-nudge strong {
+  color: var(--text-primary);
+}
+.online-update-nudge .btn {
+  white-space: nowrap;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--fs-sm);
+}
+
+/* ---- Go host options (size / handicap / byo-yomi chip rows) ---------------- */
+
+.goopt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.goopt-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.goopt-name {
+  flex: none;
+  width: 72px;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.goopt-chip {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.goopt-chip:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+.goopt-chip.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}

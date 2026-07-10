@@ -583,3 +583,108 @@
   word-break: break-all;
   user-select: text;
 }
+
+/* ============================================================
+   Updates card (UpdatesPanel.tsx) — current version + manual
+   check + the state-appropriate action. Mirrors the Datasets
+   card's tone: quiet rows, an accent-soft offer strip when a
+   new version is out.
+   ============================================================ */
+.updates-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.updates-version {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.updates-head .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+.updates-spin {
+  animation: updates-rotate 0.9s linear infinite;
+}
+@keyframes updates-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .updates-spin {
+    animation: none;
+  }
+}
+.updates-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.updates-status.is-good {
+  color: var(--success);
+}
+.updates-status.is-bad {
+  color: var(--danger);
+}
+.updates-status.is-accent {
+  color: var(--accent);
+}
+.updates-progress-row {
+  margin-top: var(--space-3);
+}
+.updates-progress-row .updates-status {
+  margin: 0 0 var(--space-2);
+}
+.updates-progress {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.updates-progress span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  transition: width var(--dur-fast) var(--ease-out);
+}
+.updates-offer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+.updates-offer-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.updates-offer-copy strong {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-primary);
+}
+.updates-offer-copy > span {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+.updates-offer .btn {
+  white-space: nowrap;
+}

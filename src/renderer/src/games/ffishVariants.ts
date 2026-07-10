@@ -65,6 +65,8 @@ interface FfishBoard {
   isCapture(uciMove: string): boolean
   numberLegalMoves(): number
   isInsufficientMaterial(): boolean
+  /** SAN for a LEGAL uci move at the current position (default Notation.SAN). */
+  sanMove(uciMove: string): string
 }
 
 function makeBoard(variant: string, fen?: string): FfishBoard {
@@ -161,6 +163,20 @@ function moveMetaOf(s: FfishState, move: string): MoveMeta {
   })
 }
 
+/** SAN for the move about to be played from `s` (kernel notate contract).
+ *  ffish's board.sanMove is variant-aware (shogi drops/promotions, xiangqi
+ *  two-digit ranks, makruk promotion letters). Only ever called on a LEGAL
+ *  move — sanMove on garbage is undefined behavior in the WASM — so legality
+ *  is checked first and anything else echoes the raw move string. */
+function notateOf(s: FfishState, move: string): string {
+  if (!MOVE_RE.test(move)) return move
+  return withBoard(s, (board) => {
+    const legal = board.legalMoves().trim()
+    if (legal.length === 0 || !legal.split(/\s+/).includes(move)) return move
+    return board.sanMove(move)
+  })
+}
+
 /**
  * Renderer helper (boards/ChessFamilyBoard.tsx): is the side to move in
  * check? Highlight only — never rules-authoritative. Requires preloadFfish()
@@ -199,6 +215,7 @@ function makeSpec(cfg: FfishVariantConfig): GameSpec<FfishState> {
     play: playOn,
     result: resultOf,
     moveMeta: moveMetaOf,
+    notate: notateOf,
     serializeOptions: (o: unknown): string => JSON.stringify(o ?? null)
   }
 }

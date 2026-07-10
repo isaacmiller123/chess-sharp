@@ -8,6 +8,7 @@ import { getGame } from '../../games/registry'
 import { useBoardSound } from '../../games/boards/useBoardSound'
 import type { CatalogEntry } from './catalog'
 import { Board3DHost, BoardModeToggle, useBoardMode } from './boardMode'
+import { useSaveFinishedGame } from './useSaveFinishedGame'
 
 type Phase = 'setup' | 'playing'
 
@@ -72,6 +73,18 @@ export function VariantBot({
     fenTurn === 'b' ? 'black' : fenTurn === 'w' ? 'white' : moves.length % 2 === 0 ? 'white' : 'black'
   const outcome = ready && state !== null ? spec.result(state) : null
   const isUserTurn = phase === 'playing' && !outcome && turn === userColor
+
+  // Archive every finished bot game (feature foundation: reviewable later).
+  const botLabel = `Bot L${level}`
+  useSaveFinishedGame(spec, state, outcome, {
+    white: userColor === 'white' ? 'You' : botLabel,
+    black: userColor === 'black' ? 'You' : botLabel,
+    event: 'Play vs Bot',
+    source: 'play-bot',
+    userColor,
+    opponentKind: 'engine',
+    opponentLabel: `${botLabel} · ${BOT_LEVEL_NAMES[level - 1]}`
+  })
 
   const applyMove = useCallback(
     (move: string): void => {

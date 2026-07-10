@@ -95,6 +95,25 @@ export interface PlayVariantRequest {
   movetimeMs?: number
 }
 
+/** Position eval for the replay viewer (engine:evalVariant → one bounded
+ *  single-line Fairy-Stockfish search). `kind` is any chess-family registry
+ *  kind: 'chess', the FAIRY_VARIANT_KINDS, or 'custom-<id>' (main loads the
+ *  saved variants.ini via VariantPath before selecting it). */
+export interface EvalVariantRequest {
+  kind: string
+  /** Current-position FEN in the variant's own dialect (spec state `fen`). */
+  fen: string
+  /** Search budget; default 300ms, clamped to 50..2000. */
+  movetimeMs?: number
+}
+
+/** Score from the SIDE TO MOVE's point of view (UCI convention). Both fields
+ *  absent = the engine saw a terminal/unsearchable position. */
+export interface EvalVariantResult {
+  cp?: number
+  mate?: number
+}
+
 export interface EngineLine {
   handleId: number
   depth?: number
@@ -135,10 +154,16 @@ export interface EngineStatus {
 
 /** One Go bot move request. The full move list (not a position) is sent because
  *  GTP replays games move-by-move; vertices use the go codec ('d4', 'i' skipped,
- *  rank 1 = bottom) which is exactly GTP's own convention. BLACK moves first. */
+ *  rank 1 = bottom) which is exactly GTP's own convention. BLACK moves first —
+ *  unless `handicap` is non-empty, in which case those stones are pre-placed
+ *  for black and WHITE moves first. */
 export interface PlayGoRequest {
   size: 9 | 13 | 19
   komi: number
+  /** Pre-placed black handicap stones (codec vertices, ≤ 9). Empty/absent =
+   *  even game. The renderer sends tenuki's own placement so both rules
+   *  engines agree on the exact points (games/go.ts handicapPlacement). */
+  handicap?: string[]
   /** Codec moves in play order: 'd4'-style vertices + 'pass'. */
   moves: string[]
   /** Bot strength 1..5 (games/bots.ts row; main maps it to net+visits+temp,
@@ -149,6 +174,28 @@ export interface PlayGoRequest {
 export interface PlayGoResult {
   /** The engine's reply: a codec vertex or 'pass' (never 'resign'). */
   move: string
+}
+
+/** Territory-estimate request (engine:estimateGo → one KataGo raw-net eval).
+ *  Same position encoding as PlayGoRequest; no level — estimates always use
+ *  the strongest installed standard net. */
+export interface EstimateGoRequest {
+  size: 9 | 13 | 19
+  komi: number
+  handicap?: string[]
+  moves: string[]
+}
+
+/** One-shot ownership snapshot from KataGo's raw net (kata-raw-nn — no search,
+ *  a single forward pass, cheap enough to poll during live play). */
+export interface EstimateGoResult {
+  /** Per-point ownership, row-major from the TOP-LEFT (Shudan orientation),
+   *  size*size floats in −1..1: positive = white territory, negative = black. */
+  ownership: number[]
+  /** Predicted final score lead for WHITE (negative = black leads). */
+  whiteLead: number
+  /** White win probability 0..1. */
+  whiteWin: number
 }
 
 export type Unsubscribe = () => void
@@ -357,6 +404,23 @@ export interface GameRow {
   /** Registry game kind ('chess' | 'gomoku' | 'go' | … | 'custom-<id>'). Column
    *  added in migration v10 with DEFAULT 'chess' — every pre-v10 row is chess. */
   game_kind: string
+}
+
+/** games:listAll filters (Library view). All exact-match; omit = everything. */
+export interface ListAllGamesRequest {
+  kind?: string
+  source?: string
+  result?: string
+  limit?: number
+  offset?: number
+}
+
+export interface ListAllGamesResult {
+  games: GameRow[]
+  /** Distinct game_kind values with row counts (kind filter chips). */
+  kinds: { kind: string; count: number }[]
+  /** Distinct non-null source values (mode filter). */
+  sources: string[]
 }
 
 // NOTE (v1.1.5 audit): only game_kind === 'chess' rows are reviewable/listable.
@@ -967,6 +1031,50 @@ export interface DatasetImportResult {
   error?: string
 }
 
+// ---- Updates (src/main/updates) ----------------------------------------------
+// Unsigned-build reality: Windows gets true in-place auto-update (electron-
+// updater over NSIS — works unsigned); macOS can NEVER auto-install (Squirrel
+// enforces code signatures), so it gets check + notify + a one-click browser
+// download of the right dmg to install over the old app.
+
+export type UpdateState =
+  | 'idle'
+  | 'checking'
+  | 'up-to-date'
+  | 'available'
+  | 'downloading'
+  | 'ready'
+  | 'error'
+
+export interface UpdateStatus {
+  state: UpdateState
+  /** This build's version (app.getVersion()). */
+  currentVersion: string
+  /** 'auto' = in-place install (packaged Windows); 'manual' = notify + browser
+   *  download (macOS always, dev builds, anything unsigned-updatable). */
+  mode: 'auto' | 'manual'
+  /** Newest published version, once a check has found one. */
+  latestVersion?: string
+  /** Direct download for THIS machine's installer (manual mode). */
+  downloadUrl?: string
+  /** GitHub release page — universal fallback link. */
+  releaseUrl?: string
+  /** 0..1 while state === 'downloading' (auto mode only). */
+  progress?: number
+  error?: string
+  /** Epoch ms of the last completed check. */
+  checkedAt?: number
+}
+
+export interface UpdateActionResult {
+  ok: boolean
+  /** What the click did: 'install' = quit-and-install now (win, ready),
+   *  'downloading' = in-place download running (win), 'external' = opened the
+   *  browser download (mac/manual), 'none' = nothing applicable. */
+  action: 'install' | 'downloading' | 'external' | 'none'
+  error?: string
+}
+
 // ---- Internet multiplayer (mp) — protocol v3 ---------------------------------
 // Two copies of Chess#, anywhere on the internet, play each other over WebRTC data
 // channels established in the RENDERER (Chromium's native RTCPeerConnection).
@@ -989,6 +1097,28 @@ export interface MpTimeControl {
   initialMs: number
   /** Increment added after each of that side's moves, ms (0 = none). */
   incrementMs: number
+  /** Wire v5 — Japanese byo-yomi (go): after main time runs out, each side gets
+   *  `periods` overtime periods of `periodMs` each. A move made within the
+   *  current period RESETS it to full; letting a period lapse while thinking
+   *  CONSUMES it; the last period expiring is a flag. ABSENT = plain Fischer,
+   *  byte-identical to v4 configs. `incrementMs` is only credited while a side
+   *  is still on main time. */
+  byoyomi?: { periods: number; periodMs: number }
+}
+
+/** Per-side byo-yomi snapshot riding beside MpClocks on move/clock/flag/resync
+ *  when the config has byo-yomi (wire v5). For a side with `inByo` false, its
+ *  MpClocks number is remaining MAIN time; once `inByo`, the number is the
+ *  remaining time of the CURRENT period. `periodsLeft` counts remaining periods
+ *  INCLUDING the one currently running (0 only after a byo-yomi flag). */
+export interface MpByoSide {
+  periodsLeft: number
+  inByo: boolean
+}
+
+export interface MpByo {
+  white: MpByoSide
+  black: MpByoSide
 }
 
 export interface MpGameConfig {
@@ -1035,14 +1165,16 @@ export type MpEvent =
    *  is the peer's trimmed display name when they sent one. */
   | { type: 'start'; gameId: number; yourColor: MpColor; config: MpGameConfig; opponentName?: string }
   /** A move played by the REMOTE peer, plus the authoritative clocks after it.
-   *  `ply` is the 0-based half-move index this move occupies. */
-  | { type: 'move'; gameId: number; ply: number; uci: string; clockMs: MpClocks }
+   *  `ply` is the 0-based half-move index this move occupies. `byo` rides along
+   *  whenever the game has byo-yomi (wire v5). */
+  | { type: 'move'; gameId: number; ply: number; uci: string; clockMs: MpClocks; byo?: MpByo }
   /** Host→guest clock ack/resync (after committing a guest move, and periodically
    *  while a clock runs). `toMove` is whose clock is now ticking. */
-  | { type: 'clock'; gameId: number; clockMs: MpClocks; toMove: MpColor }
-  /** A side flagged (ran out of time). `clockMs` has the loser at 0; the store
-   *  adjudicates the lichess insufficient-material rule to pick win/draw. */
-  | { type: 'flag'; gameId: number; by: MpColor; clockMs: MpClocks }
+  | { type: 'clock'; gameId: number; clockMs: MpClocks; toMove: MpColor; byo?: MpByo }
+  /** A side flagged (ran out of time). `clockMs` has the loser at 0 (and, with
+   *  byo-yomi, its periodsLeft at 0); the store adjudicates the lichess
+   *  insufficient-material rule to pick win/draw. */
+  | { type: 'flag'; gameId: number; by: MpColor; clockMs: MpClocks; byo?: MpByo }
   /** The game was aborted before it really began — no result is recorded or
    *  saved. 'no-first-move' = an abort watchdog fired; 'manual' = a player aborted. */
   | { type: 'abort'; gameId: number; reason: 'no-first-move' | 'manual' }
@@ -1107,6 +1239,24 @@ export interface SaveCustomVariantReq {
   boardRanks: number
 }
 
+/** dialog:saveFile — save arbitrary bytes via the OS save dialog (main owns
+ *  the dialog + the write). First consumer: Replay Theater's .webm export. */
+export interface SaveFileRequest {
+  /** Pre-filled file name (main sanitizes path separators away). */
+  suggestedName: string
+  /** Dialog filter label, e.g. 'WebM video'. */
+  filterName: string
+  /** Lowercase extensions without dots, e.g. ['webm']. */
+  extensions: string[]
+  data: Uint8Array
+}
+
+export interface SaveFileResult {
+  ok: boolean
+  canceled?: boolean
+  path?: string
+}
+
 export interface Api {
   app: {
     ping(): Promise<PingResult>
@@ -1129,6 +1279,13 @@ export interface Api {
     /** Go bot move via KataGo over GTP (games platform, spec §Bots). Rejects
      *  with a "not installed" error until the katago dataset group imports. */
     playGo(req: PlayGoRequest): Promise<PlayGoResult>
+    /** Replay-viewer eval bar: one bounded single-line Fairy-Stockfish search
+     *  (~300ms), score relative to the side to move. */
+    evalVariant(req: EvalVariantRequest): Promise<EvalVariantResult>
+    /** One-shot KataGo raw-net estimate (winrate + score lead + ownership).
+     *  Resolves null when the installed engine lacks kata-raw-nn; rejects when
+     *  KataGo isn't installed at all. */
+    estimateGo(req: EstimateGoRequest): Promise<EstimateGoResult | null>
     status(): Promise<EngineStatus>
     newGame(instance: 'analysis' | 'play'): Promise<OkResult>
     onLine(cb: (line: EngineLine) => void): Unsubscribe
@@ -1196,6 +1353,10 @@ export interface Api {
   games: {
     save(input: SaveGameInput): Promise<{ gameId: number }>
     list(req?: { limit?: number; offset?: number }): Promise<{ games: GameRow[] }>
+    /** Library view: the FULL cross-mode archive (every game_kind), newest
+     *  first, with optional exact-match filters, plus the aggregates the
+     *  filter chips render from. */
+    listAll(req?: ListAllGamesRequest): Promise<ListAllGamesResult>
     get(gameId: number): Promise<{ game: GameRow | null }>
     /** Report a finished bot game for the vs-bot Glicko update. `botElo` is the
      *  NOMINAL label (UI level / persona modernElo); main maps it through
@@ -1311,6 +1472,20 @@ export interface Api {
     list(): Promise<{ variants: CustomVariantRow[] }>
     get(id: string): Promise<{ variant: CustomVariantRow | null }>
     delete(id: string): Promise<OkResult>
+  }
+  dialog: {
+    /** OS save dialog + write, main-owned (dialog:saveFile). First consumer:
+     *  Replay Theater's .webm export. */
+    saveFile(req: SaveFileRequest): Promise<SaveFileResult>
+  }
+  updates: {
+    status(): Promise<UpdateStatus>
+    /** Manual "Check for updates". Resolves with the post-check status. */
+    check(): Promise<UpdateStatus>
+    /** The "Update now" action — installs (win, ready), keeps downloading
+     *  (win), or opens the right browser download (mac/manual). */
+    download(): Promise<UpdateActionResult>
+    onStatus(cb: (s: UpdateStatus) => void): Unsubscribe
   }
   // NOTE: multiplayer no longer crosses IPC — the renderer owns the WebRTC session
   // directly (import `mp` from features/play/online/mpClient). See MpEvent above.

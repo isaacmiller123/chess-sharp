@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { formatClock, LOW_TIME_MS } from './timeControl'
+import { projectRunning, type ByoyomiSpec, type SideClock } from './byoyomi'
 
 /**
  * Low-time "emergency" threshold (ms) for a control whose base time is `baseMs`,
@@ -20,7 +21,8 @@ export function lowTimeThreshold(baseMs: number): number {
  * does not re-render 10×/s), so a live countdown appears without host chatter.
  */
 export interface ClockInterp {
-  /** Remaining ms for each side at `atMono`. */
+  /** Remaining ms for each side at `atMono`. With byo-yomi, an `inByo` side's
+   *  number is its CURRENT period's remaining ms. */
   snapshot: { white: number; black: number }
   /** performance.now() timestamp the snapshot was taken at. */
   atMono: number
@@ -30,6 +32,11 @@ export interface ClockInterp {
   side: 'white' | 'black'
   /** This control's base time (ms) — drives the emergency threshold. */
   baseMs: number
+  /** Byo-yomi (v5, go): the game's period spec + THIS side's snapshot. The
+   *  interpolation rolls across period boundaries exactly like the host rules
+   *  (projectRunning), and the render gains a ×N periods badge. */
+  byoSpec?: ByoyomiSpec
+  byo?: { periodsLeft: number; inByo: boolean }
 }
 
 export interface ClockProps {
@@ -61,11 +68,19 @@ export interface ClockProps {
   onLowTime?: () => void
 }
 
-/** Compute the displayed remaining ms for an interpolating clock, clamped ≥ 0. */
-function interpMs(interp: ClockInterp, now: number): number {
-  const base = interp.snapshot[interp.side]
+/** Displayed state for an interpolating clock: remaining ms (clamped ≥ 0) plus
+ *  the projected byo-yomi side snapshot when the game has byo-yomi. */
+function interpState(interp: ClockInterp, now: number): SideClock {
+  const base: SideClock = {
+    remainingMs: interp.snapshot[interp.side],
+    periodsLeft: interp.byo?.periodsLeft ?? 0,
+    inByo: interp.byo?.inByo ?? false
+  }
   const elapsed = interp.running === interp.side ? Math.max(0, now - interp.atMono) : 0
-  return Math.max(0, base - elapsed)
+  if (elapsed === 0) return base
+  // projectRunning degrades to a plain clamped debit when byoSpec is absent,
+  // and rolls across period boundaries exactly like the host otherwise.
+  return projectRunning(base, elapsed, interp.byoSpec ?? null)
 }
 
 /**
@@ -89,6 +104,10 @@ export function Clock({ ms, active, over, label, interp, onLowTime }: ClockProps
   const lowFiredRef = useRef(false)
   const onLowTimeRef = useRef(onLowTime)
   onLowTimeRef.current = onLowTime
+  // Byo-yomi: remember the last shown periodsLeft so a consumed period gets a
+  // one-beat flash (keyed span re-mounts the animation).
+  const lastPeriodsRef = useRef<number | null>(null)
+  const flashRef = useRef(0)
 
   const ticking = interp !== undefined && interp.running === interp.side && !over
 
@@ -101,9 +120,19 @@ export function Clock({ ms, active, over, label, interp, onLowTime }: ClockProps
   // Resolve the displayed ms + the emergency threshold for this render.
   let shown: number
   let threshold: number
+  let inByo = false
+  let periodsLeft = 0
   if (interp) {
-    shown = interpMs(interp, performance.now())
-    threshold = lowTimeThreshold(interp.baseMs)
+    const projected = interpState(interp, performance.now())
+    shown = Math.max(0, projected.remainingMs)
+    inByo = projected.inByo
+    periodsLeft = projected.periodsLeft
+    // In byo-yomi urgency tracks the PERIOD, not the (long-gone) main time.
+    threshold = inByo ? Math.min(LOW_TIME_MS, (interp.byoSpec?.periodMs ?? 0) / 2) : lowTimeThreshold(interp.baseMs)
+    if (inByo && lastPeriodsRef.current !== null && periodsLeft < lastPeriodsRef.current) {
+      flashRef.current += 1 // a period was consumed — retrigger the flash
+    }
+    lastPeriodsRef.current = inByo ? periodsLeft : null
     // Re-arm the one-shot when a fresh game lifts us back above the threshold
     // (rematch on the same mounted component).
     if (shown > threshold) lowFiredRef.current = false
@@ -118,12 +147,13 @@ export function Clock({ ms, active, over, label, interp, onLowTime }: ClockProps
   }
 
   const low = shown < threshold
-  const flagged = shown <= 0
+  const flagged = shown <= 0 && (!inByo || periodsLeft === 0)
   const className = [
     'play-clock',
     active && !over ? 'is-active' : '',
     low && !over ? 'is-low' : '',
-    flagged ? 'is-flagged' : ''
+    flagged ? 'is-flagged' : '',
+    inByo ? 'is-byo' : ''
   ]
     .filter(Boolean)
     .join(' ')
@@ -132,10 +162,15 @@ export function Clock({ ms, active, over, label, interp, onLowTime }: ClockProps
     <span
       className={className}
       role="timer"
-      aria-label={`${label} clock`}
+      aria-label={inByo ? `${label} clock — byo-yomi, ${periodsLeft} periods left` : `${label} clock`}
       aria-live={active && !over ? 'off' : 'polite'}
     >
       <span className="play-clock-time num">{formatClock(shown)}</span>
+      {inByo && (
+        <span key={flashRef.current} className="play-clock-periods num" aria-hidden>
+          ×{periodsLeft}
+        </span>
+      )}
     </span>
   )
 }

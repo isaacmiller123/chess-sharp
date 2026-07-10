@@ -96,8 +96,49 @@ export interface GameSpec<S = unknown> {
   play(s: S, move: string): S | null
   /** null = ongoing. */
   result(s: S): GameResult | null
+  /**
+   * Side to move in `s`. OPTIONAL: absent means strict alternation from
+   * players[0] (turn = players[moves.length % 2]) — true for every kernel game
+   * whose opening side never varies. Implemented when init OPTIONS can change
+   * who opens (go: handicap ≥ 2 makes WHITE move first); consumers must prefer
+   * it over parity whenever present.
+   */
+  turn?(s: S): PlayerColor
   /** Presentation hints for a move ABOUT to be played from `s` (capture flag + sound). */
   moveMeta(s: S, move: string): MoveMeta
+  /**
+   * Human notation for a move ABOUT to be played from `s` (assumed legal).
+   * Per family: chess = SAN (chessops/ffish, variant-aware), draughts = PDN
+   * ('11-15' / '11x18x25'), go/gomoku = 'B D4' / 'W Q16' color-prefixed
+   * vertices ('pass' stays bare), grid games = their codec where it already IS
+   * the standard notation (othello 'd3', hex 'c7', morris 'd2-d3xg7', ttt
+   * 'b2'), connect4 = landing square 'd4'. OPTIONAL: absent means the codec
+   * string is already the notation. Never throws on garbage — implementations
+   * fall back to echoing `move`.
+   */
+  notate?(s: S, move: string): string
   /** Stable string form of init options for the wire v4 start config. */
   serializeOptions?(o: unknown): string
+}
+
+/**
+ * Notation for a finished (or partial) game: replay `moves` from the START
+ * state through spec.play, collecting spec.notate for each move as it is about
+ * to be played. States are immutable, so callers hold onto their init state
+ * and pass it here at save time (src/shared/gameArchive.ts meta.notated).
+ * Defensive: an illegal move (should never happen for a recorded game) stops
+ * the replay — remaining moves are echoed verbatim.
+ */
+export function notateGame<S>(spec: GameSpec<S>, start: S, moves: readonly string[]): string[] {
+  const out: string[] = []
+  let s: S | null = start
+  for (let i = 0; i < moves.length; i++) {
+    if (s === null) {
+      out.push(moves[i])
+      continue
+    }
+    out.push(spec.notate ? spec.notate(s, moves[i]) : moves[i])
+    s = spec.play(s, moves[i])
+  }
+  return out
 }
