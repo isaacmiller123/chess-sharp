@@ -173,12 +173,21 @@ console.log('glicko recompute sanity')
 }
 {
   // 3c. The replay must agree EXACTLY with the live updater's sequential
-  // updates (same per-opponent RD and tau as ratings.repo.applyGameResult).
+  // updates (same per-opponent RD and tau as ratings.repo.applyGameResult),
+  // for EVERY opponent kind. Maia + persona rows are included on purpose: the
+  // live path is measuredElo({ kind, elo: nominal }) (games.ipc reportResult,
+  // where nominal = the maia net's band / the persona's modernElo — exactly
+  // what PlayView saves as opponent_elo), so the replay must map the stored
+  // row through the identical call. A kind coercion (the old maia→'engine'
+  // bug) would send maia-1100 through the sub-floor curve and diverge here.
   const db = makeDb()
   const games = [
-    { result: '1-0', elo: 1200 },
-    { result: '0-1', elo: 1500 },
-    { result: '1/2-1/2', elo: 800 }
+    { result: '1-0', elo: 1200, kind: 'engine' },
+    { result: '0-1', elo: 1500, kind: 'engine' },
+    { result: '1-0', elo: 1500, kind: 'maia' },
+    { result: '1/2-1/2', elo: 1100, kind: 'maia' }, // engine-coerced 1100 would remap to 1340
+    { result: '0-1', elo: 2551, kind: 'persona' },
+    { result: '1/2-1/2', elo: 800, kind: 'engine' }
   ]
   for (const g of games) addGame(db, g)
   const replayed = R.recomputeVsBotGlicko(db)
@@ -187,16 +196,23 @@ console.log('glicko recompute sanity')
     const score = g.result === '1-0' ? 1 : g.result === '0-1' ? 0 : 0.5
     manual = G.glicko2Update(
       manual,
-      [{ rating: B.measuredElo(eng(g.elo)), rd: R.VS_BOT_OPPONENT_RD, score }],
+      [{ rating: B.measuredElo({ kind: g.kind, elo: g.elo }), rd: R.VS_BOT_OPPONENT_RD, score }],
       R.VS_BOT_TAU
     )
   }
   check(
-    'replay identical to sequential applyGameResult math',
+    'replay identical to sequential applyGameResult math (engine + maia + persona)',
     Math.abs(replayed.rating - manual.rating) < 1e-9 &&
       Math.abs(replayed.rd - manual.rd) < 1e-9 &&
       Math.abs(replayed.vol - manual.vol) < 1e-12,
     JSON.stringify({ replayed, manual })
+  )
+  // The maia mapping itself: passthrough of the nominal band, NEVER the
+  // sub-floor weak-engine curve (an 1100 ENGINE measures 1340).
+  check('maia 1100 rates at its nominal band', B.measuredElo({ kind: 'maia', elo: 1100 }) === 1100)
+  check(
+    'maia 1100 is NOT remapped by the sub-floor engine curve',
+    B.measuredElo({ kind: 'engine', elo: 1100 }) !== B.measuredElo({ kind: 'maia', elo: 1100 })
   )
 }
 
