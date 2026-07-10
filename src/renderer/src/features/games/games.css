@@ -472,6 +472,15 @@
   box-shadow: var(--shadow-lg);
   backdrop-filter: blur(6px);
 }
+/* Secondary banner actions (Watch replay) restated for the dark chip. */
+.votb-banner .votb-btn:not(.is-primary) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+.votb-banner .votb-btn:not(.is-primary):hover {
+  background: rgba(255, 255, 255, 0.2);
+}
 .votb-side {
   display: flex;
   flex-direction: column;

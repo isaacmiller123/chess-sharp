@@ -1,6 +1,6 @@
 {
   "name": "chess-sharp",
-  "version": "1.1.6",
+  "version": "1.2.0",
   "description": "Chess# — offline, local-first chess analysis & teaching desktop app powered by Stockfish, with bundled Lichess content and local coaching.",
   "author": "Isaac Miller",
   "license": "GPL-3.0-or-later",
@@ -26,6 +26,7 @@
     "smoke:engine": "node scripts/smoke_engine.mjs",
     "test:ratings": "node scripts/test-ratings-integrity.mjs",
     "test:school-replace": "node scripts/test-school-replace.mjs",
+    "test:theater": "node scripts/test-theater.mjs",
     "test:updater": "node scripts/test-updater.mjs",
     "setup": "npm run setup:engines && npm run setup:puzzles && npm run build:puzzles && npm run build:openings",
     "dist:exe": "electron-vite build && electron-builder --dir",

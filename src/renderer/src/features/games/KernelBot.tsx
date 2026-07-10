@@ -22,13 +22,15 @@ import {
   type ComponentType,
   type JSX
 } from 'react'
-import { Bot, Download, RotateCcw, Swords } from 'lucide-react'
+import { Bot, Clapperboard, Download, RotateCcw, Swords } from 'lucide-react'
 import { resolveBotProvider, BotUnavailableError, BOT_LEVEL_NAMES } from '../../games/bots'
 import type { GameKind, PlayerColor } from '../../games/kernel'
 import { getGame, type GameBoardProps } from '../../games/registry'
 import type { GoHandicap, GoSpec, GoState } from '../../games/go'
+import { replayOptionsOf } from '../../games/archive'
 import { useBoardSound } from '../../games/boards/useBoardSound'
 import { BYOYOMI_PRESETS, byoyomiPresetById } from '../play/byoyomi'
+import { ReplayTheater, buildTheaterInput, type TheaterInput } from '../library/ReplayTheater'
 import type { CatalogEntry } from './catalog'
 import { kernelColorLabel } from './KernelOtb'
 import { Board3DHost, BoardModeToggle, useBoardMode } from './boardMode'
@@ -272,6 +274,26 @@ export function KernelBot({
 
   const over = outcome !== null || timeLoss !== null
 
+  // Post-game Replay Theater (cinematic 3D/2D re-run of the finished game).
+  const [theater, setTheater] = useState<TheaterInput | null>(null)
+  const openTheater = useCallback(() => {
+    if (state === null) return
+    setTheater(
+      buildTheaterInput({
+        entry: game,
+        moves,
+        options: replayOptionsOf(spec, state),
+        result:
+          outcome?.score ??
+          (timeLoss ? (timeLoss === 'white' ? '0-1' : '1-0') : '*'),
+        reason: outcome?.reason ?? (timeLoss ? 'time' : undefined),
+        white: userColor === 'white' ? 'You' : botLabel,
+        black: userColor === 'black' ? 'You' : botLabel,
+        event: 'Play vs Bot'
+      })
+    )
+  }, [state, game, spec, moves, outcome, timeLoss, userColor, botLabel])
+
   if (phase === 'setup') {
     return (
       <div className="vbot-setup">
@@ -467,11 +489,15 @@ export function KernelBot({
         {over && (
           <div className="votb-banner" role="status">
             <strong>{resultLabel}</strong>
+            <button type="button" className="votb-btn" onClick={openTheater}>
+              <Clapperboard size={14} aria-hidden /> Watch replay
+            </button>
             <button type="button" className="votb-btn is-primary" onClick={start}>
               <RotateCcw size={14} aria-hidden /> Rematch
             </button>
           </div>
         )}
+        {theater && <ReplayTheater data={theater} onExit={() => setTheater(null)} />}
       </div>
       <aside className="votb-side">
         {isGo && goClockCfg && (

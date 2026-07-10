@@ -39,6 +39,10 @@ const wantMock = params !== null && !window.api && params.has('mock')
 // loads otherwise). See features/games/Three3DDemo.tsx.
 const threeDemoKind = params?.get('three') ?? null
 
+// Dev harness for Replay Theater: `?theater=<kind>` mounts the cinematic
+// replay over a canned finished game. See features/library/TheaterDemo.tsx.
+const theaterDemoKind = params?.get('theater') ?? null
+
 if (threeDemoKind !== null) {
   import('./features/games/Three3DDemo').then((m) => {
     const Demo = m.default
@@ -46,6 +50,17 @@ if (threeDemoKind !== null) {
       <React.StrictMode>
         <ErrorBoundary>
           <Demo kindParam={threeDemoKind} />
+        </ErrorBoundary>
+      </React.StrictMode>
+    )
+  })
+} else if (theaterDemoKind !== null) {
+  import('./features/library/TheaterDemo').then((m) => {
+    const Demo = m.default
+    createRoot(document.getElementById('root')!).render(
+      <React.StrictMode>
+        <ErrorBoundary>
+          <Demo kindParam={theaterDemoKind} />
         </ErrorBoundary>
       </React.StrictMode>
     )

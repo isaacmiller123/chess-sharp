@@ -1,11 +1,13 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState, type CSSProperties, type JSX } from 'react'
-import { RotateCcw, Repeat, StepForward } from 'lucide-react'
+import { Clapperboard, RotateCcw, Repeat, StepForward } from 'lucide-react'
 import { pieceSetClass } from '../../board/pieceSets'
 import { useSettings } from '../../state/settings'
 import type { CatalogEntry } from './catalog'
 import { getGame, isRegisteredGame } from '../../games/registry'
 import type { GameKind } from '../../games/kernel'
+import { replayOptionsOf } from '../../games/archive'
 import { useBoardSound } from '../../games/boards/useBoardSound'
+import { ReplayTheater, buildTheaterInput, type TheaterInput } from '../library/ReplayTheater'
 import { Board3DHost, BoardModeToggle, useBoardMode } from './boardMode'
 import { useOtbOrientation } from './useOtbOrientation'
 import { useSaveFinishedGame } from './useSaveFinishedGame'
@@ -136,6 +138,24 @@ export function VariantOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
       ? `Draw — ${outcome.reason.replace(/-/g, ' ')}`
       : `${sideName(outcome.winner)} wins — ${outcome.reason.replace(/-/g, ' ')}`)
 
+  // Post-game Replay Theater (cinematic 3D/2D re-run of the finished game).
+  const [theater, setTheater] = useState<TheaterInput | null>(null)
+  const openTheater = useCallback(() => {
+    if (state === null || !outcome) return
+    setTheater(
+      buildTheaterInput({
+        entry: game,
+        moves: ((state as CfState).moves ?? []) as readonly string[],
+        options: replayOptionsOf(spec, state),
+        result: outcome.score,
+        reason: outcome.reason,
+        white: sides[0],
+        black: sides[1],
+        event: 'Over the board'
+      })
+    )
+  }, [state, outcome, game, spec, sides])
+
   const shimmer = (
     <div
       className="cfb-loading"
@@ -174,11 +194,15 @@ export function VariantOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
         {outcome && (
           <div className="votb-banner" role="status">
             <strong>{resultLabel}</strong>
+            <button type="button" className="votb-btn" onClick={openTheater}>
+              <Clapperboard size={14} aria-hidden /> Watch replay
+            </button>
             <button type="button" className="votb-btn is-primary" onClick={reset}>
               <RotateCcw size={14} aria-hidden /> Play again
             </button>
           </div>
         )}
+        {theater && <ReplayTheater data={theater} onExit={() => setTheater(null)} />}
       </div>
       <aside className="votb-side">
         <div className="votb-turn">

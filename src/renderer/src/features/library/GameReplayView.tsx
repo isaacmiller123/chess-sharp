@@ -25,6 +25,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Clapperboard,
   Cpu,
   FlipVertical2,
   Layers,
@@ -51,6 +52,7 @@ import {
   type ParsedArchive,
   type ReplayLine
 } from './replayData'
+import { ReplayTheater } from './ReplayTheater'
 import { useReplayEval } from './useReplayEval'
 
 type Phase =
@@ -112,6 +114,7 @@ export function GameReplayView({
   const [playing, setPlaying] = useState(false)
   const [speedIdx, setSpeedIdx] = useState(1)
   const [evalOn, setEvalOn] = useState(true)
+  const [theaterOpen, setTheaterOpen] = useState(false)
 
   // ---- Resolve the archive into a registry entry + replayed states ----------
   useEffect(() => {
@@ -228,6 +231,7 @@ export function GameReplayView({
 
   // ---- Keyboard (lichess-style, matching AnalysisView) ------------------------
   useEffect(() => {
+    if (theaterOpen) return // the theater overlay owns the keyboard
     const onKey = (e: KeyboardEvent): void => {
       if (e.metaKey || e.ctrlKey || e.altKey) return
       const t = e.target as HTMLElement | null
@@ -250,7 +254,7 @@ export function GameReplayView({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [stepPrev, stepNext, goFirst, goLast])
+  }, [stepPrev, stepNext, goFirst, goLast, theaterOpen])
 
   // ---- Exploratory moves → variation branch ----------------------------------
   const onMove = useCallback(
@@ -506,6 +510,17 @@ export function GameReplayView({
                 <Layers size={18} />
               </button>
             )}
+            <button
+              className="icon-btn"
+              onClick={() => {
+                setPlaying(false)
+                setTheaterOpen(true)
+              }}
+              disabled={replay.moves.length === 0}
+              title="Watch in Replay Theater"
+            >
+              <Clapperboard size={18} />
+            </button>
           </div>
         </div>
 
@@ -579,6 +594,22 @@ export function GameReplayView({
           </p>
         </aside>
       </div>
+
+      {theaterOpen && (
+        <ReplayTheater
+          data={{
+            kind,
+            entry: ready!.entry,
+            replay,
+            result,
+            reason: ready!.parsed.reason,
+            white: whiteName,
+            black: blackName,
+            event: ready!.parsed.event
+          }}
+          onExit={() => setTheaterOpen(false)}
+        />
+      )}
     </div>
   )
 }

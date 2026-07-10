@@ -15,12 +15,14 @@
 
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState, type JSX } from 'react'
 import type { ComponentType } from 'react'
-import { RotateCcw, Repeat } from 'lucide-react'
+import { Clapperboard, RotateCcw, Repeat } from 'lucide-react'
 import type { CatalogEntry } from './catalog'
 import { getGame, isRegisteredGame, type GameBoardProps } from '../../games/registry'
 import type { PlayerColor } from '../../games/kernel'
 import type { GoHandicap, GoSpec, GoState } from '../../games/go'
+import { replayOptionsOf } from '../../games/archive'
 import { BYOYOMI_PRESETS, byoyomiPresetById } from '../play/byoyomi'
+import { ReplayTheater, buildTheaterInput, type TheaterInput } from '../library/ReplayTheater'
 import { Board3DHost, BoardModeToggle, useBoardMode } from './boardMode'
 import { GO_MAIN_PRESETS, GoClockPair, useLocalGoClock, type GoClockConfig } from './goClock'
 import { TerritoryControl, useTerritoryEstimate } from './territory'
@@ -182,6 +184,24 @@ export function KernelOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
     [spec, ready, initOptions]
   )
 
+  // Post-game Replay Theater (cinematic 3D/2D re-run of the finished game).
+  const [theater, setTheater] = useState<TheaterInput | null>(null)
+  const openTheater = useCallback(() => {
+    if (state === null) return
+    setTheater(
+      buildTheaterInput({
+        entry: game,
+        moves: (state as StateWithMoves).moves,
+        options: replayOptionsOf(spec, state),
+        result: result?.score ?? (timeLoss ? (timeLoss === 'white' ? '0-1' : '1-0') : '*'),
+        reason: result?.reason ?? (timeLoss ? 'time' : undefined),
+        white: kernelColorLabel(kind, 'white'),
+        black: kernelColorLabel(kind, 'black'),
+        event: 'Over the board'
+      })
+    )
+  }, [state, game, spec, result, timeLoss, kind])
+
   const rotates = spec.flipPolicy === 'rotate'
   // Chess-OTB timing: flip a beat AFTER the committed move, instant repaint.
   const orientation: PlayerColor = useOtbOrientation(turn, rotates && autoFlip)
@@ -235,11 +255,15 @@ export function KernelOtb({ entry }: { entry: CatalogEntry }): JSX.Element {
         {over && (
           <div className="votb-banner" role="status">
             <strong>{resultLabel}</strong>
+            <button type="button" className="votb-btn" onClick={openTheater}>
+              <Clapperboard size={14} aria-hidden /> Watch replay
+            </button>
             <button type="button" className="votb-btn is-primary" onClick={() => reset()}>
               <RotateCcw size={14} aria-hidden /> Play again
             </button>
           </div>
         )}
+        {theater && <ReplayTheater data={theater} onExit={() => setTheater(null)} />}
       </div>
       <aside className="votb-side">
         {kind === 'go' && goClockCfg && (
