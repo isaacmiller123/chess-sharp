@@ -17,6 +17,10 @@ export interface GameRow {
   est_elo_low: number | null
   est_elo_high: number | null
   reviewed: number
+  /** Registry game kind ('chess' | 'go' | 'gomoku' | … | 'custom-<id>'). Column
+   *  added in migration v10 with DEFAULT 'chess' — SELECT * has returned it since
+   *  v10, so this type must carry it (mirrors shared/types.ts GameRow). */
+  game_kind: string
 }
 
 export interface SaveGameInput {
@@ -63,6 +67,14 @@ export function listGames(limit = 25, offset = 0): GameRow[] {
   // PGN and run the chess review engine, so a stored go/othello/checkers game
   // would render as a broken or blank board. Non-chess games stay in the table
   // (for stats/export) but never surface in these chess-only lists.
+  //
+  // Deliberate: chess VARIANTS (chess960/crazyhouse/…) are hidden too, not just
+  // foreign games. Online variant games archive the generic wire codec
+  // (onlineStore.genericArchive — UCI moves joined by spaces, not SAN PGN), so
+  // the chess PGN parser cannot load them either; and even a SAN transcript
+  // would mis-review (drops, variant win conditions). Only plain online chess
+  // (adapter.kind === 'chess') archives real PGN — and it saves gameKind
+  // 'chess', so it appears here as intended.
   return getAppDb()
     .prepare(
       "SELECT * FROM game WHERE game_kind = 'chess' ORDER BY created_at DESC LIMIT ? OFFSET ?"

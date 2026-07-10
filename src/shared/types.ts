@@ -359,24 +359,11 @@ export interface GameRow {
   game_kind: string
 }
 
-/** The game kinds whose archived movetext the chess Analysis pipeline
- *  (parsePgnToGame → game tree → review) can actually load: standard chess plus
- *  the 8 chessops-family variants that speak SAN/UCI over a chess board. The
- *  ffish family (xiangqi/shogi/janggi/makruk/placement) and every non-chess
- *  family (go/gomoku/othello/checkers/hex/morris/ttt/…) archive a generic wire
- *  codec the chess PGN parser cannot render — they must never be offered to the
- *  Analysis "Your games" browser. */
-export const CHESS_REVIEW_GAME_KINDS = [
-  'chess',
-  'chess960',
-  'crazyhouse',
-  'atomic',
-  'antichess',
-  'kingofthehill',
-  'threecheck',
-  'horde',
-  'racingkings'
-] as const
+// NOTE (v1.1.5 audit): only game_kind === 'chess' rows are reviewable/listable.
+// Chess VARIANTS (chess960/crazyhouse/…) do NOT qualify — online variant games
+// archive the generic wire codec (onlineStore.genericArchive), not SAN PGN, so
+// the chess Analysis pipeline can't load them. games.repo.listGames filters on
+// 'chess' exactly; there is deliberately no wider "reviewable kinds" list.
 
 export interface SaveGameInput {
   pgn: string
@@ -1076,20 +1063,13 @@ export type MpEvent =
   | { type: 'rematchDecline' }
   /** Rematch accepted: a new game starts with (usually swapped) colors. */
   | { type: 'rematchStart'; gameId: number; yourColor: MpColor }
-  /** Guest side: the host answered our resumeReq with its full authoritative
-   *  snapshot (move list + clocks + our color + the game config). The store
-   *  must REBUILD its board from this — re-init the kind's kernel and replay
-   *  `moves` — because after a full renderer reload its game state is the
-   *  default chess init, not the live game. */
-  | {
-      type: 'resync'
-      gameId: number
-      yourColor: MpColor
-      moves: string[]
-      clockMs: MpClocks
-      toMove: MpColor
-      config?: MpGameConfig
-    }
+  // NOTE (v1.1.5 audit): there is deliberately NO 'resync' MpEvent. The wire
+  // resync (host's answer to a rejoining guest's resumeReq) is absorbed inside
+  // mpSession.onResync: the store keeps its own board across a suspend (module
+  // singleton) and both sides' input freezes during peer-away, so the session
+  // only re-authorities moves/clocks internally and surfaces a plain 'clock'
+  // event. A store-level board rebuild would be needed only if a mid-game
+  // renderer reload were supported — it isn't (reload = leave the game).
   /** The peer went silent mid-game; the clock is paused. `graceMs` is how long
    *  they have to reconnect before the game is claimable/abortable. */
   | { type: 'peer-away'; graceMs: number }

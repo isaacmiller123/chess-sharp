@@ -36,6 +36,14 @@ export function registerReview(): void {
     if (pgnText === undefined && gameId !== undefined) {
       const game = getGame(gameId)
       if (!game) throw new Error(`review:run: game ${gameId} not found`)
+      // getGame is unfiltered (unlike listGames) — a non-chess row's archive is
+      // the generic wire codec, not PGN. Reject with a clear error instead of
+      // the misleading "PGN has no mainline moves" the parser would produce.
+      if (game.game_kind !== 'chess') {
+        throw new Error(
+          `review:run: game ${gameId} is a '${game.game_kind}' game — the chess review engine only reviews standard chess`
+        )
+      }
       pgnText = game.pgn
     }
     if (pgnText === undefined) throw new Error('review:run: no PGN to review')
