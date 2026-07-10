@@ -291,9 +291,13 @@
 }
 .theater-transport .replay-speed {
   color: rgba(236, 231, 218, 0.75);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 .theater-transport .replay-speed.is-active {
   color: #fff;
+  background: var(--accent);
+  border-color: transparent;
 }
 
 /* Scrub bar: a slim filmreel slider with a lit progress fill. */

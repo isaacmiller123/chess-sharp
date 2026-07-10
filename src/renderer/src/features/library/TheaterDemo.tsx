@@ -89,6 +89,37 @@ async function buildDemo(kindParam: string): Promise<TheaterInput> {
 
 export default function TheaterDemo({ kindParam }: { kindParam: string }): JSX.Element {
   const [data, setData] = useState<TheaterInput | null>(null)
+  // Art base for the browser harness (Three3DDemo pattern: serve a games-art
+  // copy alongside out/renderer). `&art=none` keeps procedural-only; the
+  // packaged app resolves art itself (games/art.ts) and never runs this.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('art')
+    if (q !== 'none') window.__gamesArtBase ??= q ?? './games-art'
+  }, [])
+  // rAF-starvation fallback: occluded/backgrounded preview tabs get no rAF, so R3F
+  // never draws (the reason GameBoard3D exposes window.__tabletopAdvance).
+  // While rAF is starved, force real-time frames so automated screenshots see
+  // the live take. Harness-only — the packaged app never mounts this module.
+  useEffect(() => {
+    let rafSeen = performance.now()
+    let rafId = 0
+    const onRaf = (): void => {
+      rafSeen = performance.now()
+      rafId = requestAnimationFrame(onRaf)
+    }
+    rafId = requestAnimationFrame(onRaf)
+    const iv = window.setInterval(() => {
+      const now = performance.now()
+      if (now - rafSeen > 250) {
+        const w = window as unknown as { __tabletopAdvance?: (t: number) => void }
+        w.__tabletopAdvance?.(now)
+      }
+    }, 33)
+    return () => {
+      cancelAnimationFrame(rafId)
+      window.clearInterval(iv)
+    }
+  }, [])
   useEffect(() => {
     let cancelled = false
     void buildDemo(kindParam).then((d) => {

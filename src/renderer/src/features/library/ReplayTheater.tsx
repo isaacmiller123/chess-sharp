@@ -45,6 +45,11 @@ import {
 import { kernelColorLabel } from '../games/KernelOtb'
 import { tabletop3dOffered } from '../games/boardMode'
 import { buildReplay, type ReplayLine } from './replayData'
+// The theater borrows .b3d-* (3D host sizing), .votb-* (buttons/dots) and
+// .replay-speed* rules — import their sheets here so every launch surface
+// (and the ?theater harness) is self-sufficient; Vite dedupes repeats.
+import '../games/games.css'
+import './library.css'
 import './theater.css'
 
 /** Everything the theater needs about one finished game. */
