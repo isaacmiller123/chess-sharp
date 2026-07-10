@@ -15,6 +15,24 @@ export function useEngineReady(active = true): {
   /** Force a fresh probe (e.g. after a failed spawn or a finished download). */
   recheck: () => void
 } {
+  return useDatasetReady('engine', active)
+}
+
+/** Same guard for the Lichess puzzle DB (datasets:status().puzzles) — School
+ *  warm-up/cool-down puzzle segments and the puzzle trainer need it on disk.
+ *  Fresh installs must show the "download in Settings" notice, never a fake
+ *  puzzle over the start position. */
+export function usePuzzlesReady(active = true): {
+  ready: boolean | null
+  recheck: () => void
+} {
+  return useDatasetReady('puzzles', active)
+}
+
+function useDatasetReady(
+  key: 'engine' | 'puzzles',
+  active: boolean
+): { ready: boolean | null; recheck: () => void } {
   const [ready, setReady] = useState<boolean | null>(null)
   const [seq, setSeq] = useState(0)
   const recheck = useCallback(() => setSeq((n) => n + 1), [])
@@ -30,7 +48,7 @@ export function useEngineReady(active = true): {
     api.datasets
       .status()
       .then((s) => {
-        if (!cancelled) setReady(s.engine)
+        if (!cancelled) setReady(s[key])
       })
       .catch(() => {
         if (!cancelled) setReady(false)
@@ -38,7 +56,7 @@ export function useEngineReady(active = true): {
     return () => {
       cancelled = true
     }
-  }, [active, seq])
+  }, [active, seq, key])
 
   return { ready, recheck }
 }

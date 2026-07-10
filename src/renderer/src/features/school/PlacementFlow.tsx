@@ -17,6 +17,8 @@ import {
   type Color
 } from '../../chess/chess'
 import { chooseBotMove } from '../../chess/botStrength'
+import { useEngineReady } from '../../hooks/useEngineReady'
+import { EngineRequiredNotice } from '../../components/EngineRequiredNotice'
 import { ViktorPanel } from './ViktorPanel'
 import {
   EMPTY_DESTS,
@@ -62,10 +64,13 @@ interface MoveLog {
  */
 export function PlacementFlow({
   engineElo,
-  onPlaced
+  onPlaced,
+  onOpenSettings
 }: {
   engineElo: number
   onPlaced: () => void
+  /** Deep link to Settings → Datasets (the engine-required notice's CTA). */
+  onOpenSettings?: () => void
 }): JSX.Element {
   const { settings } = useSettings()
   const env: BoardEnv = useMemo(
@@ -81,6 +86,13 @@ export function PlacementFlow({
   const userColor: Color = 'white'
 
   const [phase, setPhase] = useState<Phase>('intro')
+  // Engine availability guard (fresh install: no Stockfish on disk). Probed on
+  // the intro screen — same pattern as Play/Analysis (v1.1.4). Without it the
+  // placement game dead-ends: the engine reply loop silently never answers, so
+  // the learner sits on "thinking…" forever with the whole School locked
+  // behind placement. Navigating to Settings and back remounts this flow, so
+  // finishing the download is picked up on return.
+  const { ready: engineReady } = useEngineReady(phase === 'intro')
   const [fen, setFen] = useState(START_FEN)
   const [lastMove, setLastMove] = useState<[Key, Key] | undefined>(undefined)
   const [thinking, setThinking] = useState(false)
@@ -273,9 +285,19 @@ export function PlacementFlow({
             begin — there is no pass or fail, just an honest starting point. You can move up any
             time by passing a chapter’s test.
           </p>
-          <button className="btn school-primary placement-cta" onClick={startGame}>
-            Begin the game <ChevronRight size={16} />
-          </button>
+          {engineReady === false ? (
+            // Fresh install: no Stockfish on disk. Same install CTA as
+            // Play/Analysis instead of a game that dead-ends on "thinking…".
+            <EngineRequiredNotice context="placement" onOpenSettings={onOpenSettings} />
+          ) : (
+            <button
+              className="btn school-primary placement-cta"
+              onClick={startGame}
+              disabled={engineReady === null}
+            >
+              Begin the game <ChevronRight size={16} />
+            </button>
+          )}
         </div>
       </div>
     )

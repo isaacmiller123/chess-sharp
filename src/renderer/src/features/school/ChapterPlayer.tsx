@@ -19,6 +19,8 @@ import {
 export interface ChapterPlayerProps {
   chapterId: string
   onExit: () => void
+  /** Deep link to Settings → Datasets (threaded to puzzle segments' notice). */
+  onOpenSettings?: () => void
 }
 
 type TestState = { attempts: number; passed: boolean; bestPct: number }
@@ -33,7 +35,7 @@ type TestState = { attempts: number; passed: boolean; bestPct: number }
  *
  * Every hook runs before any early return (React #300 guard).
  */
-export function ChapterPlayer({ chapterId, onExit }: ChapterPlayerProps): JSX.Element {
+export function ChapterPlayer({ chapterId, onExit, onOpenSettings }: ChapterPlayerProps): JSX.Element {
   const { settings } = useSettings()
   const boardClass = `board-wrap board-${settings.boardTheme} ${pieceSetClass(settings.pieceSet)}`
   const env: BoardEnv = useMemo(
@@ -227,6 +229,7 @@ export function ChapterPlayer({ chapterId, onExit }: ChapterPlayerProps): JSX.El
             markLessonDone(openLesson.id)
             setOpenLessonId(null)
           }}
+          onOpenSettings={onOpenSettings}
         />
       )
     }

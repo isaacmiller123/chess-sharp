@@ -22,6 +22,8 @@ export interface LessonPlayerProps {
   onBack: () => void
   /** All segments finished — lesson recorded; return to the overview. */
   onComplete: () => void
+  /** Deep link to Settings → Datasets (puzzle segments' install notice). */
+  onOpenSettings?: () => void
 }
 
 /**
@@ -37,7 +39,8 @@ export function LessonPlayer({
   env,
   chapterTitle,
   onBack,
-  onComplete
+  onComplete,
+  onOpenSettings
 }: LessonPlayerProps): JSX.Element {
   const segments = lesson.segments
   const [segIdx, setSegIdx] = useState(0)
@@ -177,6 +180,7 @@ export function LessonPlayer({
           intro={seg.intro}
           env={env}
           onDone={onSegDone}
+          onOpenSettings={onOpenSettings}
         />
       ) : (
         <SkipImmediately key={segIdx} onDone={onSegDone} />

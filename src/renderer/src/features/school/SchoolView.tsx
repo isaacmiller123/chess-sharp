@@ -87,7 +87,13 @@ type NodeState = 'done' | 'current' | 'open' | 'locked'
  * opens the full-board ChapterPlayer. Degrades gracefully when the desktop
  * bridge is absent (clear "connect" state instead of crashing).
  */
-export default function SchoolView(): JSX.Element {
+export default function SchoolView({
+  onOpenSettings
+}: {
+  /** Deep link to Settings → Datasets — the placement flow's engine notice and
+   *  the lesson puzzle segments' puzzle-DB notice both land there. */
+  onOpenSettings?: () => void
+} = {}): JSX.Element {
   const [chapters, setChapters] = useState<SchoolChapterMeta[]>([])
   const [mastery, setMastery] = useState<SchoolMastery | null>(null)
   const [placement, setPlacement] = useState<PlacementState | null>(null)
@@ -200,6 +206,7 @@ export default function SchoolView(): JSX.Element {
           // Refresh progress/mastery so the index reflects the just-finished work.
           setReloadKey((k) => k + 1)
         }}
+        onOpenSettings={onOpenSettings}
       />
     )
   }
@@ -210,6 +217,7 @@ export default function SchoolView(): JSX.Element {
       <PlacementFlow
         engineElo={calibrationElo}
         onPlaced={() => setReloadKey((k) => k + 1)}
+        onOpenSettings={onOpenSettings}
       />
     )
   }

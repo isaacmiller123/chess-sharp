@@ -83,7 +83,7 @@ function CurrentView({
     case 'openings':
       return <OpeningsView />
     case 'school':
-      return <SchoolView />
+      return <SchoolView onOpenSettings={() => onNavigate('settings')} />
     case 'progress':
       return <ProgressView onNavigate={onNavigate} onOpenGame={onOpenGame} />
     case 'analysis':

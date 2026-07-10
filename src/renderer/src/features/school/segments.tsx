@@ -45,6 +45,8 @@ import {
 } from '../../chess/chess'
 import { chooseBotMove } from '../../chess/botStrength'
 import { useSettings } from '../../state/settings'
+import { usePuzzlesReady } from '../../hooks/useEngineReady'
+import { PuzzlesRequiredNotice } from '../../components/EngineRequiredNotice'
 import {
   annotationLabels,
   annotationsToShapes,
@@ -596,16 +598,25 @@ export function PuzzleSegment({
   title,
   intro,
   env,
-  onDone
+  onDone,
+  onOpenSettings
 }: {
   query: PuzzleQuery
   title: string
   intro?: CoachLine
   env: BoardEnv
   onDone: () => void
+  /** Deep link to Settings → Datasets for the puzzle-DB install notice. */
+  onOpenSettings?: () => void
 }): JSX.Element {
   const { settings } = useSettings()
   const count = Math.max(1, query.count)
+  // Hand-authored boards need no DB; everything else pulls from the imported
+  // puzzles.sqlite. Probe its presence so a fresh install renders the honest
+  // "download it in Settings" notice instead of a fake puzzle (the empty-fen
+  // board reads as the START POSITION under the segment's 'mate in one' intro).
+  const authoredCount = query.boards?.length ?? 0
+  const { ready: puzzlesReady } = usePuzzlesReady(authoredCount === 0)
 
   const [solvedCount, setSolvedCount] = useState(0)
   const [phase, setPhase] = useState<PzPhase>('loading')
@@ -878,6 +889,34 @@ export function PuzzleSegment({
 
   const isLastPuzzle = solvedCount + 1 >= count
 
+  // Nothing to solve. All hooks above have run — safe to branch (#300). Two
+  // honest states, NEITHER of which renders a board (an empty-fen board shows
+  // the standard START POSITION, which under a "mate in one" intro reads as a
+  // fake puzzle — spec: never fake content):
+  //   • fresh install, puzzle DB absent → the Settings → Datasets install card;
+  //   • DB present but the query matched nothing → skip with plain copy.
+  if (phase === 'empty') {
+    const dbMissing = authoredCount === 0 && puzzlesReady === false
+    return (
+      <div className="school-stage school-stage-single">
+        <ViktorPanel
+          text={
+            dbMissing
+              ? 'No drills today — the puzzle database is not installed on this machine. Fetch it in Settings, or we move on.'
+              : 'No puzzles matched this drill. We move on — you lose nothing.'
+          }
+          eyebrow={title}
+          thinking={authoredCount === 0 && puzzlesReady === null}
+        >
+          {dbMissing && <PuzzlesRequiredNotice onOpenSettings={onOpenSettings} />}
+          <button className="btn school-primary" onClick={onDone}>
+            Continue <ChevronRight size={16} />
+          </button>
+        </ViktorPanel>
+      </div>
+    )
+  }
+
   return (
     <div className="school-stage">
       <BoardFrame env={env}>
@@ -916,12 +955,6 @@ export function PuzzleSegment({
           {phase === 'failed' && <span className="school-tag is-wrong">Missed</span>}
         </div>
 
-        {phase === 'empty' && (
-          <p className="muted small">
-            No puzzles matched here. You can skip ahead.
-          </p>
-        )}
-
         {phase === 'solving' && settings.hintsEnabled && (
           <button
             className="btn ghost school-hint-btn"
@@ -932,10 +965,9 @@ export function PuzzleSegment({
             <Lightbulb size={15} /> {HINT_LABEL[hintStage]}
           </button>
         )}
-        {(phase === 'solved' || phase === 'failed' || phase === 'empty') && (
-          <button className="btn school-primary" onClick={phase === 'empty' ? onDone : advanceCount}>
-            {phase === 'empty' || isLastPuzzle ? 'Continue' : 'Next puzzle'}{' '}
-            <ChevronRight size={16} />
+        {(phase === 'solved' || phase === 'failed') && (
+          <button className="btn school-primary" onClick={advanceCount}>
+            {isLastPuzzle ? 'Continue' : 'Next puzzle'} <ChevronRight size={16} />
           </button>
         )}
         {(phase === 'solving' || phase === 'failed') && (
