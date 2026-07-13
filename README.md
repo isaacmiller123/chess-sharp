@@ -70,6 +70,25 @@ Signing/notarization would remove these prompts, but requires a paid Apple Devel
 
 See [Development](#development).
 
+### Option C — Self-host the web app
+
+Chess# also builds as a **standalone web app** — the same UI in a browser, with
+engines running as WASM, server-side accounts (friends-scale: username +
+password), and per-user game/progress storage. One Docker image serves
+everything:
+
+```bash
+docker compose up --build -d     # → http://localhost:8080
+```
+
+For a quick source-checkout run instead: `npm run start:web` (builds the SPA +
+server and serves on port 8080). Puzzles need the ~2.1 GB puzzle DB at
+`resources/data/puzzles.sqlite` (`npm run setup:puzzles && npm run
+build:puzzles`) — without it, every non-puzzle feature still works. Online
+multiplayer connects web and desktop players alike. Deployment, TLS/reverse-proxy
+notes, env knobs, and backups: **[docs/WEB-DEPLOY.md](docs/WEB-DEPLOY.md)**;
+architecture: **[docs/WEB-PORT-SPEC.md](docs/WEB-PORT-SPEC.md)**.
+
 ---
 
 ## Datasets

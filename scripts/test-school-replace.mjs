@@ -69,7 +69,7 @@ const entryPath = path.join(dir, 'entry.mjs')
 writeFileSync(
   entryPath,
   `export { registerSchool } from ${JSON.stringify(path.join(repoRoot, 'src/main/ipc/school.ipc.ts'))}
-export { getAppDb, closeDbs } from ${JSON.stringify(path.join(repoRoot, 'src/main/db/database.ts'))}
+export { configureDb, getAppDb, closeDbs } from ${JSON.stringify(path.join(repoRoot, 'src/main/db/database.ts'))}
 export { estimateElo } from ${JSON.stringify(path.join(repoRoot, 'src/main/analysis/estElo.ts'))}
 `
 )
@@ -91,6 +91,10 @@ async function check(name, fn) {
     console.error(`      ${err.message}`)
   }
 }
+
+// DB seam (docs/WEB-PORT-SPEC.md W1): database.ts no longer reads electron —
+// inject the temp userData directly, like src/main/index.ts does at boot.
+M.configureDb({ appDbDir: userData })
 
 M.registerSchool()
 const handlers = globalThis.__handlers

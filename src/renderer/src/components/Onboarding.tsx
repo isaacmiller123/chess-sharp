@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type JSX } from 'react'
 import { X, Swords, Puzzle, GraduationCap, type LucideIcon } from 'lucide-react'
 import { OverlayDialog } from './OverlayDialog'
+import { isWebBuild } from '../platform'
 import { useSettings } from '../state/settings'
 import type { ViewKey } from './Layout'
 
@@ -46,8 +47,11 @@ export function Onboarding({ onClose, onNavigate }: OnboardingProps): JSX.Elemen
       </div>
       <div className="shell-modal-body">
         <p className="onboarding-lead">
-          Everything runs locally — no account, no internet. Set a name to personalize your profile, then
-          dive in.
+          {/* Web: it's served over the internet with an optional account — only the
+              desktop app can honestly claim "no account, no internet". */}
+          {isWebBuild
+            ? 'Set a name to personalize your profile, then dive in.'
+            : 'Everything runs locally — no account, no internet. Set a name to personalize your profile, then dive in.'}
         </p>
         <form onSubmit={onSubmit}>
           <label className="onboarding-field">

@@ -13,6 +13,7 @@
 
 import { useState, type JSX, type ReactNode } from 'react'
 import { AlertTriangle, ArrowUpCircle, Check, Download, Loader2, RefreshCw } from 'lucide-react'
+import { isWebBuild } from '../../platform'
 import { applyUpdate, checkForUpdates, useUpdates } from '../../state/updates'
 
 /** State-dependent status line: icon + copy. */
@@ -54,15 +55,21 @@ export default function UpdatesPanel(): JSX.Element {
         <span className="updates-version">
           <strong>Chess# v{status?.currentVersion ?? '…'}</strong>
           <span className="setting-sub">
-            {auto
-              ? 'Checked on launch — updates download and install themselves.'
-              : 'Checked on launch — new versions are a one-click download.'}
+            {/* Web: the served bundle IS the release — there's nothing to check
+                or install, so the manual button goes away with the copy. */}
+            {isWebBuild
+              ? 'The web app is always current — refresh to pick up new releases.'
+              : auto
+                ? 'Checked on launch — updates download and install themselves.'
+                : 'Checked on launch — new versions are a one-click download.'}
           </span>
         </span>
-        <button type="button" className="btn ghost" disabled={busy} onClick={onCheck}>
-          {busy ? <Loader2 size={14} className="updates-spin" aria-hidden /> : <RefreshCw size={14} aria-hidden />}
-          {busy ? 'Checking…' : 'Check for updates'}
-        </button>
+        {!isWebBuild && (
+          <button type="button" className="btn ghost" disabled={busy} onClick={onCheck}>
+            {busy ? <Loader2 size={14} className="updates-spin" aria-hidden /> : <RefreshCw size={14} aria-hidden />}
+            {busy ? 'Checking…' : 'Check for updates'}
+          </button>
+        )}
       </div>
 
       {state === 'up-to-date' && (

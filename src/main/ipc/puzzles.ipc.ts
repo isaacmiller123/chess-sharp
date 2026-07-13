@@ -5,14 +5,19 @@ import { applyPuzzleResult } from '../db/ratings.repo'
 import { getAppDb, hasPuzzlesDb } from '../db/database'
 
 export function registerPuzzles(): void {
+  // Wire bounds on the public puzzle channels (the web bridge serves them to
+  // anonymous callers): `exclude` feeds a placeholder-expanded SQL IN clause,
+  // so it is capped far above the renderer's own session cap (≤400 ids) but
+  // far below anything that could balloon the query. Lichess puzzle ids are
+  // 5-6 chars; theme keys a couple dozen.
   handle(
     'puzzles:next',
     z
       .object({
-        theme: z.string().optional(),
+        theme: z.string().max(64).optional(),
         ratingLo: z.number().int().optional(),
         ratingHi: z.number().int().optional(),
-        exclude: z.array(z.string()).optional()
+        exclude: z.array(z.string().max(32)).max(2048).optional()
       })
       .strict(),
     ({ theme, ratingLo, ratingHi, exclude }) => {
@@ -39,11 +44,14 @@ export function registerPuzzles(): void {
     'puzzles:batch',
     z
       .object({
-        themes: z.array(z.string()).optional(),
+        // Cap ABOVE the full theme catalog (73 today) — the desktop Custom
+        // trainer lets a user toggle every theme individually with no cap of
+        // its own, so this must never reject a full selection.
+        themes: z.array(z.string().max(64)).max(256).optional(),
         ratingLo: z.number().int().optional(),
         ratingHi: z.number().int().optional(),
         count: z.number().int().min(1).max(200),
-        exclude: z.array(z.string()).optional(),
+        exclude: z.array(z.string().max(32)).max(2048).optional(),
         ascending: z.boolean().optional(),
         // Custom-training filters (slice A).
         length: z.enum(['short', 'medium', 'long', 'any']).optional(),

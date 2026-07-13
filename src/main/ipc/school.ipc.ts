@@ -66,15 +66,29 @@ const engineEvalSchema = z
   })
   .strict()
 
+// Wire bounds (mirroring server/review.ts): these channels are served to
+// anonymous callers by the web bridge, so every array/string is capped. The
+// caps only need to (a) sit safely ABOVE the largest payload the desktop
+// renderer legitimately sends and (b) be bounded — the 1 MiB body limit + any
+// low-thousands cap already defeats the mutex-stall DoS, so the generous
+// headroom below costs nothing on the security axis and can never reject a
+// real payload. A FEN is ≤~90 chars, a UCI move ≤5. An engine principal
+// variation can run deep (CoachHint forwards the raw analysis PV), so pv is
+// capped well above any real search depth. knownConceptIds sits above the full
+// curriculum concept catalog (~266 today).
+const fenField = z.string().min(1).max(128)
+const uciField = z.string().min(1).max(8)
+const pvField = z.array(uciField).max(256).default([])
+
 const narrateSchema = z
   .object({
-    fenBefore: z.string().min(1),
-    played: z.string().min(1),
-    best: z.string().min(1),
-    pv: z.array(z.string()).default([]),
+    fenBefore: fenField,
+    played: uciField,
+    best: uciField,
+    pv: pvField,
     evalBefore: engineEvalSchema,
     evalAfter: engineEvalSchema,
-    knownConceptIds: z.array(z.string()).default([]),
+    knownConceptIds: z.array(z.string().max(64)).max(1024).default([]),
     ply: z.number().int().optional()
   })
   .strict()
@@ -82,10 +96,10 @@ const narrateSchema = z
 const debriefMoveSchema = z
   .object({
     ply: z.number().int(),
-    fenBefore: z.string().min(1),
-    played: z.string().min(1),
-    best: z.string(),
-    pv: z.array(z.string()).default([]),
+    fenBefore: fenField,
+    played: uciField,
+    best: z.string().max(8),
+    pv: pvField,
     evalBefore: engineEvalSchema,
     evalAfter: engineEvalSchema,
     byUser: z.boolean()
@@ -94,9 +108,9 @@ const debriefMoveSchema = z
 
 const debriefSchema = z
   .object({
-    chapterId: z.string().min(1),
+    chapterId: z.string().min(1).max(64),
     userColor: z.enum(['white', 'black']),
-    moves: z.array(debriefMoveSchema)
+    moves: z.array(debriefMoveSchema).max(1024)
   })
   .strict()
 

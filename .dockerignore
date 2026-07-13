@@ -1,0 +1,31 @@
+# Keep the Docker build context lean: the web image needs sources + resources,
+# never desktop build output, dev data, or the multi-GB local datasets.
+node_modules
+out
+release
+dist-web
+dist-server
+.devdata
+.git
+.github
+.vscode
+.claude
+data
+data-web
+docs
+build
+*.tsbuildinfo
+release-notes*
+.DS_Store
+*.log
+# Stray scratch files in the repo root
+_*
+PlayView-*.js
+# Desktop-only engine binaries: never in the web image.
+resources/engine
+# The 2.1 GB puzzle DB is deliberately OUTSIDE the build context: by default it
+# is volume-mounted at runtime (docker-compose.yml → /puzzles + PUZZLES_PATH).
+# Baking it in does NOT require touching this file — the Dockerfile takes the
+# DB as a NAMED build context (immune to this ignore list):
+#   docker build --build-arg WITH_PUZZLES=true --build-context puzzles-db=resources/data .
+resources/data

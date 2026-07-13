@@ -45,7 +45,7 @@ const entryPath = path.join(dir, 'entry.mjs')
 writeFileSync(
   entryPath,
   `export * from ${JSON.stringify(path.join(repoRoot, 'src/main/ipc/settings.ipc.ts'))}
-export { getAppDb, closeDbs } from ${JSON.stringify(path.join(repoRoot, 'src/main/db/database.ts'))}
+export { configureDb, getAppDb, closeDbs } from ${JSON.stringify(path.join(repoRoot, 'src/main/db/database.ts'))}
 `
 )
 const out = path.join(dir, 'settings.bundle.mjs')
@@ -54,6 +54,9 @@ execSync(
   { stdio: 'pipe', cwd: repoRoot }
 )
 const M = await import(pathToFileURL(out).href)
+
+// DB seam (WEB-PORT-SPEC W1): database.ts takes an injected dir, not app.getPath.
+M.configureDb({ appDbDir: userData })
 
 let failures = 0
 async function check(name, fn) {

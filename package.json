@@ -15,7 +15,20 @@
     "start": "electron-vite preview",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
-    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "typecheck:server": "tsc --noEmit -p tsconfig.server.json",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web && npm run typecheck:server",
+    "dev:web": "vite --config vite.web.config.ts",
+    "build:web": "vite build --config vite.web.config.ts",
+    "build:server": "node scripts/build-server.mjs && node scripts/build-ipc-bridge.mjs",
+    "serve:web": "node dist-server/index.cjs",
+    "start:web": "npm run build:web && npm run build:server && npm run serve:web",
+    "test:db-seam": "node scripts/test-db-seam.mjs",
+    "test:web-stub": "node scripts/test-web-stub.mjs",
+    "test:web-server": "node scripts/test-web-server.mjs",
+    "test:web-engines": "node scripts/test-web-engines.mjs",
+    "test:web-auth": "node scripts/test-web-auth.mjs",
+    "test:web-bridge": "node scripts/test-web-bridge.mjs",
+    "test:web-client": "node scripts/test-web-client.mjs",
     "setup:engines": "node scripts/run-python.mjs scripts/fetch_engines.py",
     "setup:puzzles": "node scripts/fetch-puzzles.mjs",
     "build:puzzles": "node scripts/run-python.mjs scripts/build_puzzles_db.py",
@@ -56,6 +69,9 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@fastify/cookie": "^11.1.1",
+    "@fastify/rate-limit": "^11.1.0",
+    "@fastify/static": "^9.3.0",
     "@types/node": "^26.0.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
@@ -63,7 +79,13 @@
     "electron": "^42.5.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
+    "fairy-stockfish-nnue.wasm": "^1.1.11",
+    "fastify": "^5.10.0",
+    "hash-wasm": "^4.12.0",
+    "lila-stockfish-web": "^0.0.11",
+    "stockfish": "^18.0.8",
     "typescript": "^6.0.3",
-    "vite": "^7.3.5"
+    "vite": "^7.3.5",
+    "vite-plugin-static-copy": "^4.1.1"
   }
 }

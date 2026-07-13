@@ -23,6 +23,7 @@ import {
   type JSX
 } from 'react'
 import { Bot, Clapperboard, Download, RotateCcw, Swords } from 'lucide-react'
+import { isWebBuild } from '../../platform'
 import { resolveBotProvider, BotUnavailableError, BOT_LEVEL_NAMES } from '../../games/bots'
 import type { GameKind, PlayerColor } from '../../games/kernel'
 import { getGame, type GameBoardProps } from '../../games/registry'
@@ -427,17 +428,28 @@ export function KernelBot({
           </div>
 
           {engineReady === false ? (
+            // Web build: KataGo can't be downloaded here — no CTA, just the
+            // honest status (matches bots.ts BotUnavailableError copy).
             <div className="vbot-install" role="status">
-              <p>
-                Go bots run on <strong>KataGo</strong> — a small engine download that stays on this
-                machine. Grab it once and every level (including the human-style ranks) unlocks.
-              </p>
-              {onOpenSettings ? (
-                <button type="button" className="votb-btn is-primary" onClick={onOpenSettings}>
-                  <Download size={15} aria-hidden /> Download in Settings → Datasets
-                </button>
+              {isWebBuild ? (
+                <p>
+                  Go bots are coming to the web — available today in the{' '}
+                  <strong>desktop app</strong>.
+                </p>
               ) : (
-                <p className="muted small">Open Settings → Datasets to download it.</p>
+                <>
+                  <p>
+                    Go bots run on <strong>KataGo</strong> — a small engine download that stays on this
+                    machine. Grab it once and every level (including the human-style ranks) unlocks.
+                  </p>
+                  {onOpenSettings ? (
+                    <button type="button" className="votb-btn is-primary" onClick={onOpenSettings}>
+                      <Download size={15} aria-hidden /> Download in Settings → Datasets
+                    </button>
+                  ) : (
+                    <p className="muted small">Open Settings → Datasets to download it.</p>
+                  )}
+                </>
               )}
             </div>
           ) : (

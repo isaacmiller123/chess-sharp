@@ -8,7 +8,8 @@ import { installCsp, hardenWindow } from './security'
 import { createWindow } from './window'
 import { installAppMenu } from './menu'
 import { installSmokeWasm } from './smokeWasm'
-import { closeDbs } from './db/database'
+import { closeDbs, configureDb } from './db/database'
+import { resolvePuzzlesPath, puzzlesInstalled } from './datasets/paths'
 
 // --smoke-wasm: headless packaged-app CSP/WASM self-test (main/smokeWasm.ts,
 // driven by scripts/smoke-packed-wasm.mjs). Never set for normal launches.
@@ -32,6 +33,15 @@ if (SMOKE_WASM) {
   app.setPath('userData', smokeData)
   app.setPath('sessionData', path.join(smokeData, 'session'))
 }
+
+// DB seam (docs/WEB-PORT-SPEC.md W1): db/database is electron-free; the desktop
+// injects its paths here, AFTER the containment blocks above so dev/smoke
+// redirection wins. Everything DB-touching runs post-`ready`, so the snapshot
+// of userData taken here is final.
+configureDb({
+  appDbDir: app.getPath('userData'),
+  puzzles: { resolvePath: resolvePuzzlesPath, installed: puzzlesInstalled }
+})
 
 app.whenReady().then(() => {
   installCsp(app.isPackaged)

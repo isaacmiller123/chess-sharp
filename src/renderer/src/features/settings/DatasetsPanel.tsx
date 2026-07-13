@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react'
 import { Check, Download, X, Database, Cpu, AlertCircle, Brain, CircleDot } from 'lucide-react'
+import { isWebBuild } from '../../platform'
 import type { DatasetImportResult, DatasetItemMeta, DatasetProgress, DatasetStatus } from '@shared/types'
 
 function fmtBytes(n: number): string {
@@ -82,6 +83,19 @@ export default function DatasetsPanel(): JSX.Element {
   // Keep the latest item label for the progress line without re-subscribing.
   const itemsRef = useRef(items)
   itemsRef.current = items
+
+  // Web build: assets are served by the site itself — there is no import flow,
+  // so the whole card reduces to one honest line (all hooks are above; safe).
+  if (isWebBuild) {
+    return (
+      <section className="card settings-card">
+        <h2>Datasets</h2>
+        <p className="muted small">
+          Everything the web app needs is delivered automatically — nothing to download.
+        </p>
+      </section>
+    )
+  }
 
   if (!api) {
     return (

@@ -1,8 +1,8 @@
 // MpNetSession — the one object that owns an internet game, host or guest side.
 // PURE session/authority logic: it imports ONLY the isomorphic wire protocol, the
-// shared types, and the (type-erased + pure) time-control helper. NO trystero, NO
-// electron, NO node — so it bundles standalone into the renderer and runs unchanged
-// under bare node for tests. The actual signaling + WebRTC lives behind an injected
+// shared types, the (type-erased + pure) time-control helper and the platform
+// flag. NO trystero, NO electron, NO node — so it bundles standalone into the
+// renderer and runs unchanged under bare node for tests. The actual signaling + WebRTC lives behind an injected
 // MpTransport (see rtcTransport.ts).
 //
 // Roles & authority
@@ -40,6 +40,7 @@ import {
   generateRoomCode,
   normalizeRoomCode
 } from '@shared/mp/wire'
+import { isWebBuild } from '../../../platform'
 import { timeControlCategory, type TimeControl } from '../timeControl'
 import {
   afterMoveCredit,
@@ -688,15 +689,24 @@ export class MpNetSession {
 
   private onHello(peerVersion: number, peerRole: MpRole, peerName: string | undefined, fromPeer: string): void {
     if (peerVersion !== PROTOCOL_VERSION) {
-      // Version mismatch: tell the peer, tell our UI, and drop. Both messages
-      // point at Settings → Updates — the fix is always "update both apps"
-      // (OnlineTab also surfaces a live update nudge next to this error).
+      // Version mismatch: tell the peer, tell our UI, and drop. On desktop both
+      // messages point at Settings → Updates — the fix is always "update both
+      // apps" (OnlineTab also surfaces a live update nudge next to this error).
+      // The web build has no Updates panel, so it asks in platform-neutral terms.
       this.sendWire({
         t: 'error',
-        message: `version mismatch (host expects v${PROTOCOL_VERSION}) — update both apps in Settings → Updates`
+        message: `version mismatch (host expects v${PROTOCOL_VERSION}) — ${
+          isWebBuild
+            ? 'make sure both players are on the latest version'
+            : 'update both apps in Settings → Updates'
+        }`
       })
       this.fail(
-        `The other player is running an incompatible version (protocol v${peerVersion} vs v${PROTOCOL_VERSION}). Update both apps in Settings → Updates.`
+        `The other player is running an incompatible version (protocol v${peerVersion} vs v${PROTOCOL_VERSION}). ${
+          isWebBuild
+            ? 'Make sure both players are on the latest version.'
+            : 'Update both apps in Settings → Updates.'
+        }`
       )
       return
     }

@@ -1,0 +1,207 @@
+name: web
+
+# Web-target CI (docs/WEB-PORT-SPEC.md W6): build the SPA + server bundles,
+# run the headless web suites, boot the real server bundle on an ephemeral
+# port and smoke it, then prove the Docker image builds and serves.
+#
+# Runs on every push/PR: the web target compiles the shared renderer + the
+# src/main logic the IPC bridge bundles, so "desktop-only" changes can break
+# it — cheap to check every time.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: build + test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+          cache: npm
+
+      # --ignore-scripts skips electron's binary download (desktop-only, slow).
+      # It also skips our own postinstall, so the one install-time step the web
+      # build DOES need (the ffish CSP patch) runs explicitly right after.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Patch ffish embind glue
+        run: node scripts/patch-ffish-csp.mjs
+
+      - name: Typecheck (web + server)
+        run: |
+          npm run typecheck:web
+          npm run typecheck:server
+
+      # build:server is the single source of truth for dist-server's contents
+      # (index.cjs + the IPC bridge prebundle) — CI must never build pieces the
+      # npm script doesn't.
+      - name: Build SPA + server
+        run: |
+          npm run build:web
+          npm run build:server
+
+      - name: Web test suites
+        shell: bash
+        run: |
+          node scripts/test-db-seam.mjs
+          for t in scripts/test-web-*.mjs; do
+            echo "== $t =="
+            node "$t"
+          done
+
+      # Boot the REAL bundle (not a fixture) the way production runs it:
+      # ephemeral port, fresh DATA_DIR, real dist-web + games-art. Asserts /,
+      # /healthz, and the public IPC-bridge probe.
+      - name: Headless smoke (dist-server, ephemeral port)
+        shell: bash
+        run: |
+          node --input-type=module - <<'EOF'
+          import { spawn } from 'node:child_process'
+          import fs from 'node:fs'
+          import path from 'node:path'
+          import os from 'node:os'
+
+          const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chess-web-smoke-'))
+          const child = spawn('node', ['dist-server/index.cjs'], {
+            env: { ...process.env, PORT: '0', HOST: '127.0.0.1', DATA_DIR: dataDir, LOG_LEVEL: 'silent' },
+            stdio: ['ignore', 'pipe', 'inherit']
+          })
+
+          const base = await new Promise((resolvePromise, rejectPromise) => {
+            const timer = setTimeout(() => rejectPromise(new Error('server never reported listening')), 20_000)
+            let buf = ''
+            child.stdout.on('data', (d) => {
+              buf += String(d)
+              const m = buf.match(/chess-sharp-web listening (\S+)/)
+              if (m) { clearTimeout(timer); resolvePromise(m[1]) }
+            })
+            child.on('exit', (code) => rejectPromise(new Error(`server exited early (${code})`)))
+          })
+
+          let failures = 0
+          const check = (name, cond) => {
+            if (cond) console.log(`  ok  ${name}`)
+            else { failures++; console.error(`FAIL  ${name}`) }
+          }
+
+          try {
+            const root = await fetch(`${base}/`)
+            check('/ is 200', root.status === 200)
+            check('/ carries COOP', root.headers.get('cross-origin-opener-policy') === 'same-origin')
+            check('/ carries COEP', root.headers.get('cross-origin-embedder-policy') === 'require-corp')
+            check('/ is html', (root.headers.get('content-type') ?? '').includes('text/html'))
+
+            const health = await fetch(`${base}/healthz`)
+            const healthBody = await health.json()
+            check('/healthz ok', health.status === 200 && healthBody.ok === true)
+
+            check('dist-server carries the IPC bridge bundle', fs.existsSync('dist-server/ipc-bridge.cjs'))
+            const ping = await fetch(`${base}/api/ipc/app:ping`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: '{}'
+            })
+            check('public bridge channel app:ping answers 200', ping.status === 200)
+          } finally {
+            child.kill()
+          }
+
+          if (failures > 0) { console.error(`${failures} failure(s)`); process.exit(1) }
+          console.log('headless smoke: all green')
+          EOF
+
+  docker:
+    name: docker image
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Default (lean) build: no puzzle DB, no named context needed.
+      - name: Build image
+        run: docker build -t chess-sharp-web .
+
+      # Boot the container exactly as a user would and wait for the image's own
+      # HEALTHCHECK to go green (interval shortened for CI) — this exercises the
+      # in-image probe, USER node, the /data volume, and the env defaults.
+      - name: Run container + smoke
+        shell: bash
+        run: |
+          docker run -d --name chess-web \
+            --health-interval=2s --health-start-period=5s \
+            -p 8080:8080 chess-sharp-web
+
+          status=starting
+          for i in $(seq 1 45); do
+            status=$(docker inspect -f '{{.State.Health.Status}}' chess-web)
+            [ "$status" = healthy ] && break
+            [ "$status" = unhealthy ] && break
+            sleep 2
+          done
+          if [ "$status" != healthy ]; then
+            echo "container never became healthy (status: $status)"
+            docker logs chess-web
+            exit 1
+          fi
+
+          fail=0
+          probe() {
+            echo "== $1 =="
+            if ! curl -fsS "$1" > /dev/null; then echo "FAIL $1"; fail=1; fi
+          }
+          probe http://127.0.0.1:8080/healthz
+          probe http://127.0.0.1:8080/
+
+          headers=$(curl -fsSI http://127.0.0.1:8080/)
+          echo "$headers" | grep -qi 'cross-origin-opener-policy: same-origin' \
+            || { echo "FAIL missing COOP header"; fail=1; }
+          echo "$headers" | grep -qi 'cross-origin-embedder-policy: require-corp' \
+            || { echo "FAIL missing COEP header"; fail=1; }
+
+          # Bridge probe: the image always carries the IPC bridge bundle.
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            -X POST -H 'content-type: application/json' -d '{}' \
+            http://127.0.0.1:8080/api/ipc/app:ping)
+          [ "$code" = 200 ] || { echo "FAIL app:ping expected 200, got $code"; fail=1; }
+
+          docker logs chess-web
+          docker rm -f chess-web
+          exit $fail
+
+      # Exercise the WITH_PUZZLES bake-in path with a tiny fixture DB: proves
+      # the named build context + puzzles-true stage wire up and the file lands
+      # at the image's default PUZZLES_PATH. (The real 2.1 GB DB never enters
+      # CI; puzzle-channel behavior against real data is the volume story.)
+      - name: Build image (WITH_PUZZLES bake-in, fixture DB)
+        run: |
+          mkdir -p /tmp/puzzles-fixture
+          node -e "
+            const { DatabaseSync } = require('node:sqlite');
+            const db = new DatabaseSync('/tmp/puzzles-fixture/puzzles.sqlite');
+            db.exec('CREATE TABLE puzzles(id TEXT PRIMARY KEY)');
+            db.close();
+          "
+          docker build -t chess-sharp-web-puzzles \
+            --build-arg WITH_PUZZLES=true \
+            --build-context puzzles-db=/tmp/puzzles-fixture .
+          docker run --rm --entrypoint test chess-sharp-web-puzzles \
+            -f /app/resources/data/puzzles.sqlite
+          echo "bake-in image carries puzzles.sqlite at the default PUZZLES_PATH"

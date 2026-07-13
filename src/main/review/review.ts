@@ -621,6 +621,19 @@ let tablesReady = false
 
 export function initReviewTables(): void {
   if (tablesReady) return
+  ensureReviewTables()
+  tablesReady = true
+}
+
+/**
+ * Create the review cache tables on the CURRENT app DB — idempotent DDL with NO
+ * module flag. The desktop path uses initReviewTables() (one process-singleton
+ * DB, so the flag short-circuit is safe); the web server (docs/WEB-PORT-SPEC.md
+ * W3) reroutes getAppDb() to a DIFFERENT per-user DB per request via
+ * setDbOverride, where a process-wide flag would skip table creation for every
+ * user after the first — so the server calls this, per user DB, instead.
+ */
+export function ensureReviewTables(): void {
   getAppDb().exec(`
     CREATE TABLE IF NOT EXISTS game_review(
       game_id INTEGER PRIMARY KEY,
@@ -652,7 +665,18 @@ export function initReviewTables(): void {
     );
     CREATE INDEX IF NOT EXISTS idx_move_eval_game ON move_eval(game_id);
   `)
-  tablesReady = true
+}
+
+/**
+ * Persist a fully computed review under `gameId` on the CURRENT app DB. The
+ * desktop persists inside runReview(); the web server stores client-computed
+ * reviews via POST /api/review/save, which calls this under its per-user DB
+ * override (docs/WEB-PORT-SPEC.md W3). Same transactional DELETE+INSERT as the
+ * desktop path — the two share persistReview().
+ */
+export function saveReviewCache(gameId: number, review: GameReview): void {
+  ensureReviewTables()
+  persistReview(gameId, review)
 }
 
 function persistReview(gameId: number, r: GameReview): void {

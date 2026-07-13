@@ -1,35 +1,79 @@
-import { app } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
-import { resolvePuzzlesPath, puzzlesInstalled } from '../datasets/paths'
 import { migrateRatingsIntegrityV8, recomputeVsBotGlicko } from '../ratings/recompute'
 
 // We use Node's built-in node:sqlite (Electron 42 / Node 24) — no native module
 // build needed. The puzzles.sqlite (imported at runtime, or bundled) is opened
-// read-only; the writable app.sqlite lives under userData (in DEV that is the
-// contained .devdata dir).
+// read-only; the writable app.sqlite lives in an INJECTED directory: this
+// module is deliberately electron-free (web-port seam, docs/WEB-PORT-SPEC.md)
+// so the same repos + migrations run under Electron AND the web server. The
+// desktop injects app.getPath('userData') + datasets/paths resolvers from
+// src/main/index.ts; the web server injects its own data dir.
 
+export interface DbConfig {
+  /** Directory the writable app.sqlite lives in (created if missing). */
+  appDbDir: string
+  /** Puzzle-DB resolution, when this process serves puzzles. Callbacks (not a
+   *  fixed path) because the desktop's answer changes at runtime: a dataset
+   *  imported mid-session must win over the bundled copy on the next open. */
+  puzzles?: {
+    /** Path getPuzzlesDb() opens (imported-first, then bundled). */
+    resolvePath: () => string
+    /** Whether a puzzle DB actually exists at the resolved path. */
+    installed: () => boolean
+  }
+}
+
+let config: DbConfig | null = null
 let puzzlesDb: DatabaseSync | null = null
 let appDb: DatabaseSync | null = null
+let dbOverride: (() => DatabaseSync) | null = null
+
+/** Open (creating if needed) an app DB in `dir` and run the full migration
+ *  chain. getAppDb() uses this for the process singleton; the web server uses
+ *  it directly for its per-user DB files (docs/WEB-PORT-SPEC.md W3). */
+export function openAppDb(dir: string): DatabaseSync {
+  fs.mkdirSync(dir, { recursive: true })
+  const db = new DatabaseSync(path.join(dir, 'app.sqlite'))
+  db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;')
+  migrate(db)
+  return db
+}
+
+/** Reroute getAppDb() (and with it every repo) to another DB for the duration
+ *  of one request — the web server's per-user scoping. The server serializes
+ *  bridge calls, sets the override, awaits the handler, clears it. The
+ *  desktop never calls this. */
+export function setDbOverride(get: (() => DatabaseSync) | null): void {
+  dbOverride = get
+}
+
+/** Inject where the DBs live. Must run once, before any getAppDb()/getPuzzlesDb()
+ *  caller — the desktop does this at startup in src/main/index.ts. */
+export function configureDb(c: DbConfig): void {
+  config = c
+}
 
 /** True once the puzzle DB has been imported (or bundled). */
 export function hasPuzzlesDb(): boolean {
-  return puzzlesInstalled()
+  return config?.puzzles?.installed() ?? false
 }
 
 export function getPuzzlesDb(): DatabaseSync {
-  if (!puzzlesDb) puzzlesDb = new DatabaseSync(resolvePuzzlesPath(), { readOnly: true })
+  if (!puzzlesDb) {
+    const puzzles = config?.puzzles
+    if (!puzzles) throw new Error('configureDb() ran without a puzzles source in this process')
+    puzzlesDb = new DatabaseSync(puzzles.resolvePath(), { readOnly: true })
+  }
   return puzzlesDb
 }
 
 export function getAppDb(): DatabaseSync {
+  if (dbOverride) return dbOverride()
   if (!appDb) {
-    const dir = app.getPath('userData')
-    fs.mkdirSync(dir, { recursive: true })
-    appDb = new DatabaseSync(path.join(dir, 'app.sqlite'))
-    appDb.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;')
-    migrate(appDb)
+    if (!config) throw new Error('configureDb() must run before getAppDb()')
+    appDb = openAppDb(config.appDbDir)
   }
   return appDb
 }

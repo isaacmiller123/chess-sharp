@@ -23,12 +23,18 @@ const engineEvalSchema = z
 export function registerCoach(): void {
   handle(
     'coach:explainMove',
+    // Wire bounds (mirroring server/review.ts): the web bridge serves this
+    // channel to anonymous callers, so strings and the PV are capped. The
+    // caps sit far above legit use (FEN ≤~90 chars, UCI ≤5) — CoachHint
+    // forwards the RAW engine principal variation, which can run deep, so pv
+    // is bounded well above any real search depth rather than at a tight
+    // guess. Any low-thousands cap already defeats the mutex-stall DoS.
     z
       .object({
-        fenBefore: z.string().min(1),
-        played: z.string().min(1),
-        best: z.string().min(1),
-        pv: z.array(z.string()).default([]),
+        fenBefore: z.string().min(1).max(128),
+        played: z.string().min(1).max(8),
+        best: z.string().min(1).max(8),
+        pv: z.array(z.string().max(8)).max(256).default([]),
         evalBefore: engineEvalSchema,
         evalAfter: engineEvalSchema,
         ply: z.number().int().optional()
@@ -46,7 +52,7 @@ export function registerCoach(): void {
       })
   )
 
-  handle('coach:positional', z.object({ fen: z.string().min(1) }).strict(), ({ fen }) =>
+  handle('coach:positional', z.object({ fen: z.string().min(1).max(128) }).strict(), ({ fen }) =>
     positional({ fen })
   )
 }

@@ -92,7 +92,7 @@ export const ipcMain = { handle: () => {} }
   const entryPath = path.join(dir, 'entry.mjs')
   writeFileSync(
     entryPath,
-    `export { getAppDb, closeDbs } from ${JSON.stringify(path.join(repoRoot, 'src/main/db/database.ts'))}
+    `export { configureDb, getAppDb, closeDbs } from ${JSON.stringify(path.join(repoRoot, 'src/main/db/database.ts'))}
 export { saveGame, listGames, getGame } from ${JSON.stringify(path.join(repoRoot, 'src/main/db/games.repo.ts'))}
 export { recomputeVsBotGlicko } from ${JSON.stringify(path.join(repoRoot, 'src/main/ratings/recompute.ts'))}
 `
@@ -109,6 +109,8 @@ export { recomputeVsBotGlicko } from ${JSON.stringify(path.join(repoRoot, 'src/m
   const freshDir = path.join(dir, 'fresh')
   mkdirSync(freshDir, { recursive: true })
   globalThis.__userData = freshDir
+  // DB seam (WEB-PORT-SPEC W1): database.ts takes an injected dir, not app.getPath.
+  M.configureDb({ appDbDir: freshDir })
   {
     const adb = M.getAppDb()
     check('fresh open lands on user_version 10', userVersion(adb) === 10, `got ${userVersion(adb)}`)
@@ -163,6 +165,7 @@ export { recomputeVsBotGlicko } from ${JSON.stringify(path.join(repoRoot, 'src/m
     seed.close()
   }
   globalThis.__userData = v9Dir
+  M.configureDb({ appDbDir: v9Dir })
   {
     const adb = M.getAppDb() // the REAL migrate() runs the v10 block here
     check('v9→10 open lands on user_version 10', userVersion(adb) === 10, `got ${userVersion(adb)}`)

@@ -8,6 +8,7 @@
 
 import type { JSX } from 'react'
 import { Download } from 'lucide-react'
+import { isWebBuild } from '../platform'
 import './engineRequired.css'
 
 const LEAD: Record<'play' | 'analysis' | 'placement', string> = {
@@ -25,6 +26,18 @@ export function EngineRequiredNotice({
   /** Deep link to Settings → Datasets (the download lives there). */
   onOpenSettings?: () => void
 }): JSX.Element {
+  // Web build: nothing to download and nowhere to deep-link — engines are
+  // coming online in a later update, so say exactly that (no false CTA).
+  if (isWebBuild) {
+    return (
+      <div className="engine-required" role="status">
+        <p>
+          {LEAD[context]} <strong>Stockfish</strong>. Engines are coming online here in a future
+          update — today they&apos;re in the desktop app.
+        </p>
+      </div>
+    )
+  }
   return (
     <div className="engine-required" role="status">
       <p>
@@ -44,6 +57,18 @@ export function PuzzlesRequiredNotice({
 }: {
   onOpenSettings?: () => void
 }): JSX.Element {
+  // Web build: the puzzle DB lives on the server, so there's nothing the user
+  // can download to fix an absence — same honest no-CTA card as the engine.
+  if (isWebBuild) {
+    return (
+      <div className="engine-required" role="status">
+        <p>
+          Warm-up and cool-down drills come from the <strong>Lichess puzzle database</strong>,
+          which hasn&apos;t come online here yet — today it&apos;s in the desktop app.
+        </p>
+      </div>
+    )
+  }
   return (
     <div className="engine-required" role="status">
       <p>

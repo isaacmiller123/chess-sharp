@@ -24,6 +24,8 @@ release/
 /.userdata/
 /.appdata/
 /.cache/
+# Web server state: accounts DB + per-user game DBs (DATA_DIR default; see docs/WEB-DEPLOY.md)
+/data-web/
 
 # ---- Raw downloads & temp (fetched/built by setup scripts) ----
 /data/raw/
@@ -72,3 +74,5 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 desktop.ini
+/dist-web/
+/dist-server/

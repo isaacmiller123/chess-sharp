@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { Board } from '../../../board/Board'
 import { pieceSetClass } from '../../../board/pieceSets'
+import { isWebBuild } from '../../../platform'
 import { useSettings } from '../../../state/settings'
 // Shared 3-stage hint UI from the classic trainer (read-only imports) — the
 // same ladder + board overlay Train and Custom use, for one consistent look.
@@ -264,9 +265,12 @@ function DailyTab({
         <CalendarDays size={26} aria-hidden />
         <h3>{load === 'error' ? 'Could not load the daily' : 'No daily puzzle yet'}</h3>
         <p className="muted">
+          {/* Web: there's no dataset import — the puzzle DB lives server-side. */}
           {load === 'error'
             ? 'Something went wrong fetching today’s puzzle. Try again shortly.'
-            : 'The puzzle library isn’t available yet. Import the datasets to unlock the daily puzzle.'}
+            : isWebBuild
+              ? 'The daily puzzle is coming online soon.'
+              : 'The puzzle library isn’t available yet. Import the datasets to unlock the daily puzzle.'}
         </p>
       </div>
     )

@@ -104,3 +104,136 @@ All requested features built, integrated, verified (typecheck + build + `electro
 9. Puzzles + Glicko-2.  10. Play vs Stockfish (any level).  11. Full game review.  12. Local coaching engine.
 13. Accuracy→Elo band.  14. Famous games (engine-annotated).  15. Saved games + progress.  16. Settings + Credits.
 17. Packaging.  18. Sound + motion + a11y.
+
+## Web port — Phase W1 COMPLETE (2026-07-11)
+Binding spec: `docs/WEB-PORT-SPEC.md`. The seam + skeleton phase landed, desktop untouched (all 28
+`scripts/test-*.mjs` suites green, `electron-vite build` green, typecheck node+web+server green):
+- **DB seam**: `src/main/db/database.ts` is electron-free — `configureDb({appDbDir, puzzles})`
+  injection; desktop injects `app.getPath('userData')` + datasets resolvers from `src/main/index.ts`.
+  Proven headless by `scripts/test-db-seam.mjs` (bundle has zero electron refs; migrations 0→10 at an
+  injected path; lazy mid-session puzzle-DB pickup).
+- **Web target**: `src/web/` (`index.html`, `main.web.tsx`, `webApi.ts`) + `vite.web.config.ts` →
+  `dist-web/` SPA. `webApi` is the second typed `Api` impl. REAL on web day one: settings, Variant
+  Lab, the **local game archive** (localStorage `game`-table mirror — finished OTB/online games land
+  in Library/Home/Analysis lists), **opening-name lookup** (the desktop's EPD-keyed
+  resources/openings/openings.json lazy-loads as its own 62 KB-gz chunk, same chessops keying), and
+  dialog.saveFile = browser download. Datasets reported ABSENT (routes Play/Analysis/School into the
+  renderer's own EngineRequiredNotice gates — no fake Stockfish; engine.newGame also rejects to
+  close PlayView's probe-race), bot moves reject with the renderer's own BotUnavailableError so
+  toasts show honest copy. Everything else resolves honest empties or rejects with coming-online
+  copy. `scripts/test-web-stub.mjs`: runtime shape parity vs `src/preload/api.ts` (83 methods / 18
+  namespaces) + behavior contract.
+- **Server**: `server/index.ts` (Fastify) serves the SPA with COOP/COEP on every response
+  (browser shows `crossOriginIsolated === true` — SharedArrayBuffer ready for W2 engines), immutable
+  asset caching, SPA fallback, `/api/*` 503 coming-online, `/healthz`, `/games-art` statics.
+  Bundled self-contained by `scripts/build-server.mjs` (fastify stays in devDependencies — desktop
+  package unaffected). `scripts/test-web-server.mjs` headless smoke. Dockerfile + compose skeleton.
+- **Scripts**: `dev:web`, `build:web`, `build:server`, `serve:web`, `start:web`, `typecheck:server`,
+  `test:db-seam`, `test:web-stub`, `test:web-server`.
+- **Boot proof (browser, production server)**: all menus render; Home/Progress zero-states; Puzzles
+  "No puzzles available"; School "No chapters yet"; Analysis "Stockfish 18 · unavailable" + install
+  card; Settings import → honest "No downloads on the web" alert; updates → "You're on the latest
+  version"; Games library fully live (client-side rules/boards/manuals); **online multiplayer hosts
+  from the browser** (trystero relays connect, join code issued).
+- **Audit** (16-agent workflow, every renderer Api call site traced + adversarially verified):
+  7 confirmed findings, all fixed in W1-owned files (engine.newGame reject; BotUnavailableError bot
+  rejections; real openings.lookup; localStorage game archive; bare `/api` 503; asset-shaped 404s
+  instead of SPA fallback; main.web.tsx boot .catch). Accepted W1 gaps, renderer-owned by design:
+  Rush "Band cleared 0 solved" card when Start is pressed with no puzzle DB (W4 makes puzzles real),
+  Analysis review's generic "Review failed. Please try again." copy (W2 makes review real).
+- Known W5 items (renderer copy, untouched by design): welcome dialog "no internet" line, engine/
+  dataset notices phrased as desktop downloads ("Download in Settings → Datasets" CTAs), Updates
+  card subtitle, mpSession version-mismatch copy, background-tab throttling for web MP hosts
+  (Electron sets backgroundThrottling:false; a backgrounded browser tab hosting a game may need a
+  visibilitychange keepalive).
+
+## Web port — W2–W6 COMPLETE: full port shipped (2026-07-12)
+All six phases of docs/WEB-PORT-SPEC.md are built, integrated, and verified. Desktop 100% intact
+(all 32 scripts/test-*.mjs suites green, electron-vite build green, typecheck node+web+server green).
+Built by 5 parallel agents (engines / server / client / renderer-copy / docker) + lead integration;
+every phase browser-verified against the production server + real 2.1 GB puzzle DB.
+- **W2 engines (browser WASM)**: `src/web/engines/**` — Stockfish 18 lite (7 MB, multithreaded,
+  NNUE embedded; single-thread fallback when not crossOriginIsolated) + Fairy-Stockfish 14 WASM
+  (all variant kinds + Variant Lab custom inis via FS.writeFile/VariantPath). Exact desktop
+  semantics: two logical instances, handleId streaming, calibrated sub-1320 weak model (pick-for-pick
+  identical to the desktop under seeded RNG), evalVariant 300 ms bounded eval, persona moves
+  client-side. Client-side game review imports the DESKTOP accuracy.ts/estElo.ts directly.
+  Go bots + Maia = honest desktop-only rejections (decision record: lc0/KataGo WASM too heavy for
+  v1). Verified live: bot game replies (French Defense vs 1500), Analysis streaming MultiPV depth
+  48, engines gate lifted via datasets.status integration switch.
+- **W3 accounts + persistence**: `server/{auth,users,bridge,review,electron-shim,bridge-entry}.ts` —
+  argon2id (hash-wasm), httpOnly sid cookie (30-day rolling, Secure on https, TRUST_PROXY opt-in),
+  users+sessions in DATA_DIR/server.sqlite, **per-user DB files** (DATA_DIR/users/<id>/app.sqlite via
+  openAppDb + setDbOverride under a global FIFO mutex — deliberate deviation from the spec's user_id
+  column for total repo reuse, documented). THE IPC BRIDGE: desktop ipc modules bundled UNMODIFIED
+  with an electron shim → POST /api/ipc/<channel>, original zod schemas enforced; public content
+  channels (puzzles/famous/school-content/personas/coach) work signed-out against an anon DB.
+  Client: src/web/{http,authStore,localData,reviewStore}.ts + account chip (own React root).
+  Signed-out = full local mode (localStorage archive + REAL local Glicko-2 ratings); signed-in =
+  account DB. Verified live: signup → session survives hard refresh → game saved through the bridge
+  returns from the account DB.
+- **W4 puzzles + school + statics**: served through the same bridge off the real puzzle DB
+  (PUZZLES_PATH) + resources trees (RESOURCES_ROOT shim). Verified live signed-out: real rated
+  puzzles with theme counts, 40 School chapters, placement flow live on the WASM engine.
+  (An earlier "(2.4M short)" note here was a miscount — the committed DB row-counts at the full
+  4,699,980 puzzles, verified 2026-07-14.)
+- **W5 parity edges**: src/renderer/src/platform.ts isWebBuild + honest web copy in Onboarding,
+  EngineRequiredNotice/PuzzlesRequiredNotice, KernelBot KataGo card, DatasetsPanel, UpdatesPanel,
+  DailyMode, mpSession version-mismatch. Desktop rendering byte-identical (flag false there).
+- **W6 deploy**: final multi-stage Dockerfile (volume-first puzzle DB; bake-in via named build
+  context + WITH_PUZZLES arg; /data volume; HEALTHCHECK; USER node), docker-compose.yml,
+  .github/workflows/web.yml (test job + docker job, bridge-aware smoke), docs/WEB-DEPLOY.md
+  (env table, reverse-proxy COOP/COEP + TRUST_PROXY notes, Fly/Hetzner sketches).
+- **Scripts**: build:server now emits server + ipc-bridge; new suites test:web-engines (85),
+  test:web-auth (31), test:web-bridge (46), test:web-client (47).
+- Known v1 limits (documented): go/maia bots desktop-only; single-writer FIFO DB mutex
+  (friends-scale); UCI_Elo on the lite net may drift slightly from desktop calibration anchors.
+
+## Web port — hardening pass (audit fixes, 2026-07-14)
+An adversarial audit of the (still-uncommitted) web port found ZERO criticals — cross-user
+isolation, SQL injection, path traversal, the channel allowlist, argon2 params and session entropy
+were all attacked and held — but 8 MAJOR hosting-hardening gaps. All fixed, desktop untouched
+(the shared ipc-file caps sit far above real renderer usage; desktop build + full suite wall stay
+byte-for-behavior identical). Fixes:
+- **Unauthenticated DoS closed** (was the gate even for friends): the public bridge channels
+  `school:debrief` / `school:narrate` / `coach:explainMove` / `puzzles:next` / `puzzles:batch` now
+  `.max()`-cap every array + length-bound every string (mirroring the already-hardened review.ts),
+  so an anon POST can't pin the single global DB mutex. Load-tested for real: a 287 KB / 1500-move
+  payload (under the 1 MiB body limit) is rejected at the zod gate in ~45 ms BEFORE entering the
+  mutex; a 20× flood keeps legit requests at ~12 ms.
+- **Auth abuse bounds**: `@fastify/rate-limit` on `/api/auth/*` (login 10/min/IP, signup 5/hr/IP,
+  `global:false` so nothing else is limited) + a 2-wide argon2 concurrency gate (each hash is
+  ~19 MiB, so an unbounded burst was a memory-exhaustion vector) + a `MAX_ACCOUNTS` signup ceiling
+  (each account is an on-disk DB).
+- **Secure cookie by default**: the sid cookie is `Secure` on any https request AND whenever
+  `NODE_ENV=production` (so a proxy that forgets `X-Forwarded-Proto` can't downgrade it);
+  `COOKIE_SECURE=1/0` overrides. `TRUST_PROXY=1` documented as REQUIRED behind a proxy (env table +
+  docker-compose + proxy section) — it also gives rate limiting real client IPs.
+- **Bounded per-user DB handles**: the handle Map is now an LRU (`MAX_OPEN_USER_DBS`, default 32)
+  that closes cold handles; the anon DB is pinned. Eviction only ever runs inside the FIFO mutex,
+  so a closed handle can never be in use.
+- **Session tokens hashed at rest**: the DB stores `sha256(token)`; the raw 256-bit token lives
+  only in the cookie; lookups hash the presented value. A `user_version` 0→1 boot migration hashes
+  any pre-existing raw rows in place without logging anyone out.
+- **Honest web debrief** (W-01, was NOT in the old known-limits): the boss debrief arrives from the
+  renderer with empty evals and delegated to the server's Viktor, which needs native Stockfish
+  (absent on web) — the failure was swallowed and every move classified "fine". Now `src/web/engines/
+  debrief.ts` runs viktor.ts's own enrichment CLIENT-side on the WASM analysis instance (same
+  DEBRIEF_DEPTH=12, MAX_POSITIONS=24 budget, mover-POV/negate/mate conventions) before the bridge
+  call; an engineless browser rejects with honest copy instead of posting empty evals. Verified live
+  in a browser: the enriched move carries a real best move, 13-ply PV, and mover-POV eval.
+- **Local→account import on signup**: `src/web/migrate.ts` copies signed-out localStorage progress
+  (games + their cached reviews under new server ids, custom variants, settings — ratings stay
+  local) into the fresh account on first signup; sign-IN shows a "stays on this browser" notice
+  instead (merging into existing account data is undecidable). Best-effort, never blocks the reload.
+- **Username enumeration softened**: login now runs a full argon2 verify against a decoy hash when
+  the user row is absent, so response timing no longer distinguishes unknown-user from wrong-password.
+  Signup 409s still reveal taken names — an accepted friends-scale trade-off, documented.
+- **CSRF backstop**: on top of SameSite=Lax, an Origin-allowlist hook refuses cross-origin mutating
+  `/api` calls (same-origin and no-Origin non-browser clients pass).
+- Minors swept: STATUS/README/Docker/CI stale copy corrected; the committed puzzle DB row-counts at
+  the full 4,699,980 (the earlier "2.4M short" note was a miscount); README self-host quickstart
+  added; CI now exercises the WITH_PUZZLES bake-in path.
+- New/extended tests: cap rejection + CSRF + 413 body-limit (test-web-bridge), Secure-cookie +
+  rate-limit 429 + MAX_ACCOUNTS + token-hash-at-rest + v0→v1 migration (test-web-auth, now 3-phase),
+  debrief enrichment + engineless-reject + signup import (test-web-client).
