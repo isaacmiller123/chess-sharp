@@ -130,7 +130,7 @@ async function run(M) {
     const record = W.buildPinRecord(payload, rootPriv, rootB)
     const recId = W.pinRecordId(payload)
     members.forEach((m, idx) => {
-      m.member.provision(rootB, deal.shares[idx].i, deal.shares[idx].share, shareCommitments[idx], pinPub, committeeIds, recId)
+      m.member.provision(rootB, deal.shares[idx].i, deal.shares[idx].share, shareCommitments[idx], pinPub, recId)
     })
     return { members: committeeIds, memberNodes: members, t: PARAMS_A2.pinT, shareCommitments, pinPub, record, pinKey }
   }
@@ -433,7 +433,7 @@ async function run(M) {
       const bl = W.clientBlind('0000', seededRng('fix-' + g))
       for (const m of quorum) await fc.ep.request(m.nodeId, 'pin-eval', { root: fc.root.pubB, blinded: bl.blinded })
     }
-    const fuse = await W.tripFuseIfDue({ fabric: fc.ep, root: fc.root.pubB, committee: com.members, pinRecord: recId, keyOf: kOf, wts: NOW, trips: 0 })
+    const fuse = await W.tripFuseIfDue({ fabric: fc.ep, root: fc.root.pubB, committee: com.members, pinRecord: recId, keyOf: kOf, wts: NOW })
     ok(fuse !== null, 'tripFuseIfDue assembles a fuse after 100 failed guesses to the quorum')
     ok(fuse && W.verifyFuseRecord(fuse, com.members, kOf).ok, 'the auto-assembled fuse verifies (≥ pinT co-signatures, each on its OWN counter)')
     ok(fuse && fuse.body.fails >= PARAMS_A2.pinLifetimeFails, `the fuse records the effective count (${fuse && fuse.body.fails})`)
@@ -446,7 +446,7 @@ async function run(M) {
     const vc = makePlayer(vf, 76, 77, 'Victim')
     const vcom = provisionCommittee(vn, vc.root.priv, vc.root.pubB, '4271', seededRng('committee-victim'))
     const vkOf = new Map(vn.map((m) => [m.nodeId, m.device.pubB]))
-    const forged = await W.tripFuseIfDue({ fabric: vc.ep, root: vc.root.pubB, committee: vcom.members, pinRecord: W.pinRecordId(vcom.record.payload), keyOf: vkOf, wts: NOW, trips: 0 })
+    const forged = await W.tripFuseIfDue({ fabric: vc.ep, root: vc.root.pubB, committee: vcom.members, pinRecord: W.pinRecordId(vcom.record.payload), keyOf: vkOf, wts: NOW })
     ok(forged === null, 'a victim with zero failed guesses cannot be fuse-tripped (self-qualification closes forgery)')
     // a requester-supplied `trips` (even negative) cannot lower the bar: the
     // member floors the threshold from its OWN state (no held fuse → pinLifetimeFails),
@@ -492,6 +492,11 @@ async function run(M) {
     const reBody120 = W.fuseRecordBody(rfc.root.pubB, PARAMS_A2.pinLifetimeFails + PARAMS_A2.pinRefill, NOW, rfRec)
     const re120 = await rfc.ep.request(rfQuorum[0].nodeId, 'pin-fuse-sign', { body: reBody120, trips: 0 })
     ok(re120.sig && re120.sig.w === rfQuorum[0].nodeId, 'the refill-cycle re-trip is co-signed only at the raised threshold 100+R')
+    // aggregator agrees with the committee: tripFuseIfDue given the held (expired)
+    // fuse floors its due-check at 100+R too, so it trips at the refill threshold.
+    const rfKeyOf = new Map(rfNodes.map((m) => [m.nodeId, m.device.pubB]))
+    const rfTrip = await W.tripFuseIfDue({ fabric: rfc.ep, root: rfc.root.pubB, committee: rfCom.members, pinRecord: rfRec, keyOf: rfKeyOf, wts: NOW, heldFuse: rfFuses.get(rfc.root.pubB) })
+    ok(rfTrip && rfTrip.body.fails >= PARAMS_A2.pinLifetimeFails + PARAMS_A2.pinRefill, 'tripFuseIfDue floors its threshold from the held fuse (aggregator agrees with the committee)')
 
     // Below threshold → no trip.
     const uf = new W.MockFabric()
@@ -503,7 +508,7 @@ async function run(M) {
       const bl = W.clientBlind('0000', seededRng('few-' + g))
       for (const m of un.slice(0, PARAMS_A2.pinT)) await uc.ep.request(m.nodeId, 'pin-eval', { root: uc.root.pubB, blinded: bl.blinded })
     }
-    const noFuse = await W.tripFuseIfDue({ fabric: uc.ep, root: uc.root.pubB, committee: ucom.members, pinRecord: W.pinRecordId(ucom.record.payload), keyOf: ukOf, wts: NOW, trips: 0 })
+    const noFuse = await W.tripFuseIfDue({ fabric: uc.ep, root: uc.root.pubB, committee: ucom.members, pinRecord: W.pinRecordId(ucom.record.payload), keyOf: ukOf, wts: NOW })
     ok(noFuse === null, 'tripFuseIfDue does NOT trip below the threshold (10 guesses)')
   }
 

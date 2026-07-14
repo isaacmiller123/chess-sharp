@@ -135,7 +135,7 @@ async function run(outdir) {
   const commit = A.toB64u(W.pointToBytes(W.shareCommitment(k)))
   // degenerate 1-member committee (smoke only, no fuse-trip) — placeholder record id.
   const smokeRecId = A.toB64u(A.sha256(A.utf8('operator-smoke-pin-record')))
-  op.member.provision(subject.pubB, 1, k, commit, pinPub, [opNodeId], smokeRecId)
+  op.member.provision(subject.pubB, 1, k, commit, pinPub, smokeRecId)
   const committee = { members: [opNodeId], t: 1, shareCommitments: [commit], pinPub }
   const pv = await W.pinVerifyFlow({ fabric: clientEp, root: subject.pubB, pin, committee, wts: NOW, rng: seededRng('operator-smoke-eval'), checkDleq: true })
   ok(pv.ok, 'the operator served the blind evaluation and the client derived the pinKey (DLEQ-verified)')

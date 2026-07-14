@@ -19,7 +19,7 @@
 
 import { z } from 'zod'
 import { canonicalBytes, canonicalHash, type CanonicalObject } from '../codec'
-import { ed25519, fromB64u, toB64u } from '../hash'
+import { ed25519, toB64u, verifySigB64u as verifySig } from '../hash'
 import { zB64u32, zB64u64 } from '../events'
 import type { B64u, EventId } from '../types'
 import { PARAMS_A2, PARAMS_A2_DIGEST } from './params'
@@ -35,13 +35,11 @@ import type {
 
 const MS_PER_DAY = 86_400_000
 
-/** ed25519 verify that never throws. */
-function verifySig(sig: B64u, msg: Uint8Array, pub: B64u): boolean {
-  try {
-    return ed25519.verify(fromB64u(sig), msg, fromB64u(pub))
-  } catch {
-    return false
-  }
+/** The digest a record embeds for a given params revision. For PARAMS_A2 this
+ * equals PARAMS_A2_DIGEST; a record minted under an earlier revision carries
+ * that revision's digest and is verified against it (see verifyFuseRecord). */
+function paramsDigest(params: typeof PARAMS_A2): string {
+  return params === PARAMS_A2 ? PARAMS_A2_DIGEST : toB64u(canonicalHash(params))
 }
 
 // ---------------------------------------------------------------------------
@@ -314,7 +312,7 @@ export function fuseRecordBody(
     trippedWts,
     expiryWts: trippedWts + params.pinBanDays * MS_PER_DAY,
     pinRecord,
-    params: PARAMS_A2_DIGEST,
+    params: paramsDigest(params),
   }
 }
 
@@ -369,7 +367,10 @@ export function verifyFuseRecord(
   const errors: string[] = []
   const member = new Set(committee)
   const msg = canonicalBytes(fr.body)
-  if (fr.body.params !== PARAMS_A2_DIGEST) errors.push('fuse: params digest mismatch')
+  // Verify against the revision the CALLER supplies (opts.params), mirroring
+  // verifyPinRecord's expectDigest — a fuse minted under an earlier params
+  // revision carries that revision's digest and stays verifiable across a bump.
+  if (fr.body.params !== paramsDigest(params)) errors.push('fuse: params digest mismatch')
   if (fr.body.expiryWts !== fr.body.trippedWts + params.pinBanDays * MS_PER_DAY)
     errors.push('fuse: expiry != tripped + ban window')
   const counted = new Set<NodeId>()

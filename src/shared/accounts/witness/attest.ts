@@ -6,7 +6,7 @@
 import { canonicalBytes } from '../codec'
 import { verifyCheckpointIncremental } from '../checkpoint'
 import { eventId, verifyEventSig } from '../events'
-import { ed25519, fromB64u, toB64u } from '../hash'
+import { ed25519, toB64u, verifySigB64u } from '../hash'
 import type { B64u, Chain, EventId, SignedEvent, WitnessAttestation } from '../types'
 import { prefixBucket } from './distance'
 import { leaseBodyHash, verifyGrantSig } from './lease'
@@ -49,15 +49,15 @@ export function makeAttestation(
 
 /** Verify an attestation binds to `eventId` and was signed by att.w. Never throws. */
 export function verifyAttestation(att: WitnessAttestation, eventId: EventId): boolean {
+  // Fail closed on a malformed att (e.g. a non-safe-integer epoch/wts that makes
+  // canonicalBytes throw) rather than propagating the throw.
+  let msg: Uint8Array
   try {
-    return ed25519.verify(
-      fromB64u(att.sig),
-      attestBytes(eventId, att.epoch, att.w, att.wts),
-      fromB64u(att.w),
-    )
+    msg = attestBytes(eventId, att.epoch, att.w, att.wts)
   } catch {
     return false
   }
+  return verifySigB64u(att.sig, msg, att.w)
 }
 
 // ---------------------------------------------------------------------------

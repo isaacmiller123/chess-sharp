@@ -12,7 +12,7 @@
 import { canonicalBytes, type CanonicalObject } from '../codec'
 import { appendEvent } from '../chain'
 import { eventId, signBody, witnessedHeadOf } from '../events'
-import { ed25519, fromB64u, sha256, toB64u } from '../hash'
+import { ed25519, fromB64u, sha256, toB64u, verifySigB64u } from '../hash'
 import type { B64u, Chain, EventBody, EventId, EventType, SignedEvent, WitnessAttestation } from '../types'
 import { admitEvent, cosignCheckpoint, verifyAttestation, type HeadRef } from './attest'
 import { updateHeadFromEvent } from './cache'
@@ -36,7 +36,6 @@ import {
   memberFails,
   newCounter,
   pinRecordId,
-  shouldTrip,
   signAttemptReport,
   signFuse,
   signHandoff,
@@ -112,6 +111,16 @@ function onSafe(
   })
 }
 
+/** The `fuse-check` handler — identical for witnesses and members: return the
+ * held fuse record + whether it is active on the responder's own clock. */
+function serveFuseCheck(fabric: FabricEndpoint, fuseOf: (root: B64u) => FuseRecord | null, wts: () => number): void {
+  onSafe(fabric, 'fuse-check', async (_from, payload) => {
+    const { root } = fromMsg<{ root: B64u }>(payload)
+    const fuse = fuseOf(root)
+    return asMsg(fuse ? { active: isFuseActive(fuse, wts()), fuse } : { active: false })
+  })
+}
+
 // ---------------------------------------------------------------------------
 // PIN success proof (pinKey-signed) — a composition of ed25519 over cjson bytes,
 // NOT a new primitive.
@@ -127,11 +136,14 @@ export function signPinSuccess(root: B64u, evalNonce: B64u, wts: number, pinPriv
   return toB64u(ed25519.sign(successBytes(root, evalNonce, wts), pinPriv))
 }
 function verifyPinSuccess(sig: B64u, root: B64u, evalNonce: B64u, wts: number, pinPub: B64u): boolean {
+  // Fail closed if the (untrusted) wts is not a safe integer (canonicalBytes throws).
+  let msg: Uint8Array
   try {
-    return ed25519.verify(fromB64u(sig), successBytes(root, evalNonce, wts), fromB64u(pinPub))
+    msg = successBytes(root, evalNonce, wts)
   } catch {
     return false
   }
+  return verifySigB64u(sig, msg, pinPub)
 }
 
 // ===========================================================================
@@ -194,21 +206,18 @@ export function witnessServe(
   // sound is the ADJUDICATION's attribution: slash.adjudicate binds each grantor
   // to its advertised key (keyOf), so a fabricated grant set can never frame an
   // honest witness.
-  onSafe(fabric, 'lease-grant', async (_from, payload) => {
+  // lease-grant and lease-renew are identical: sign the presented body unless a
+  // fuse bans the root. (A renewal is just a fresh grant at the same epoch/device
+  // with a new clock reading.)
+  const serveGrant = async (_from: NodeId, payload: CanonicalObject): Promise<CanonicalObject> => {
     const { leaseBody } = fromMsg<{ leaseBody: LeaseBody }>(payload)
     const wts = deps.wts()
     const fuse = fuseOf(leaseBody.root)
     if (fuse && isFuseActive(fuse, wts)) return asMsg({ error: 'fuse-active' })
     return asMsg({ grant: signGrant(leaseBody, id.nodeId, id.key, id.priv, wts) })
-  })
-  // renewal is a fresh grant at the same epoch (same device) with a new clock reading.
-  onSafe(fabric, 'lease-renew', async (_from, payload) => {
-    const { leaseBody } = fromMsg<{ leaseBody: LeaseBody }>(payload)
-    const wts = deps.wts()
-    const fuse = fuseOf(leaseBody.root)
-    if (fuse && isFuseActive(fuse, wts)) return asMsg({ error: 'fuse-active' })
-    return asMsg({ grant: signGrant(leaseBody, id.nodeId, id.key, id.priv, wts) })
-  })
+  }
+  onSafe(fabric, 'lease-grant', serveGrant)
+  onSafe(fabric, 'lease-renew', serveGrant)
 
   // Attests for one root are SERIALIZED (a per-root promise chain): read-head →
   // admit → advance-head spans awaits, so two concurrent attests must not both
@@ -260,12 +269,7 @@ export function witnessServe(
     return asMsg(head ? { head } : {})
   })
 
-  onSafe(fabric, 'fuse-check', async (_from, payload) => {
-    const { root } = fromMsg<{ root: B64u }>(payload)
-    const fuse = fuseOf(root)
-    const active = !!(fuse && isFuseActive(fuse, deps.wts()))
-    return asMsg(fuse ? { active, fuse } : { active: false })
-  })
+  serveFuseCheck(fabric, fuseOf, deps.wts)
 
   return {
     async seedHead(root, head) {
@@ -299,8 +303,10 @@ export interface MemberDeps {
   /** RNG for the DLEQ nonce when a member proves its partial honest. Optional —
    * without it, members prove deterministically. */
   dleqRng?: Rng
-  /** Max age (ms, member clock) a success proof's wts may be from now (§1 "within
-   * the session window"). Default 5 min — generous for clock skew, still bounded. */
+  /** Max age (ms, member clock) a `pin-prove` SUCCESS PROOF's wts may be from now
+   * (§1 "within the session window"). Default 5 min — generous for clock skew,
+   * still bounded. This gates ONLY the success proof; the fuse trippedWts window
+   * is the §4 witnessed-time window (PARAMS_A2.timeWindowMs), independent of this. */
   sessionWindowMs?: number
 }
 
@@ -323,11 +329,9 @@ interface MemberShare {
   scalar: bigint
   commitment: B64u
   pinPub: B64u
-  /** The committee this share was provisioned under (from the root-signed PIN
-   * record). Binds pin-fuse-sign to the member's OWN provisioned context so a
-   * fuse can't be forged against an attacker-supplied committee. */
-  committee: NodeId[]
-  /** id of the PIN record this share was provisioned under (same binding). */
+  /** id of the PIN record this share was provisioned under — binds pin-fuse-sign
+   * to the member's OWN provisioned context (a fuse for a record it doesn't hold
+   * a share under can't co-opt its signature). */
   pinRecord: EventId
   counter: PinCounterState
   /** Recent issued eval nonces (bounded). A nonce is REMOVED on a proven success,
@@ -339,17 +343,9 @@ interface MemberShare {
 
 export interface MemberServeHandle {
   /** Provision this member's share for a root (transport-encrypted in prod; the
-   * mock delivers it in the clear). `committee`/`pinRecord` bind the share to its
-   * PIN record so pin-fuse-sign can reject a fuse for a record it doesn't hold. */
-  provision(
-    root: B64u,
-    i: number,
-    scalar: bigint,
-    commitment: B64u,
-    pinPub: B64u,
-    committee: NodeId[],
-    pinRecord: EventId,
-  ): void
+   * mock delivers it in the clear). `pinRecord` binds the share to its PIN record
+   * so pin-fuse-sign can reject a fuse for a record it doesn't hold. */
+  provision(root: B64u, i: number, scalar: bigint, commitment: B64u, pinPub: B64u, pinRecord: EventId): void
   counter(root: B64u): PinCounterState
 }
 
@@ -439,7 +435,6 @@ export function memberServe(
       scalar: shareScalar,
       commitment: nr.shareCommitments[p.i - 1],
       pinPub: nr.pinPub,
-      committee: [...nr.committee],
       pinRecord: newId,
       counter: { evaluations: startFails, successes: 0 },
       issued: new Set(),
@@ -518,7 +513,6 @@ export function memberServe(
   onSafe(fabric, 'pin-fuse-sign', async (_from, payload) => {
     const p = fromMsg<{
       body: { v: 1; root: B64u; fails: number; trippedWts: number; expiryWts: number; pinRecord: EventId; params: B64u }
-      trips: number
     }>(payload)
     const s = ensure(p.body.root)
     if (!s) return asMsg({ error: 'not-provisioned' })
@@ -535,7 +529,7 @@ export function memberServe(
       return asMsg({ error: 'malformed-fuse-body' })
     // trippedWts must be ~now on MY clock (diversity-bound witnessed time, §4) —
     // no far-future ban window.
-    if (Math.abs(now - p.body.trippedWts) > (deps.sessionWindowMs ?? PARAMS_A2.timeWindowMs))
+    if (Math.abs(now - p.body.trippedWts) > PARAMS_A2.timeWindowMs)
       return asMsg({ error: 'trippedWts-out-of-window' })
     // Self-qualify against a threshold the MEMBER derives from its OWN state, not
     // the requester's. The cycle floor comes from the member's held (expired)
@@ -573,21 +567,15 @@ export function memberServe(
     return asMsg({ sig })
   })
 
-  onSafe(fabric, 'fuse-check', async (_from, payload) => {
-    const { root } = fromMsg<{ root: B64u }>(payload)
-    const fuse = fuseOf(root)
-    const active = !!(fuse && isFuseActive(fuse, deps.wts()))
-    return asMsg(fuse ? { active, fuse } : { active: false })
-  })
+  serveFuseCheck(fabric, fuseOf, deps.wts)
 
   return {
-    provision(root, i, scalar, commitment, pinPub, committee, pinRecord) {
+    provision(root, i, scalar, commitment, pinPub, pinRecord) {
       shares.set(root, {
         i,
         scalar,
         commitment,
         pinPub,
-        committee: [...committee],
         pinRecord,
         counter: newCounter(),
         issued: new Set(),
@@ -719,26 +707,28 @@ export async function clientAppendWitnessed(opts: AppendWitnessedOpts): Promise<
   const event = signBody(body, opts.devicePriv)
   const evId = eventId(body)
 
+  // Fan out to the witness set concurrently (each witness serializes its own
+  // attests; there is no cross-witness ordering to preserve). Promise.all keeps
+  // input order, so the attestation set is deterministic.
+  const gathered = await Promise.all(
+    opts.witnessSet.map(async (w): Promise<{ w: NodeId; att: WitnessAttestation } | null> => {
+      try {
+        const res = await req<{ attestation?: WitnessAttestation; error?: string }>(opts.fabric, w, 'attest', { event, lease: opts.lease })
+        if (!res.attestation || !verifyAttestation(res.attestation, evId)) return null
+        return { w, att: res.attestation }
+      } catch {
+        return null // unreachable witness
+      }
+    }),
+  )
   const attestations: WitnessAttestation[] = []
   const counted = new Set<NodeId>()
   let nonPlayer = 0
-  for (const w of opts.witnessSet) {
-    try {
-      const res = await req<{ attestation?: WitnessAttestation; error?: string }>(
-        opts.fabric,
-        w,
-        'attest',
-        { event, lease: opts.lease },
-      )
-      if (!res.attestation) continue
-      if (!verifyAttestation(res.attestation, evId)) continue
-      if (counted.has(w)) continue
-      counted.add(w)
-      attestations.push(res.attestation)
-      if (!opts.players.has(w)) nonPlayer += 1
-    } catch {
-      // skip unreachable witness
-    }
+  for (const g of gathered) {
+    if (!g || counted.has(g.w)) continue
+    counted.add(g.w)
+    attestations.push(g.att)
+    if (!opts.players.has(g.w)) nonPlayer += 1
   }
 
   const min = opts.minWitnesses ?? 1
@@ -886,20 +876,27 @@ export async function collectAttemptReports(
   members: readonly NodeId[],
   keyOf: (w: NodeId) => B64u | undefined,
 ): Promise<PinAttemptReport[]> {
-  const reports: PinAttemptReport[] = []
-  for (const m of members) {
-    try {
-      const res = await req<{ report?: PinAttemptReport; error?: string }>(fabric, m, 'pin-report', { root })
-      if (!res.report) continue
-      const key = keyOf(m)
-      if (key === undefined) continue
-      if (!verifyAttemptReport(res.report, key)) continue
-      reports.push(res.report)
-    } catch {
-      /* skip unreachable member */
-    }
-  }
-  return reports
+  // Query members concurrently — reports have no per-request cost (unlike evals),
+  // so there is no reason to pay N round-trips serially. Promise.all preserves
+  // input order, so the reduced result stays deterministic.
+  const results = await Promise.all(
+    members.map(async (m): Promise<PinAttemptReport | null> => {
+      try {
+        const res = await req<{ report?: PinAttemptReport; error?: string }>(fabric, m, 'pin-report', { root })
+        const r = res.report
+        // Bind the report to THIS member and THIS account: a member cannot
+        // attribute a count to another node's nodeId, nor replay a report signed
+        // for a different root, to skew effectiveCount.
+        if (!r || r.w !== m || r.root !== root) return null
+        const key = keyOf(m)
+        if (key === undefined || !verifyAttemptReport(r, key)) return null
+        return r
+      } catch {
+        return null // unreachable member
+      }
+    }),
+  )
+  return results.filter((r): r is PinAttemptReport => r !== null)
 }
 
 // --- Fuse trip (spec §1) — the live rate-limit enforcement -----------------
@@ -914,8 +911,11 @@ export interface TripFuseOpts {
   keyOf: ReadonlyMap<NodeId, B64u>
   /** Trip timestamp (aggregator clock; the co-signed body carries it). */
   wts: number
-  /** Prior trips for this account (0 for the first) — sets the cycle threshold. */
-  trips: number
+  /** The account's current held fuse (expired, or none) — sets the cycle floor
+   * exactly as each member does in pin-fuse-sign (heldFuse.body.fails + pinRefill,
+   * else pinLifetimeFails), so the aggregator's due-check agrees with the committee
+   * and never wastes a round trying a trip the members will refuse. */
+  heldFuse?: FuseRecord | null
   /** Co-signatures required (default pinT). */
   minSigs?: number
 }
@@ -942,29 +942,36 @@ export async function tripFuseIfDue(opts: TripFuseOpts): Promise<FuseRecord | nu
   // 1. effective count from monotonic per-member attempt reports (t-th-largest).
   const reports = await collectAttemptReports(opts.fabric, opts.root, opts.committee, (w) => opts.keyOf.get(w))
   const effective = effectiveCount(reports, PARAMS_A2.pinT)
-  if (!shouldTrip(effective, opts.trips, false)) return null
+  // The due-threshold is the SAME floor each member derives from the account's
+  // held fuse — so the aggregator never tries a trip the committee would refuse.
+  const threshold =
+    opts.heldFuse && opts.heldFuse.body.root === opts.root
+      ? opts.heldFuse.body.fails + PARAMS_A2.pinRefill
+      : PARAMS_A2.pinLifetimeFails
+  if (effective < threshold) return null
 
-  // 2. gather ≥ minSigs independent co-signatures; each member self-qualifies on
-  //    its own counter + PIN-record binding inside pin-fuse-sign.
+  // 2. gather ≥ minSigs independent co-signatures (concurrently — signing has no
+  //    per-request cost); each member self-qualifies on its own counter +
+  //    PIN-record binding inside pin-fuse-sign.
   const body = fuseRecordBody(opts.root, effective, opts.wts, opts.pinRecord)
+  const gathered = await Promise.all(
+    opts.committee.map(async (w): Promise<{ w: NodeId; key: B64u; sig: B64u } | null> => {
+      try {
+        const res = await req<{ sig?: { w: NodeId; key: B64u; sig: B64u }; error?: string }>(opts.fabric, w, 'pin-fuse-sign', { body })
+        const g = res.sig
+        const key = opts.keyOf.get(w)
+        return g && g.w === w && key && g.key === key ? g : null
+      } catch {
+        return null
+      }
+    }),
+  )
   const sigs: { w: NodeId; key: B64u; sig: B64u }[] = []
   const seenSig = new Set<NodeId>()
-  for (const w of opts.committee) {
-    try {
-      const res = await req<{ sig?: { w: NodeId; key: B64u; sig: B64u }; error?: string }>(
-        opts.fabric,
-        w,
-        'pin-fuse-sign',
-        { body, trips: opts.trips },
-      )
-      const g = res.sig
-      if (!g || g.w !== w || seenSig.has(w)) continue
-      const key = opts.keyOf.get(w)
-      if (!key || g.key !== key) continue
-      seenSig.add(w)
+  for (const g of gathered) {
+    if (g && !seenSig.has(g.w)) {
+      seenSig.add(g.w)
       sigs.push(g)
-    } catch {
-      /* skip unreachable member */
     }
   }
   const minSigs = opts.minSigs ?? PARAMS_A2.pinT

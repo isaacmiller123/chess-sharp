@@ -6,7 +6,7 @@
 
 import { z } from 'zod'
 import { canonicalBytes, canonicalHash } from './codec'
-import { ed25519, fromB64u, toB64u } from './hash'
+import { ed25519, toB64u, verifySigB64u } from './hash'
 import {
   AVATAR_MAX_BYTES,
   BIO_MAX,
@@ -204,11 +204,15 @@ export function signBody(body: EventBody, priv: Uint8Array): SignedEvent {
 
 /** ed25519 verify of ev.sig by ev.body.key over canonicalBytes(body). Never throws. */
 export function verifyEventSig(ev: SignedEvent): boolean {
+  // canonicalBytes can throw on a malformed body (e.g. a non-safe-integer
+  // payload) — a verifier must fail closed, not throw, on untrusted input.
+  let msg: Uint8Array
   try {
-    return ed25519.verify(fromB64u(ev.sig), canonicalBytes(ev.body), fromB64u(ev.body.key))
+    msg = canonicalBytes(ev.body)
   } catch {
     return false
   }
+  return verifySigB64u(ev.sig, msg, ev.body.key)
 }
 
 // ---------------------------------------------------------------------------

@@ -2,21 +2,27 @@
 // mechanical: same evidence → same {guilty, slashed, reason} on node and in the
 // browser bundle. Two shapes of fraud:
 //
-//  (1) Same-epoch witnessed-lane fork — two distinct witnessed successors of one
-//      prev under ONE lease epoch. Self-authenticating (A1 fraud.detectFork);
-//      the USER is permanently slashed (single-writer broke its own lease).
+//  (1) Witnessed-lane fork — two distinct witnessed successors of one prev.
+//      Self-authenticating (A1 fraud.detectFork over the two SIGNED events +
+//      the account's certified keys); the USER is permanently slashed. This is
+//      the ONLY sound path to a user-fork verdict — see adjudicateFork.
 //
-//  (2) Double-grant — two validly-granted leases for one root. The accused's
-//      appeal is mechanical (present both leases + the chain slice):
-//        · same epoch, two distinct valid leases → impossible unless witnesses
-//          double-signed; the INTERSECTION grantors are the faulty set;
-//        · different epochs, later lease lacking a valid takeover PIN session →
-//          the later lease's GRANTORS are faulty (granted without the gate);
-//        · different epochs WITH a valid takeover → the fork is the USER's.
+//  (2) Same-epoch double-grant — two validly-granted leases for one root at the
+//      SAME epoch to DIFFERENT devices → the INTERSECTION grantors double-signed
+//      and are the faulty set, attributed by keyOf (each grantor bound to its
+//      advertised key so a fabricated grant set can't frame an honest witness).
+//
+// DIFFERENT-epoch lease pairs are NOT a double-grant: a later epoch legitimately
+// supersedes an earlier one (a same-device re-fence or a PIN-gated takeover).
+// Assigning fault to a different-epoch pair from the leases (or from unverified
+// events) is unsound — it let a fabricated event pair slash honest grantors — so
+// adjudicate returns guilty:'none' for it; a real fork under such leases is
+// caught by the self-authenticating adjudicateFork path instead. (This is why
+// DoubleGrantEvidence.events is unused by adjudicate; see its note.)
 //
 // Grant validity in slash is CONTEXT-FREE (≥ tLease distinct grant signatures
-// verifying over the lease body) — NOT eligibility (eligibility is a liveness
-// judgment; a slash must stand on cryptographic evidence alone).
+// verifying over the lease body AND bound to the grantor's key via keyOf) — NOT
+// eligibility (a liveness judgment; a slash stands on cryptographic evidence).
 //
 // Platform-neutral: no `node:` imports, no DOM globals.
 

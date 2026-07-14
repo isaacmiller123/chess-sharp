@@ -8,9 +8,10 @@
 //   · verifyLease: threshold, witness-set membership, key binding, grant-sig,
 //     clock window, expiry, epoch monotonicity, PIN-gated takeover, fuse block,
 //     and the small-population (C-10) effective-threshold floor;
-//   · slash.adjudicate: same-epoch fork (user), same-epoch double-grant
-//     (intersection witnesses), different-epoch no-takeover (later witnesses),
-//     different-epoch valid-takeover (user), and below-threshold (none).
+//   · slash.adjudicate: same-epoch fork (user), same-epoch different-device
+//     double-grant (intersection witnesses, keyOf-attributed), same-device
+//     renewal + ALL different-epoch pairs (none — supersession, forks go through
+//     adjudicateFork), fabricated-grant framing rejected, and below-threshold (none).
 //
 // House style: esbuild-bundle the TS on the fly, one-line per assert, exit(1) on
 // any failure. Keys are raw fixed 32-byte seeds → ed25519 (no derive.ts).

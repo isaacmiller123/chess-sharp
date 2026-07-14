@@ -59,8 +59,9 @@ export class MockFabric {
     this.staleAfterMs = opts.staleAfterMs ?? Number.MAX_SAFE_INTEGER
   }
 
-  /** Mint an endpoint for `nodeId`. Re-minting the same nodeId reuses its
-   * registration (a node reconnecting), clearing any prior handlers. */
+  /** Mint an endpoint for `nodeId`. Re-minting the same nodeId REPLACES the
+   * registration (a node reconnecting with a fresh handler table); the prior
+   * handle becomes stale — its close() is a no-op (see _close). */
   endpoint(nodeId: NodeId): FabricEndpoint {
     const reg: Registration = { nodeId, handlers: new Map(), closed: false }
     this.registry.set(nodeId, reg)
@@ -106,7 +107,9 @@ export class MockFabric {
   _close(reg: Registration): void {
     reg.closed = true
     reg.handlers.clear()
-    this.registry.delete(reg.nodeId)
+    // Only evict if this reg is still the CURRENT one for the nodeId — closing a
+    // stale handle after the node re-minted must not evict the live registration.
+    if (this.registry.get(reg.nodeId) === reg) this.registry.delete(reg.nodeId)
     // Presence is left in the directory to expire naturally by staleness — a
     // node going offline does not instantly vanish from every observer's view.
   }

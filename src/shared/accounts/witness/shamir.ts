@@ -95,14 +95,6 @@ export function dealScalar(secret: bigint, t: number, n: number, rng: Rng): Deal
 }
 
 /**
- * Split a secret T-of-N over the scalar field. Returns the n shares only
- * (the contract shape); use dealScalar when the Feldman commitments are needed.
- */
-export function splitScalar(secret: bigint, t: number, n: number, rng: Rng): Share[] {
-  return dealScalar(secret, t, n, rng).shares
-}
-
-/**
  * Lagrange basis coefficient λ_i(0) = Π_{j∈S, j≠i} j/(j−i) mod L, for the
  * index set S (the x-coordinates of the shares being combined). Pure.
  */

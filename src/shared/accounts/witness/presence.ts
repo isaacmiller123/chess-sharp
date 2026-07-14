@@ -11,7 +11,7 @@
 import { z } from 'zod'
 import { canonicalBytes, compareKeys } from '../codec'
 import { zB64u32, zB64u64 } from '../events'
-import { ed25519, fromB64u, toB64u } from '../hash'
+import { ed25519, toB64u, verifySigB64u } from '../hash'
 import type { NodeDirectory, NodeId, PresenceBody, SignedPresence } from './types'
 import { nodeIdOf } from './distance'
 
@@ -52,12 +52,8 @@ export function signPresence(body: PresenceBody, priv: Uint8Array): SignedPresen
  * chain fact judged by eligibility.ts, which reads the node's chain). Never throws.
  */
 export function verifyPresence(sp: SignedPresence): boolean {
-  try {
-    if (!zSignedPresence.safeParse(sp).success) return false
-    return ed25519.verify(fromB64u(sp.sig), canonicalBytes(sp.body), fromB64u(sp.body.key))
-  } catch {
-    return false
-  }
+  if (!zSignedPresence.safeParse(sp).success) return false
+  return verifySigB64u(sp.sig, canonicalBytes(sp.body), sp.body.key)
 }
 
 // ---------------------------------------------------------------------------
@@ -71,9 +67,11 @@ export function verifyPresence(sp: SignedPresence): boolean {
  * pool for the canonical witness set.
  */
 export function liveNodesOf(dir: NodeDirectory, nowMs: number): SignedPresence[] {
+  // The directory is keyed by nodeId (ingest/announce set the key to
+  // nodeIdOf(root)), so use the key rather than re-deriving sha256(root) here.
   const live: { nodeId: NodeId; sp: SignedPresence }[] = []
-  for (const sp of dir.nodes.values()) {
-    if (nowMs - sp.body.ts <= dir.staleAfterMs) live.push({ nodeId: nodeIdOf(sp.body.root), sp })
+  for (const [nodeId, sp] of dir.nodes) {
+    if (nowMs - sp.body.ts <= dir.staleAfterMs) live.push({ nodeId, sp })
   }
   live.sort((a, b) => compareKeys(a.nodeId, b.nodeId))
   return live.map((x) => x.sp)

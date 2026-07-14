@@ -205,23 +205,27 @@ export async function createTrysteroFabric(opts: StartOperatorPeerOpts): Promise
   const presence = new Map<NodeId, SignedPresence>()
   const peerOfNode = new Map<NodeId, string>()
 
-  // Presence gossip — learn nodeId→peerId and populate the directory.
-  const [sendPresence, onPresence] = room.makeAction(ANNOUNCE_NS)
-  onPresence((data: unknown, peerId: string) => {
-    const sp = data as SignedPresence
-    // verifyPresence lives in shared; keep the glue thin — validate at ingest.
-    // (Imported lazily to avoid a hard shared import in the trystero-only path.)
-    void ingestPresence(presence, peerOfNode, sp, peerId)
+  // Presence gossip (trystero 0.25 message action) — learn nodeId→peerId and
+  // populate the directory. makeAction returns an object; onMessage(data, ctx).
+  const presenceAction = room.makeAction(ANNOUNCE_NS, {
+    kind: 'message',
+    onMessage: (data: unknown, ctx: { peerId: string }) => {
+      // verifyPresence lives in shared and runs inside ingestPresence.
+      void ingestPresence(presence, peerOfNode, data as SignedPresence, ctx.peerId)
+    },
   })
 
-  // Single request channel; the FabricRequestKind rides inside the frame.
-  const [sendRequest, onRequest] = room.makeAction(REQUEST_NS)
-  onRequest(async (data: unknown, peerId: string) => {
-    const frame = data as { kind: string; payload: unknown }
-    const h = handlers.get(frame.kind)
-    const from = nodeOfPeer(peerOfNode, peerId) ?? peerId
-    if (!h) return { error: `no handler for '${frame.kind}'` }
-    return h(from as NodeId, frame.payload)
+  // Single request channel (trystero 0.25 request action); the FabricRequestKind
+  // rides inside the frame. onRequest returns the response value directly.
+  const requestAction = room.makeAction(REQUEST_NS, {
+    kind: 'request',
+    onRequest: async (data: unknown, ctx: { peerId: string }) => {
+      const frame = data as { kind: string; payload: unknown }
+      const h = handlers.get(frame.kind)
+      const from = nodeOfPeer(peerOfNode, ctx.peerId) ?? ctx.peerId
+      if (!h) return { error: `no handler for '${frame.kind}'` }
+      return h(from as NodeId, frame.payload)
+    },
   })
 
   return {
@@ -229,7 +233,7 @@ export async function createTrysteroFabric(opts: StartOperatorPeerOpts): Promise
     announce(sp: SignedPresence): void {
       const nid = deriveNodeId(sp)
       presence.set(nid, sp)
-      void sendPresence(sp as unknown as Record<string, unknown>)
+      void presenceAction.send(sp as unknown as Record<string, unknown>) // no target ⇒ broadcast
     },
     directory() {
       return { nodes: new Map(presence), staleAfterMs }
@@ -237,7 +241,7 @@ export async function createTrysteroFabric(opts: StartOperatorPeerOpts): Promise
     async request(to, kind, payload) {
       const peerId = peerOfNode.get(to)
       if (peerId === undefined) throw new Error(`trystero-fabric: no peer for node ${to}`)
-      const res = await sendRequest({ kind, payload } as unknown as Record<string, unknown>, peerId)
+      const res = await requestAction.request({ kind, payload } as unknown as Record<string, unknown>, { target: peerId })
       return res as never
     },
     onRequest(kind, handler) {
@@ -249,14 +253,16 @@ export async function createTrysteroFabric(opts: StartOperatorPeerOpts): Promise
   }
 }
 
-/** The trystero Room surface this glue uses (subset, loosely typed). */
+/** The trystero 0.25 Room surface this glue uses (subset, loosely typed). A
+ * message action broadcasts (no target); a request action does request/response. */
 interface TrysteroRoom {
   makeAction(
     ns: string,
-  ): [
-    (data: Record<string, unknown>, target?: string) => Promise<unknown>,
-    (cb: (data: unknown, peerId: string) => void | Promise<unknown>) => void,
-  ]
+    config: Record<string, unknown>,
+  ): {
+    send: (data: Record<string, unknown>, opts?: { target?: string }) => Promise<void>
+    request: (data: Record<string, unknown>, opts: { target: string }) => Promise<unknown>
+  }
   leave(): Promise<void>
 }
 

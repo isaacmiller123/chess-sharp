@@ -287,22 +287,24 @@ export interface PinSession {
 // ---------------------------------------------------------------------------
 
 /**
- * Evidence bundle for the double-grant case. Deterministic verdict:
- *  - Same epoch, two valid leases → impossible unless ≥ (2·tLease − wN)
- *    grantors signed both — those intersection grantors are the faulty set
- *    (witness fault).
- *  - Different epochs, both validly granted, chain shows successors under
- *    both with conflicting linkage → if the later-epoch lease lacks a valid
- *    `takeover` PIN session, the GRANTORS of the later lease are faulty
- *    (they granted without the gate); if the takeover is valid, the USER is
- *    at fault (same-epoch fork rule applies to whichever lane forked).
- * The accused's appeal is mechanical: present both leases + the chain slice.
+ * Evidence bundle for the double-grant case. Deterministic verdict (adjudicate):
+ *  - SAME epoch, two valid leases to DIFFERENT devices → the INTERSECTION
+ *    grantors double-signed at one epoch and are the faulty set (witness fault),
+ *    attributed via keyOf so a fabricated grant set cannot frame an honest node.
+ *  - Identical leases, or same-device same-epoch renewal → guilty:'none'.
+ *  - DIFFERENT epochs → guilty:'none': a later epoch legitimately supersedes an
+ *    earlier one; a genuine fork under such leases is caught only by the
+ *    self-authenticating adjudicateFork path (which verifies the signed events +
+ *    certified keys), NOT from the lease pair.
+ * The accused's appeal is mechanical: present both leases.
  */
 export interface DoubleGrantEvidence {
   root: B64u
   a: Lease
   b: Lease
-  /** Chain slice covering both epochs' successors (may be partial). */
+  /** Chain slice — RESERVED. adjudicate does NOT consume it (fork verdicts go
+   * through adjudicateFork on a self-authenticating ForkProof); kept so callers
+   * can carry the slice for the fork path without a shape change. */
   events: SignedEvent[]
 }
 

@@ -36,6 +36,18 @@ export const ed25519 = {
   },
 }
 
+/** Detached ed25519 verify over base64url-encoded signature + pubkey; never
+ * throws (a bad encoding or bad signature returns false). One place for the
+ * b64u decode + verify the fabric and chain repeat everywhere a signature is
+ * carried as base64url strings. */
+export function verifySigB64u(sig: string, msg: Uint8Array, pub: string): boolean {
+  try {
+    return ed25519.verify(fromB64u(sig), msg, fromB64u(pub))
+  } catch {
+    return false
+  }
+}
+
 export function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false
   let diff = 0

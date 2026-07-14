@@ -13,7 +13,7 @@
 // nothing is re-implemented here.
 
 import { canonicalBytes, canonicalHash } from '../codec'
-import { ed25519, fromB64u, toB64u } from '../hash'
+import { ed25519, toB64u, verifySigB64u as verifySig } from '../hash'
 import type { B64u } from '../types'
 import { nodeIdOf } from './distance'
 import { canonicalWitnessSet, type ChainSummary, type EligibilityParams } from './eligibility'
@@ -29,15 +29,6 @@ import type {
   SubjectSummary,
 } from './types'
 import { medianInt } from './wtime'
-
-/** ed25519 verify that never throws. */
-function verifySig(sig: B64u, msg: Uint8Array, pub: B64u): boolean {
-  try {
-    return ed25519.verify(fromB64u(sig), msg, fromB64u(pub))
-  } catch {
-    return false
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Lease body + grant construction
