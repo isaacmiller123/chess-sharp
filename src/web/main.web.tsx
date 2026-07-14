@@ -6,6 +6,11 @@
 
 import { webApi } from './webApi'
 import { authStore } from './authStore'
+// Decentralized accounts (A1 packaging): side-effect import pulls the shared
+// accounts tree (ed25519 + hash-wasm argon2) into the web bundle and exposes
+// the window.__chessAccounts dev/test surface. Not the interim server
+// accounts (authStore above) — those stay until A-final. No UI yet (A6).
+import './accounts'
 
 declare global {
   interface Window {

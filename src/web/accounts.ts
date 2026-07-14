@@ -1,0 +1,274 @@
+// Decentralized-accounts web glue (spec §14-A1 packaging deliverable).
+//
+// This is NOT the interim server-account system (authStore.ts / server/auth.ts
+// — in service until A-final): it is the A1 client surface for the
+// database-less accounts, wired to localStorage through the platform-neutral
+// keyring. NO UI yet — A6 owns UI. window.__chessAccounts is a dev/test
+// surface so the flows are reachable from the console and from CI page
+// drivers without dead buttons anywhere.
+//
+// Clock rule: the shared library is clock-free by contract; THIS layer is
+// where Date.now() is allowed. Every event timestamp originates here.
+
+import {
+  KEY_PURPOSE,
+  Keyring,
+  StorageLikeKeyStore,
+  createAccountChain,
+  deriveChild,
+  deriveIdentity,
+  eventId,
+  formatHandle,
+  makeKeyfile,
+  seedToMnemonic,
+  toB64u,
+  verifyChain,
+  type Chain,
+  type Identity,
+  type StorageLike,
+  type StoredAccount,
+  type VerifyResult,
+} from '@shared/accounts'
+
+// ---------------------------------------------------------------------------
+// Keyring over localStorage
+// ---------------------------------------------------------------------------
+
+// globalThis-based so the module also loads under the node-run web suites
+// (which stub localStorage) — in the browser this IS window.localStorage.
+// LAZY: this module is a side-effect import of the web entry, and a
+// storage-denied context (or a bare-node import without the stub) must not
+// blank the app at module-eval time — it errors when a flow actually runs.
+let _keyring: Keyring | null = null
+export function keyring(): Keyring {
+  if (_keyring) return _keyring
+  const storage = (globalThis as { localStorage?: StorageLike }).localStorage
+  if (!storage) throw new Error('accounts: no localStorage available')
+  _keyring = new Keyring(new StorageLikeKeyStore(storage))
+  return _keyring
+}
+
+// ---------------------------------------------------------------------------
+// In-memory session (cleared by signOut — the chain is NEVER cleared)
+// ---------------------------------------------------------------------------
+
+interface Session {
+  identity: Identity
+  account: StoredAccount
+}
+
+let session: Session | null = null
+
+export interface AccountsState {
+  signedIn: boolean
+  foldedName?: string
+  displayName?: string
+  tag?: string
+  handle?: string
+  rootPub?: string
+}
+
+export function getState(): AccountsState {
+  if (!session) return { signedIn: false }
+  const { identity } = session
+  return {
+    signedIn: true,
+    foldedName: identity.foldedName,
+    displayName: identity.displayName,
+    tag: identity.tag,
+    handle: formatHandle(identity.displayName, identity.tag),
+    rootPub: toB64u(identity.rootPub),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Device label (short, human) from the user agent
+// ---------------------------------------------------------------------------
+
+/** 'Chrome', 'Firefox', 'Safari', 'Edge' … + platform hint, ≤ 64 chars
+ *  (zCertPayload label cap). Pure string munging — deterministic per UA. */
+export function shortDeviceLabel(ua: string): string {
+  let browser = 'Browser'
+  if (/Edg\//.test(ua)) browser = 'Edge'
+  else if (/OPR\//.test(ua)) browser = 'Opera'
+  else if (/Firefox\//.test(ua)) browser = 'Firefox'
+  else if (/Chrome\//.test(ua)) browser = 'Chrome'
+  else if (/Safari\//.test(ua)) browser = 'Safari'
+  let os = ''
+  if (/Windows/.test(ua)) os = 'Windows'
+  else if (/Mac OS X|Macintosh/.test(ua)) os = 'macOS'
+  else if (/Android/.test(ua)) os = 'Android'
+  else if (/iPhone|iPad/.test(ua)) os = 'iOS'
+  else if (/Linux/.test(ua)) os = 'Linux'
+  const label = os ? `${browser} on ${os}` : browser
+  return label.slice(0, 64)
+}
+
+function deviceLabel(): string {
+  const nav = (globalThis as { navigator?: { userAgent?: string } }).navigator
+  return shortDeviceLabel(nav?.userAgent ?? '')
+}
+
+// ---------------------------------------------------------------------------
+// Flows
+// ---------------------------------------------------------------------------
+
+export interface CreateAccountOpts {
+  /** Explicit "keep me signed in on this device" — stores the seed (keyfile
+   *  semantics, types.ts StoredAccount doc). Default: NOT stored. */
+  rememberSeed?: boolean
+}
+
+/**
+ * Create an account fully offline: derive → genesis + device-0 cert →
+ * persist chain THEN record → signed in. Refuses an existing (foldedName,
+ * tag) record and an existing chain for the derived root (creation is
+ * deliberate; use signIn). Same name + different password derives a
+ * different root/tag and COEXISTS (spec §1: collisions disambiguate by tag).
+ */
+export async function createAccount(
+  name: string,
+  password: string,
+  opts?: CreateAccountOpts,
+): Promise<AccountsState> {
+  const identity = await deriveIdentity(name, password)
+  const rootPub = toB64u(identity.rootPub)
+  const existing = await keyring().getAccount(identity.foldedName, identity.tag)
+  if (existing)
+    throw new Error(
+      `an account named '${identity.foldedName}#${identity.tag}' already exists on this device — sign in instead`,
+    )
+  // The chain is append-only and survives removeAccount by design — NEVER
+  // overwrite one that is already on this device.
+  if ((await keyring().loadChain(rootPub)) !== null)
+    throw new Error(
+      `a chain for '${identity.foldedName}#${identity.tag}' already exists on this device — sign in instead`,
+    )
+  const device = deriveChild(identity.seed, KEY_PURPOSE.device, 0)
+  const devicePub = toB64u(device.pub)
+  const now = Date.now() // glue-layer clock — the library never reads one
+  const chain = createAccountChain({
+    rootPriv: identity.rootPriv,
+    rootPub: identity.rootPub,
+    displayName: identity.displayName,
+    ts: now,
+    device: { pub: devicePub, index: 0, label: deviceLabel() },
+  })
+  const vr = verifyChain(chain)
+  if (!vr.ok) throw new Error(`freshly created chain failed verification: ${vr.errors[0]?.code}`)
+  const certEv = chain.events.find((e) => e.body.type === 'cert')
+  if (!certEv) throw new Error('created chain is missing its device certificate')
+  const account: StoredAccount = {
+    v: 1,
+    foldedName: identity.foldedName,
+    displayName: identity.displayName,
+    tag: identity.tag,
+    rootPub,
+    device: { index: 0, pub: devicePub, certEvent: eventId(certEv.body) },
+    ...(opts?.rememberSeed ? { seedB64u: toB64u(identity.seed) } : {}),
+  }
+  // Chain FIRST, record second: if the record write fails, roll the chain
+  // back (best-effort) so the username stays retryable — a half-created
+  // account must never brick the name.
+  await keyring().saveChain(chain.root, chain)
+  try {
+    await keyring().saveAccount(account)
+  } catch (e) {
+    try {
+      await keyring().removeChain(chain.root)
+    } catch {
+      /* best-effort rollback — the original failure is what matters */
+    }
+    throw e
+  }
+  session = { identity, account }
+  return getState()
+}
+
+/**
+ * Sign in = re-derivation + verification against the stored chain. NEVER
+ * creates anything: no stored account/chain for the name → error directing
+ * the user to createAccount (create-if-absent is an explicit, separate act).
+ * Lookup is by (foldedName, DERIVED tag): a wrong password derives a
+ * different root/tag, so the record simply isn't found — when other tags
+ * exist under the name, that mismatch IS the wrong-password signal.
+ */
+export async function signIn(name: string, password: string): Promise<AccountsState> {
+  const identity = await deriveIdentity(name, password)
+  const account = await keyring().getAccount(identity.foldedName, identity.tag)
+  if (!account) {
+    const sameName = (await keyring().listAccounts()).some(
+      (a) => a.foldedName === identity.foldedName,
+    )
+    throw new Error(
+      sameName
+        ? 'no account with this name and password on this device'
+        : `no account named '${identity.foldedName}' on this device — create it explicitly`,
+    )
+  }
+  // Tag is a 25-bit prefix — keep the full-rootPub check as defense in depth.
+  if (toB64u(identity.rootPub) !== account.rootPub)
+    throw new Error('wrong password (derived key does not match this account)')
+  const chain = await keyring().loadChain(account.rootPub)
+  if (!chain) throw new Error('account record exists but its chain is missing — cannot sign in')
+  if (chain.root !== account.rootPub) throw new Error('stored chain belongs to a different root')
+  const vr = verifyChain(chain)
+  if (!vr.ok)
+    throw new Error(`stored chain failed verification (${vr.errors[0]?.code}) — refusing to sign in`)
+  session = { identity, account }
+  return getState()
+}
+
+/** Clears the in-memory identity ONLY. The chain + account record stay —
+ *  sign-out never destroys the self-carried file. */
+export function signOut(): void {
+  session = null
+}
+
+function requireSession(): Session {
+  if (!session) throw new Error('not signed in')
+  return session
+}
+
+/** 24-word BIP39 encoding of the signed-in account's seed (the lifeline, C-5). */
+export function exportMnemonic(): string {
+  return seedToMnemonic(requireSession().identity.seed)
+}
+
+/** Keyfile JSON for the signed-in account (plaintext by design — C-5). */
+export function exportKeyfile(): string {
+  return JSON.stringify(makeKeyfile(requireSession().identity))
+}
+
+/** Load + verify the signed-in account's stored chain (the A1 headless-verify
+ *  proof surface). Pure read — no state change. */
+export async function verifyOwnChain(): Promise<VerifyResult> {
+  const { account } = requireSession()
+  const chain: Chain | null = await keyring().loadChain(account.rootPub)
+  if (!chain) throw new Error('no stored chain for the signed-in account')
+  return verifyChain(chain)
+}
+
+// ---------------------------------------------------------------------------
+// Dev/test surface (NO UI in A1 — A6 owns UI)
+// ---------------------------------------------------------------------------
+
+const surface = {
+  createAccount,
+  signIn,
+  signOut,
+  exportMnemonic,
+  exportKeyfile,
+  getState,
+  verifyOwnChain,
+}
+
+declare global {
+  interface Window {
+    __chessAccounts?: typeof surface
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.__chessAccounts = surface
+}

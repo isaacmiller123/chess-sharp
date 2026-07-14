@@ -91,6 +91,14 @@
 - [ ] **Proactive in-game Viktor coaching.** Viktor narrates at instructive moments during live play
       (the `narrate` path is built but not wired into a live game loop).
 
+## 🔜 Next major system — decentralized accounts (spec locked 2026-07-14)
+- [ ] **docs/ACCOUNTS-SPEC.md** is the binding spec: database-less accounts (entangled personal
+      chains + witnesses + client-side deterministic anticheat + trust-width matchmaking).
+      Build phases A1–A6 defined in §14; open parameters in §13. Supersedes the interim
+      server-account system when complete. Also queued from the same design sessions: repertoire
+      trainer (SRS opening drills), shareable game/profile links, one-click rematch everywhere,
+      networking-resilience polish pass.
+
 ## 🧭 Exploratory (asked about; not building yet)
 - [ ] **Web port.** The renderer is already React/TS; the blockers are the Electron-only main process
       (node:sqlite DBs, local Stockfish, IPC). Path: replace IPC with a server/WASM backend —

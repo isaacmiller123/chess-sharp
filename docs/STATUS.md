@@ -237,3 +237,44 @@ byte-for-behavior identical). Fixes:
 - New/extended tests: cap rejection + CSRF + 413 body-limit (test-web-bridge), Secure-cookie +
   rate-limit 429 + MAX_ACCOUNTS + token-hash-at-rest + v0→v1 migration (test-web-auth, now 3-phase),
   debrief enrichment + engineless-reject + signup import (test-web-client).
+
+## Decentralized accounts — Phase A1 COMPLETE: identity & keys (2026-07-14)
+Binding spec: docs/ACCOUNTS-SPEC.md v1.1; parameters: docs/ACCOUNTS-PARAMS.md (NEW — every §13
+open parameter decided + rationale; 3 items flagged for sign-off: checkpoint M=4/N=8, per-category
+reveal thresholds 120/100/80/40, reputation fold weights). Built by a 3-builder fleet against a
+lead-written contract, then a 29-agent adversarial review (6 attack dimensions, findings
+independently verified — 4 major + 13 minor confirmed, 6 refuted) and a fix pass. Desktop 100%
+intact: full wall 36/36 scripts/test-*.mjs green, electron-vite build + build:web + build:server +
+typecheck (node/web/server) green.
+- **src/shared/accounts/** (platform-neutral, no node:/DOM; typechecks under BOTH node and web
+  tsconfigs): cjson-v1 canonical codec (sorted keys, integers only, no null, NFC, lone-surrogate +
+  `__proto__` rejection — byte-determinism is the product), sha256/ed25519 wiring (@noble, sync),
+  argon2id identity derivation (m=64MiB t=3 p=1, salt=sha256(NFKC-casefolded username), password
+  NFKD — both FROZEN-AT-GENESIS in PARAMS_V1, digest ZDoblqaVf5z1zL8IvmWK2sdZK29JTNWZpY38XuDBZdk),
+  SLIP-0010 ed25519 hardened children (official test vectors), name#TAG (5-char base32), BIP39
+  24-word mnemonic + keyfile export, two-lane chain (witnessed single-writer hash chain; personal
+  per-signer CRDT with deterministic merge), root-signed key certificates + revocation, checkpoints
+  (embed prior snapshot, incremental one-step verify, deep verify), self-authenticating fork
+  proofs, keyring (tag-aware: same-name different-tag identities coexist per §1).
+- **src/web/accounts.ts**: web keyring glue over localStorage + window.__chessAccounts dev surface
+  (no UI — A6 owns UI). Chain-first persist with rollback; createAccount never overwrites an
+  existing chain. Web bundle +35.4 KiB gzip. Desktop renderer untouched.
+- **Interim accounts (server/auth.ts) untouched and still live** — A-final flips them off.
+- **Tests (491 assertions)**: test-accounts-core (154: SLIP-0010 vectors, argon2 KAT, NFD-password
+  = NFC-password, normalization attack matrix), test-accounts-chain (144: tamper matrix, forks,
+  checkpoint fraud incl. all bad-checkpoint branches, revoke-then-recert, duplicate-event
+  canonicalization, CRDT merge determinism), test-web-accounts (151: node-vs-browser-bundle byte
+  parity, rollback, coexistence), test-web-accounts-browser (42: REAL headless Chromium via
+  playwright-core — derivation + chain verify bit-identical to node, crossOriginIsolated). CI:
+  web.yml provisions chromium-headless-shell (browser worst-case gate now exists per §14);
+  build.yml runs the two node suites on node 22.
+- Review catches worth noting: password Unicode normalization was MISSING (NFC vs NFD → permanent
+  lockout under C-5) — now NFKD, frozen; `__proto__` canonical-vs-zod split-brain; chainToBytes
+  duplicate-event non-canonicality; createAccount write-order brick. All fixed + regression-tested.
+- A2 de-risk spike (throwaway, scratchpad): trystero 0.25.2 joins rooms under bare node with
+  werift's RTCPeerConnection as rtcPolyfill — node↔browser connect ~4s over real Nostr relays,
+  3-peer mesh verified, esbuild self-contained CJS bundle proven from an empty dir (satisfies the
+  no-node_modules Docker constraint). node-datachannel works too but its native addon breaks
+  isolated bundling — fallback only. Operator peer architecture: werift.
+- Known A6 item: keyring.removeAccount + createAccount same creds = honest dead end (chain is
+  preserved by design; record re-adoption flow lands with the account UI).

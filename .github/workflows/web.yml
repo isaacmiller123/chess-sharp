@@ -44,6 +44,13 @@ jobs:
       - name: Patch ffish embind glue
         run: node scripts/patch-ffish-csp.mjs
 
+      # The accounts browser gate (scripts/test-web-accounts-browser.mjs, picked
+      # up by the test glob below) drives real headless chromium. Provision it
+      # here so the suite never hits its offline-skip path — in CI that path is
+      # a hard failure by design (spec §14 quality gate).
+      - name: Install chromium (playwright headless shell)
+        run: npx playwright-core install chromium-headless-shell
+
       - name: Typecheck (web + server)
         run: |
           npm run typecheck:web
