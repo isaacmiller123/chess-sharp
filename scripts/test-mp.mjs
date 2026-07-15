@@ -1334,10 +1334,12 @@ async function main() {
       onPeerJoin: () => {}, onPeerLeave: () => {}
     })
     await waitEvent(badInbox, (m) => m.t === 'hello', { label: 'host hello to bad guest' })
-    // A REAL previous build: wire v4 (games platform, pre-byo-yomi). The v5
-    // hello gate must refuse it politely — v5 changed the clock semantics
-    // (byo-yomi periods ride beside clockMs), so v4 peers can't interoperate.
-    eq(wire.PROTOCOL_VERSION, 5, 'PROTOCOL_VERSION is 5 (byo-yomi wire)')
+    // A REAL previous build: wire v4 (games platform, pre-byo-yomi). The hello
+    // gate must refuse any peer whose version ≠ PROTOCOL_VERSION. Bumped to 6
+    // with wire v6 (the `witness` role + per-move signature chaining, A3); the
+    // unsigned v5 flow this suite exercises is byte-identical, only the version
+    // integer moved (v4→v5 updated this exact pin the same way).
+    eq(wire.PROTOCOL_VERSION, 6, 'PROTOCOL_VERSION is 6 (signed-play wire, A3)')
     badMember.transport.send(JSON.stringify({ t: 'hello', v: 4, role: 'guest' }))
     await waitEvent(he, (e) => e.type === 'error' && /version/i.test(e.message), { label: 'host version-mismatch error' })
     ok(true, 'host rejects a v4 peer with a version-mismatch error')

@@ -87,12 +87,70 @@ export const zCheckpointPayload = z.strictObject({
   stateDigest: zB64u32,
 })
 
+/**
+ * A ckpt SignedEvent, validated by a NON-RECURSIVE schema (body pinned to a
+ * ckpt payload). This exists so a segment's `oppCkpt` does NOT reference the
+ * general zSignedEvent — which, via the segment payload's own oppCkpt, would
+ * be mutually recursive and let an attacker nest segment-in-oppCkpt to any
+ * depth, overflowing zod's safeParse stack on untrusted input (a verifier
+ * must fail closed, not throw). A real oppCkpt IS a ckpt event, so pinning the
+ * type here is both the correct shape and the recursion bound (a ckpt payload
+ * carries no event-typed field). `wit` reuses zWitnessAttestation (a straight,
+ * acyclic reference — z.lazy only handles its forward declaration below).
+ */
+export const zCkptEvent = z.strictObject({
+  body: z.strictObject({
+    v: z.literal(1),
+    lane: z.literal('w'),
+    type: z.literal('ckpt'),
+    root: zB64u32,
+    key: zB64u32,
+    height: zHeight,
+    prev: zB64u32.optional(),
+    ts: zTs,
+    payload: zCheckpointPayload,
+  }),
+  sig: zB64u64,
+  wit: z.array(z.lazy(() => zWitnessAttestation)).optional(),
+})
+
+/** A3 game segment (§3) — see storage/types.ts SegmentPayload for the field
+ * contract. oppCkpt is the opponent's cosigned ckpt event, validated by the
+ * non-recursive zCkptEvent above (bounds untrusted-input recursion depth). */
+export const zSegmentHeads = z.strictObject({
+  w: z.strictObject({ head: zB64u32, height: zHeight }),
+  b: z.strictObject({ head: zB64u32, height: zHeight }),
+})
+
+export const zProfileSnapshot = z.strictObject({
+  name: zName,
+  bio: z.string().max(BIO_MAX).optional(),
+  country: z.string().max(64).optional(),
+  flair: z.string().max(64).optional(),
+  avatarDigest: zB64u32.optional(),
+})
+
+export const zSegmentPayload = z.strictObject({
+  game: zB64u32,
+  opp: zB64u32,
+  color: z.enum(['w', 'b']),
+  result: z.enum(['1-0', '0-1', '1/2-1/2']),
+  reason: z.string().min(1).max(64),
+  transcript: zB64u32,
+  plies: z.int().min(0).max(4096),
+  heads: zSegmentHeads,
+  wstream: z.strictObject({ wkey: zB64u32, sig: zB64u64 }),
+  oppCkpt: zCkptEvent.optional(),
+  oppProfile: zProfileSnapshot,
+})
+
 export const PAYLOAD_SCHEMA: Record<EventType, z.ZodType> = {
   genesis: zGenesisPayload,
   cert: zCertPayload,
   revoke: zRevokePayload,
   profile: zProfilePayload,
   ckpt: zCheckpointPayload,
+  segment: zSegmentPayload,
 }
 
 /** The lane each event type belongs to (types.ts registry). */
@@ -102,6 +160,7 @@ export const LANE_FOR: Record<EventType, Lane> = {
   revoke: 'w',
   profile: 'p',
   ckpt: 'w',
+  segment: 'w',
 }
 
 // ---------------------------------------------------------------------------
@@ -116,7 +175,7 @@ export const LANE_FOR: Record<EventType, Lane> = {
 export const zEventBodyCore = z.strictObject({
   v: z.literal(1),
   lane: z.enum(['w', 'p']),
-  type: z.enum(['genesis', 'cert', 'revoke', 'profile', 'ckpt']),
+  type: z.enum(['genesis', 'cert', 'revoke', 'profile', 'ckpt', 'segment']),
   root: zB64u32,
   key: zB64u32,
   height: zHeight,

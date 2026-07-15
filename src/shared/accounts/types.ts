@@ -48,17 +48,22 @@ export interface NormalizedName {
 export type Lane = 'w' | 'p'
 
 /**
- * Event types, A1 set. A2+ adds lease/witness/PIN records; A3 adds game
- * segments + pointers; A4 adds conduct events. The registry is open but every
- * type's payload schema is closed (zod, .strict()).
+ * Event types: A1 set + A3's 'segment'. A2 carries lease/witness/PIN state as
+ * standalone records (witness/types.ts); A4 adds conduct events. The registry
+ * is open but every type's payload schema is closed (zod, .strict()).
  *
  *  genesis  w  height 0, prev absent, signed by root. payload: GenesisPayload
  *  cert     p  root-signed child-key certificate. payload: CertPayload
  *  revoke   w  root- or device-signed key revocation. payload: RevokePayload
  *  profile  p  LWW profile field write. payload: ProfilePayload
  *  ckpt     w  checkpoint (§2). payload: CheckpointPayload
+ *  segment  w  entanglement game segment (§3, A3). payload: SegmentPayload
+ *              (storage/types.ts) — pairwise-countersigned transcript digest,
+ *              both heads, witness stream sig, opponent ckpt + profile
+ *              snapshot. Deleting one breaks the owner's own hash chain —
+ *              that is the retention mechanism (§5 layer 1).
  */
-export type EventType = 'genesis' | 'cert' | 'revoke' | 'profile' | 'ckpt'
+export type EventType = 'genesis' | 'cert' | 'revoke' | 'profile' | 'ckpt' | 'segment'
 
 /**
  * The signed body. `sig` (in SignedEvent) covers canonicalBytes(body).

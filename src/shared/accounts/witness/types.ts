@@ -347,6 +347,14 @@ export type FabricRequestKind =
   | 'pin-handoff' // client → old member: authorize re-provision
   | 'fuse-check' // any → member: current fuse state for a root
   | 'head' // any → witness: cached head for a root/lane
+  // A3 overlay (spec §5; overlay/types.ts payload contracts). The fabric
+  // remains transport-only — these kinds ride request() like every other,
+  // and the overlay layer owns all routing + validation.
+  | 'overlay-ping'
+  | 'overlay-find-node'
+  | 'overlay-find-value'
+  | 'overlay-store'
+  | 'overlay-fetch' // viewer → holder: summary / event pages / shard bodies
 
 // ---------------------------------------------------------------------------
 // Witness-side cache (C-1 gossip memory — reconstructible, unauthoritative)

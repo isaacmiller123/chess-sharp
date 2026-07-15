@@ -71,12 +71,13 @@ jobs:
         run: |
           for t in test-games-kernel test-ffish-games test-go test-checkers \
                    test-small-games test-custom-variants test-mp test-mp-store \
-                   test-est-elo test-ratings-integrity test-manuals test-board3d \
-                   test-cg-keys test-custom-board-keys test-flip \
+                   test-mp-v6 test-est-elo test-ratings-integrity test-manuals \
+                   test-board3d test-cg-keys test-custom-board-keys test-flip \
                    test-games-archive test-settings-persist test-school-replace \
                    test-updater test-accounts-core test-accounts-chain \
                    test-accounts-witness test-accounts-pin test-accounts-lease \
-                   test-accounts-fabric test-judge-node; do
+                   test-accounts-fabric test-accounts-rs test-accounts-overlay \
+                   test-judge-node; do
             echo "== $t =="; node scripts/$t.mjs
           done
 

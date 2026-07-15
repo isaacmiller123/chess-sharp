@@ -16,6 +16,17 @@
 //           authoritative clock. A guest hearing hello{role:'guest'} knows nobody
 //           is hosting and fails immediately; no host at all within 30s → friendly
 //           give-up.
+//   WITNESS (wire v6, accounts spec §3) — an optional THIRD, non-playing peer.
+//           It announces itself by hello{role:'witness'} (never by presence); a
+//           session that opted into signed play (opts.signing) seats exactly ONE
+//           and the HOST mirrors the committed game stream to it; its wclk/wend
+//           countersignatures are verified here and surface via onWitnessStream.
+//           A second witness hello is refused with a targeted error; a session
+//           with no signing config TOLERATES a witness hello and ignores it.
+//           Signed play itself: both hellos carry root/key ⇒ the host mints the
+//           game key (segment.ts), every move carries the mover's chained sig,
+//           terminals carry an esig — and any bad/missing signature tears the
+//           session down loudly (signed play never silently degrades).
 //
 // Perspective: every MpEvent is emitted from the RECEIVER's point of view
 //   (`yourColor` is this client's color; `resign.by`/`flag.by` is who lost).
@@ -32,6 +43,7 @@
 import type { MpEvent, MpGameConfig, MpColor, MpClocks, MpByo } from '@shared/types'
 import {
   type WireMsg,
+  type HelloMsg,
   parseWireMsg,
   encodeWireMsg,
   makeHello,
@@ -40,6 +52,18 @@ import {
   generateRoomCode,
   normalizeRoomCode
 } from '@shared/mp/wire'
+import { MoveChainVerifier, sigClock, REASON_FLAG, REASON_RESIGN } from '@shared/mp/witnessCore'
+import {
+  gameKey as computeGameKey,
+  signMove,
+  signWitnessEnd,
+  transcriptDigest,
+  witnessClockBytes,
+  verifyWitnessEnd,
+  type GameKeySeed,
+  type SignedMove
+} from '@shared/accounts/segment'
+import { toB64u, verifySigB64u } from '@shared/accounts/hash'
 import { isWebBuild } from '../../../platform'
 import { timeControlCategory, type TimeControl } from '../timeControl'
 import {
@@ -150,9 +174,28 @@ const NO_HOST_MESSAGE =
 
 type Clocks = MpClocks
 
+/** v6 witness→player stream messages surfaced via onWitnessStream. */
+export type MpWitnessMsg = Extract<WireMsg, { t: 'wclk' } | { t: 'wend' }>
+
+/** v6 signed play (spec §3). When set, our hello carries root/key; a game
+ *  becomes SIGNED only when BOTH sides did. All shipped callers omit it. */
+export interface MpSigningConfig {
+  /** ed25519 device signing private key (raw 32 bytes). */
+  priv: Uint8Array
+  /** b64u public signing key — what our move/terminal signatures verify against. */
+  key: string
+  /** b64u account root, sent in hello and bound into the game key. */
+  root: string
+  /** Optional pin: refuse any opponent whose hello identity isn't this root. */
+  oppRoot?: string
+}
+
 export interface MpSessionOptions {
   /** Monotonic time source (ms). Defaults to performance.now(). Injected in tests. */
   now?: () => number
+  /** v6 signed play + witness admission. ABSENT (every current caller) ⇒ the
+   *  session behaves byte-for-byte like v5 apart from hello.v. */
+  signing?: MpSigningConfig
 }
 
 export class MpNetSession {
@@ -243,14 +286,38 @@ export class MpNetSession {
   /** Rolling round-trip estimate (ms) from timestamped ping/pong. */
   private rtt = 0
 
+  // ---- v6 signed play + the witness seat --------------------------------------
+  /** Our signing identity, or null (unsigned — every shipped caller). */
+  private readonly signing: MpSigningConfig | null
+  /** Peer identity from its hello (present ⇒ it offers signed play). */
+  private peerRoot: string | null = null
+  private peerKey: string | null = null
+  /** The single seated witness: peer id + identity from its hello. */
+  private witnessPeerId: string | null = null
+  private witnessRoot: string | null = null
+  private witnessKey: string | null = null
+  /** Host-minted global game key + player roots by color (signed games only). */
+  private gameKey: string | null = null
+  private gamePlayers: { w: string; b: string } | null = null
+  /** Interleaved move-sig chain tracker; non-null IS the "signed game" flag. */
+  private chain: MoveChainVerifier | null = null
+  /** Guest only: true while our last move is signed into the chain optimistically
+   *  but not yet confirmed by the host's authoritative clock ack. If the host
+   *  instead flags US on that move, it never entered the host/witness transcript,
+   *  so we roll it back (else our getSignedGame() diverges from the wstream). */
+  private guestMoveUnacked = false
+
   // ---- event fan-out ----------------------------------------------------------
   private listeners = new Set<(ev: MpEvent) => void>()
+  /** v6: verified witness wclk/wend fan-out (A6 builds segments from these). */
+  private witnessListeners = new Set<(msg: MpWitnessMsg) => void>()
 
   /** Registered host-side move validator (kernel seam). null = accept all. */
   private moveValidator: MpMoveValidator | null = null
 
   constructor(makeTransport: MpTransportFactory, opts: MpSessionOptions = {}) {
     this.makeTransport = makeTransport
+    this.signing = opts.signing ?? null
     this.now =
       opts.now ??
       (typeof performance !== 'undefined' && typeof performance.now === 'function'
@@ -272,6 +339,26 @@ export class MpNetSession {
   onEvent(cb: (ev: MpEvent) => void): () => void {
     this.listeners.add(cb)
     return () => this.listeners.delete(cb)
+  }
+
+  /** v6: subscribe to VERIFIED witness stream messages (wclk/wend). Fires only
+   *  in signed games with a seated witness; absence is fine (unsigned play).
+   *  Same lifetime rule as onEvent (L1): survives resetState(). */
+  onWitnessStream(cb: (msg: MpWitnessMsg) => void): () => void {
+    this.witnessListeners.add(cb)
+    return () => this.witnessListeners.delete(cb)
+  }
+
+  /** v6: the seated witness's identity (A6 segment building), or null. */
+  getWitnessIdentity(): { root: string; key: string } | null {
+    return this.witnessRoot && this.witnessKey ? { root: this.witnessRoot, key: this.witnessKey } : null
+  }
+
+  /** v6: this game's signed-play material (A6 segment building), or null for
+   *  unsigned games. `moves` is the verified interleaved SignedMove chain. */
+  getSignedGame(): { gameKey: string; players: { w: string; b: string }; moves: readonly SignedMove[] } | null {
+    if (!this.chain || !this.gameKey || !this.gamePlayers) return null
+    return { gameKey: this.gameKey, players: { ...this.gamePlayers }, moves: this.chain.moves }
   }
 
   private emitEvent(ev: MpEvent): void {
@@ -343,7 +430,19 @@ export class MpNetSession {
       const clocks = this.commitMove(this.myColor, uci, 0)
       if (!clocks) return { ok: false } // flagged during commit — handled inside
       const byo = this.byoSnapshot()
-      this.sendWire({ t: 'move', gameId: this.gameId, ply, uci, clockMs: clocks, ...(byo ? { byo } : {}) })
+      // v6: in a signed game our move carries our sig over the exact wire clocks.
+      const sig = this.signOwnMove(ply, uci, clocks)
+      const msg: WireMsg = {
+        t: 'move',
+        gameId: this.gameId,
+        ply,
+        uci,
+        clockMs: clocks,
+        ...(byo ? { byo } : {}),
+        ...(sig ? { sig } : {})
+      }
+      this.sendWire(msg)
+      this.sendWitness(msg)
       return { ok: true }
     }
 
@@ -354,7 +453,15 @@ export class MpNetSession {
     // authoritatively). Record it locally + advance our ply/turn OPTIMISTICALLY so
     // the host's next relayed move isn't dropped as out-of-order; the host's `clock`
     // ack corrects our clocks. The store rolls the board back if this returns false.
-    this.sendWire({ t: 'move', gameId: this.gameId, ply: this.plyCount, uci, clockMs: { ...this.clocks } })
+    // v6: a signed guest signs over the clock snapshot it SENDS (its claim; the
+    // host's authoritative clocks ride the 'clock' ack as always).
+    const clockMs = { ...this.clocks }
+    const sig = this.signOwnMove(this.plyCount, uci, clockMs)
+    // v6: the move is signed into our chain optimistically — mark it unconfirmed
+    // until the host's 'clock' ack lands. If a flag on us arrives first, we roll
+    // it back (see applyFlag). null sig ⇒ unsigned game, nothing to reconcile.
+    if (sig) this.guestMoveUnacked = true
+    this.sendWire({ t: 'move', gameId: this.gameId, ply: this.plyCount, uci, clockMs, ...(sig ? { sig } : {}) })
     this.recordMove(uci)
     this.toMove = this.myColor === 'white' ? 'black' : 'white'
     return { ok: true }
@@ -363,8 +470,12 @@ export class MpNetSession {
   async resign(): Promise<{ ok: boolean }> {
     if (!this.peerId || this.over || !this.myColor || !this.inGame) return { ok: false }
     const gid = this.gameId
+    // v6: countersign our own loss (rage-quit denial, §3) before ending.
+    const esig = this.signTerminal(this.myColor === 'white' ? '0-1' : '1-0', REASON_RESIGN)
     this.endGame()
-    this.sendWire({ t: 'resign', gameId: gid, by: this.myColor })
+    const msg: WireMsg = { t: 'resign', gameId: gid, by: this.myColor, ...(esig ? { esig } : {}) }
+    this.sendWire(msg)
+    this.sendWitness(msg)
     this.emitEvent({ type: 'resign', by: this.myColor })
     return { ok: true }
   }
@@ -389,8 +500,15 @@ export class MpNetSession {
     if (!this.peerId || this.over || !this.incomingDrawOffer) return { ok: false }
     this.incomingDrawOffer = false
     const gid = this.gameId
+    // v6: countersign the draw for the witness BEFORE ending (null in unsigned
+    // games, so the v5 drawAccept dance below stays byte-identical). The witness
+    // gets a signed 1/2-1/2 terminal so it CLOSES (tick stops → no phantom
+    // flag over an agreed draw); the full witnessed-draw record needs both
+    // sides' esigs, delivered once A6 builds the two-sided witness feed path.
+    const esig = this.signTerminal('1/2-1/2', 'agreement')
     this.endGame()
     this.sendWire({ t: 'drawAccept', gameId: gid })
+    if (esig) this.sendWitness({ t: 'gameOver', gameId: gid, result: '1/2-1/2', reason: 'agreement', esig })
     this.emitEvent({ type: 'drawAccept' })
     return { ok: true }
   }
@@ -413,8 +531,11 @@ export class MpNetSession {
   async gameEnded(result: '1-0' | '0-1' | '1/2-1/2', reason: string): Promise<{ ok: boolean }> {
     if (!this.peerId || this.over || !this.inGame) return { ok: false }
     const gid = this.gameId
+    const esig = this.signTerminal(result, reason) // v6 terminal countersignature
     this.endGame()
-    this.sendWire({ t: 'gameOver', gameId: gid, result, reason })
+    const msg: WireMsg = { t: 'gameOver', gameId: gid, result, reason, ...(esig ? { esig } : {}) }
+    this.sendWire(msg)
+    this.sendWitness(msg)
     this.emitEvent({ type: 'gameOver', gameId: gid, result, reason })
     return { ok: true }
   }
@@ -424,7 +545,9 @@ export class MpNetSession {
     if (!this.peerId || this.over || !this.inGame || this.plyCount >= 2) return { ok: false }
     const gid = this.gameId
     this.endGame()
-    this.sendWire({ t: 'abort', gameId: gid, reason: 'manual' })
+    const msg: WireMsg = { t: 'abort', gameId: gid, reason: 'manual' }
+    this.sendWire(msg)
+    this.sendWitness(msg) // v6: close the witness's view (host-originated abort)
     this.emitEvent({ type: 'abort', gameId: gid, reason: 'manual' })
     return { ok: true }
   }
@@ -530,6 +653,13 @@ export class MpNetSession {
 
   /** A peer left the room. Only the bonded (or ghost) peer matters. */
   private onPeerLeave(id: string): void {
+    // v6: the witness leaving frees its seat; the game itself is untouched.
+    if (id === this.witnessPeerId) {
+      this.witnessPeerId = null
+      this.witnessRoot = null
+      this.witnessKey = null
+      return
+    }
     if (id === this.peerId) this.onPeerGone()
     // A ghost fully leaving the room is fine — the grace timer still governs.
   }
@@ -543,12 +673,26 @@ export class MpNetSession {
   }
 
   private makeOurHello(): WireMsg {
-    return makeHello(this.role === 'host' ? 'host' : 'guest', this.myName)
+    return makeHello(
+      this.role === 'host' ? 'host' : 'guest',
+      this.myName,
+      undefined,
+      // v6: offer our signing identity when configured (absent = exactly v5).
+      this.signing ? { root: this.signing.root, key: this.signing.key } : undefined
+    )
   }
 
   private sendWire(msg: WireMsg): void {
     if (!this.transport || !this.peerId) return
     this.transport.send(encodeWireMsg(msg), this.peerId)
+  }
+
+  /** v6: mirror a wire message to the seated witness. HOST only — the host is
+   *  the authority, so the witness follows ONE consistent committed stream
+   *  (the guest's terminals reach it via the host's forward in onRaw). */
+  private sendWitness(msg: WireMsg): void {
+    if (this.role !== 'host' || !this.transport || !this.witnessPeerId) return
+    this.transport.send(encodeWireMsg(msg), this.witnessPeerId)
   }
 
   /** Best-effort send to the ghost peer id (used when claiming a left game). */
@@ -573,6 +717,13 @@ export class MpNetSession {
     }
     // While suspended, drop ALL ghost traffic except a hello (which re-bonds).
     if (this.suspended && fromPeer === this.ghostPeerId && msg.t !== 'hello') return
+    // v6: the seated witness is a legitimate third peer. Its stream messages
+    // (wclk/wend) are verified + surfaced here; everything else it says except
+    // a hello is dropped — a witness is never a game participant.
+    if (this.witnessPeerId && fromPeer === this.witnessPeerId && msg.t !== 'hello') {
+      if (msg.t === 'wclk' || msg.t === 'wend') this.onWitnessStreamMsg(msg)
+      return
+    }
     // Ignore chatter from any peer that isn't our bonded opponent (T3), except a
     // hello, which is how a rebond announces itself.
     if (this.peerId && fromPeer !== this.peerId && msg.t !== 'hello') return
@@ -586,13 +737,13 @@ export class MpNetSession {
 
     switch (msg.t) {
       case 'hello':
-        this.onHello(msg.v, msg.role, msg.name, fromPeer)
+        this.onHello(msg.v, msg.role, msg.name, fromPeer, msg.root, msg.key)
         return
       case 'start':
-        this.onStart(msg.gameId, msg.yourColor, msg.config, msg.name)
+        this.onStart(msg.gameId, msg.yourColor, msg.config, msg.name, msg.gameKey, msg.players)
         return
       case 'move':
-        this.onWireMove(msg.ply, msg.uci, msg.clockMs, msg.byo)
+        this.onWireMove(msg.ply, msg.uci, msg.clockMs, msg.byo, msg.sig)
         return
       case 'clock':
         this.onWireClock(msg.clockMs, msg.toMove, msg.byo)
@@ -602,9 +753,11 @@ export class MpNetSession {
         this.applyFlag(msg.by, msg.clockMs, msg.byo)
         return
       case 'abort':
+        this.sendWitness(msg) // v6: keep the witness's view of the game closed
         this.applyAbort(msg.reason)
         return
       case 'gameOver':
+        this.sendWitness(msg) // v6: forward the peer's countersigned terminal
         this.applyGameOver(msg.result, msg.reason)
         return
       case 'drawOffer':
@@ -613,15 +766,23 @@ export class MpNetSession {
       case 'drawDecline':
         this.onWireDrawDecline()
         return
-      case 'drawAccept':
+      case 'drawAccept': {
         // Peer accepted OUR offer — game drawn.
         this.outgoingDrawOffer = false
         if (this.over) return
+        const gid = this.gameId
+        // v6: countersign the draw for the witness (mirrors acceptDraw; null in
+        // unsigned games). sendWitness is host-only, so this is how the HOST's
+        // draw esig reaches the witness when the GUEST accepted our offer.
+        const esig = this.signTerminal('1/2-1/2', 'agreement')
         this.endGame()
+        if (esig) this.sendWitness({ t: 'gameOver', gameId: gid, result: '1/2-1/2', reason: 'agreement', esig })
         this.emitEvent({ type: 'drawAccept' })
         return
+      }
       case 'resign':
         if (this.over) return
+        this.sendWitness(msg) // v6: forward the resigner's countersignature
         this.endGame()
         this.emitEvent({ type: 'resign', by: msg.by })
         return
@@ -635,13 +796,17 @@ export class MpNetSession {
         return
       case 'rematchStart':
         // Guest side: host started a rematch; adopt the (swapped) color + gameId.
-        this.onRematchStart(msg.gameId, msg.yourColor)
+        this.onRematchStart(msg.gameId, msg.yourColor, msg.gameKey, msg.players)
         return
       case 'resumeReq':
         this.onResumeReq(msg.gameId, msg.havePly)
         return
       case 'resync':
         this.onResync(msg.gameId, msg.moves, msg.clockMs, msg.toMove, msg.yourColor, msg.config, msg.byo)
+        return
+      case 'wclk':
+      case 'wend':
+        // v6: only honored from the seated witness (handled before the switch).
         return
       case 'bye':
         this.onPeerGone()
@@ -687,7 +852,14 @@ export class MpNetSession {
 
   // ---- handshake -------------------------------------------------------------
 
-  private onHello(peerVersion: number, peerRole: MpRole, peerName: string | undefined, fromPeer: string): void {
+  private onHello(
+    peerVersion: number,
+    peerRole: HelloMsg['role'],
+    peerName: string | undefined,
+    fromPeer: string,
+    peerRoot?: string,
+    peerKey?: string
+  ): void {
     if (peerVersion !== PROTOCOL_VERSION) {
       // Version mismatch: tell the peer, tell our UI, and drop. On desktop both
       // messages point at Settings → Updates — the fix is always "update both
@@ -710,6 +882,12 @@ export class MpNetSession {
       )
       return
     }
+    // v6: a witness announces itself by hello role, never by presence — seat
+    // it (or tolerate it) WITHOUT disturbing the host/guest handshake.
+    if (peerRole === 'witness') {
+      this.onWitnessHello(fromPeer, peerRoot, peerKey)
+      return
+    }
     // Role sanity: a guest that hears another guest knows nobody is hosting (T5).
     if (this.role === 'guest' && peerRole !== 'host') {
       this.fail("That code has no host — it looks like you both joined. One of you needs to Host.")
@@ -720,7 +898,34 @@ export class MpNetSession {
       this.transport?.send(encodeWireMsg({ t: 'error', message: 'that code is already hosted' }), fromPeer)
       return
     }
+    // v6 pinned opponent: when the caller arranged a specific account, REFUSE a
+    // peer whose hello identity is missing or different — but refuse only that
+    // PEER, never the session. This runs pre-handshake ONLY (once we've bonded
+    // the arranged opponent, the `if (this.handshaked) return` guard below drops
+    // every stray hello), and at most releases a wrong unbonded candidate so we
+    // keep waiting for the real opponent — mirroring onWitnessHello's seat
+    // release. Calling this.fail() here (as an earlier version did) let any peer
+    // who knew the room code tear down a live pinned game with one stray hello,
+    // and let a wrong peer wandering in pre-bond permanently block the arranged
+    // opponent — a one-message DoS.
+    if (!this.handshaked && this.signing?.oppRoot && peerRoot !== this.signing.oppRoot) {
+      this.transport?.send(encodeWireMsg({ t: 'error', message: 'identity mismatch' }), fromPeer)
+      if (fromPeer === this.peerId) {
+        this.peerId = null
+        this.emitEvent({ type: 'net', state: 'searching' })
+      }
+      return
+    }
     this.peerName = peerName
+    // v6: adopt the peer's signing identity (present ⇒ it offers signed play)
+    // ONLY on the genuine first handshake. A later duplicate/stray hello reaches
+    // here before the `handshaked` guard below; letting it run would null an
+    // established peerRoot/peerKey and silently downgrade a signed rematch to
+    // unsigned (or tear it down). Once handshaked, the identity is frozen.
+    if (!this.handshaked) {
+      this.peerRoot = peerRoot ?? null
+      this.peerKey = peerKey ?? null
+    }
 
     // Ghost hello during suspend: the SAME peer is back → RESUME, never restart
     // (D9). rebond() restores the bond, re-anchors the clock, restarts the
@@ -766,6 +971,65 @@ export class MpNetSession {
     // Guest waits for the host's 'start'.
   }
 
+  /** v6 witness seating. POLICY (the documented tolerance choice): a session
+   *  that did NOT opt into signed play (no `signing` config) TOLERATES a
+   *  witness hello and ignores everything it says — honest degradation, zero
+   *  disturbance to the shipped unsigned flow. A signed session seats exactly
+   *  ONE witness; a SECOND witness hello gets a targeted wire error and
+   *  changes nothing for the session or the first witness. */
+  private onWitnessHello(fromPeer: string, root?: string, key?: string): void {
+    if (fromPeer === this.witnessPeerId) return // duplicate hello — already seated
+    if (this.witnessPeerId) {
+      // Seat taken: refuse THIS peer only.
+      this.transport?.send(encodeWireMsg({ t: 'error', message: 'witness seat taken' }), fromPeer)
+      return
+    }
+    // The witness may have been presence-bonded as our opponent before it
+    // spoke (we bond the FIRST peer to appear). Give the seat back and keep
+    // waiting for a real opponent — but a peer that already HANDSHAKED as our
+    // opponent can never re-declare itself a witness mid-game.
+    if (fromPeer === this.peerId) {
+      if (this.handshaked) return
+      this.peerId = null
+      this.emitEvent({ type: 'net', state: 'searching' })
+    }
+    // Unsigned session, or a witness that names no signing identity: tolerate
+    // + ignore — the documented degradation choice (never an error, never a
+    // seat, zero disturbance to the shipped unsigned flow).
+    if (!this.signing || !root || !key) return
+    this.witnessPeerId = fromPeer
+    this.witnessRoot = root
+    this.witnessKey = key
+  }
+
+  /** v6: verify + surface a witness stream message. Verification failures are
+   *  IGNORED (the witness is advisory — a forged/buggy witness must never
+   *  kill a live game); valid messages fan out to onWitnessStream. */
+  private onWitnessStreamMsg(msg: MpWitnessMsg): void {
+    if (!this.gameKey || !this.witnessKey) return
+    if (msg.gameId !== this.gameId) return
+    // Fail CLOSED: witnessClockBytes / witnessEndBytes → canonicalBytes THROW on
+    // an unencodable value (the wire clock schema is a bare z.number(), so a
+    // seated — and unauthenticated — witness can send clockMs {white:1e21} or a
+    // -0, and ply/wts are unbounded ints). Verification failures here are
+    // IGNORED by contract ("a forged/buggy witness must never kill a live
+    // game"), so a throw MUST read as "ignore", never escape into onRaw →
+    // transport.onMessage and tear the live session down.
+    try {
+      if (msg.t === 'wclk') {
+        const bytes = witnessClockBytes(this.gameKey, msg.ply, sigClock(msg.clockMs), msg.wts)
+        if (!verifySigB64u(msg.sig, bytes, this.witnessKey)) return
+      } else if (
+        !verifyWitnessEnd({ wkey: this.witnessKey, sig: msg.sig }, this.gameKey, msg.result, msg.plies, msg.transcript)
+      ) {
+        return
+      }
+    } catch {
+      return // unencodable witness message — ignore, exactly like a bad sig
+    }
+    for (const cb of this.witnessListeners) cb(msg)
+  }
+
   private armHandshakeWatchdog(): void {
     this.clearHandshakeWatchdog()
     this.handshakeTimer = setTimeout(() => {
@@ -802,14 +1066,19 @@ export class MpNetSession {
     this.guestColor = guestColor
     this.gameId += 1 // first game → 1
     this.beginGame()
-    // Tell the guest their color + config + our name; emit our own start.
-    this.sendWire({
+    this.setupSignedGame() // v6: mint the game key when both sides offered identity
+    // Tell the guest their color + config + our name; emit our own start. The
+    // witness gets the SAME start (it ignores yourColor; it needs gameKey).
+    const startMsg: WireMsg = {
       t: 'start',
       gameId: this.gameId,
       yourColor: guestColor,
       config: this.config,
-      ...(this.myName ? { name: this.myName } : {})
-    })
+      ...(this.myName ? { name: this.myName } : {}),
+      ...(this.gameKey && this.gamePlayers ? { gameKey: this.gameKey, players: this.gamePlayers } : {})
+    }
+    this.sendWire(startMsg)
+    this.sendWitness(startMsg)
     this.emitEvent({ type: 'peer-joined' })
     this.emitEvent({
       type: 'start',
@@ -818,6 +1087,131 @@ export class MpNetSession {
       config: this.config,
       ...(this.peerName ? { opponentName: this.peerName } : {})
     })
+  }
+
+  // ---- v6 signed play ---------------------------------------------------------
+
+  /** Host: mint the global game key when BOTH sides offered identity in their
+   *  hellos (v6 signed play). Renderer web crypto is fine HERE — shared/mp
+   *  stays randomness-free. No mutual identity ⇒ stays unsigned (exactly v5). */
+  private setupSignedGame(): void {
+    if (!this.signing || !this.peerRoot || !this.peerKey || !this.myColor) return
+    const myC: 'w' | 'b' = this.myColor === 'white' ? 'w' : 'b'
+    const roots =
+      myC === 'w' ? { w: this.signing.root, b: this.peerRoot } : { w: this.peerRoot, b: this.signing.root }
+    const keys = myC === 'w' ? { w: this.signing.key, b: this.peerKey } : { w: this.peerKey, b: this.signing.key }
+    const nonce = new Uint8Array(32)
+    crypto.getRandomValues(nonce)
+    const seed: GameKeySeed = { v: 1, t: 'game-key', w: roots.w, b: roots.b, nonce: toB64u(nonce), ts: Date.now() }
+    this.adoptSignedGame(computeGameKey(seed), roots, keys)
+  }
+
+  /** Guest: adopt the host's game key + player roots off start/rematchStart.
+   *  A signed start must name OUR root under OUR color and the peer's under
+   *  the other — any mismatch is a LOUD failure (a signed session never
+   *  silently degrades to unsigned). */
+  private adoptSignedGameFromWire(
+    gameKeyB: string | undefined,
+    players: { w: string; b: string } | undefined,
+    myColor: MpColor
+  ): void {
+    if (!gameKeyB || !players) {
+      // Mutual identity (both hellos carried root/key) MANDATES a signed game
+      // (the v6 rule setupSignedGame also enforces). An absent gameKey here is
+      // therefore a downgrade — a malicious host, or a relay stripping the
+      // optional field — NOT an unsigned game, so fail loud instead of silently
+      // dropping to v5. Only a session that never established mutual identity
+      // legitimately continues unsigned.
+      if (this.signing && this.peerRoot && this.peerKey) {
+        this.failSigned('signed start missing gameKey/players (downgrade)')
+      }
+      return // genuinely unsigned — exactly v5
+    }
+    if (!this.signing || !this.peerRoot || !this.peerKey) {
+      this.failSigned('signed start without mutual identity')
+      return
+    }
+    const myC: 'w' | 'b' = myColor === 'white' ? 'w' : 'b'
+    const oppC: 'w' | 'b' = myC === 'w' ? 'b' : 'w'
+    if (players[myC] !== this.signing.root || players[oppC] !== this.peerRoot) {
+      this.failSigned('signed start names the wrong players')
+      return
+    }
+    const keys = myC === 'w' ? { w: this.signing.key, b: this.peerKey } : { w: this.peerKey, b: this.signing.key }
+    this.adoptSignedGame(gameKeyB, { w: players.w, b: players.b }, keys)
+  }
+
+  private adoptSignedGame(gameKeyB: string, roots: { w: string; b: string }, keys: { w: string; b: string }): void {
+    this.gameKey = gameKeyB
+    this.gamePlayers = roots
+    this.chain = new MoveChainVerifier(gameKeyB, keys, this.firstMover() === 'white' ? 'w' : 'b')
+  }
+
+  private clearSignedGame(): void {
+    this.gameKey = null
+    this.gamePlayers = null
+    this.chain = null
+  }
+
+  /** Sign OUR move over the exact wire clock snapshot and advance the local
+   *  chain. Returns null in unsigned games. */
+  private signOwnMove(ply: number, uci: string, clockMs: Clocks): string | null {
+    if (!this.chain || !this.signing || !this.gameKey) return null
+    // Fail CLOSED: signMove → moveSigBytes → canonicalBytes THROWS on an
+    // unencodable clock. A guest adopts this.clocks straight off the host's
+    // 'clock'/'move' wire (clocksSchema is a bare z.number()), so a malicious
+    // host can plant e.g. white:1e21 and crash the guest on its NEXT signature.
+    // A signed session must tear down loudly (failSigned), never throw out of
+    // sendMove and the UI await.
+    let m: SignedMove
+    try {
+      m = signMove(this.signing.priv, this.gameKey, ply, uci, sigClock(clockMs), this.chain.prevSig)
+    } catch {
+      this.failSigned(`unencodable clock at ply ${ply}`)
+      return null
+    }
+    const err = this.chain.accept(m.ply, m.move, m.clockMs, m.sig)
+    if (err) {
+      // Only possible if our own key doesn't match our color's key — a
+      // programming/config error, but never sign past a broken chain.
+      this.failSigned(`own move rejected: ${err}`)
+      return null
+    }
+    return m.sig
+  }
+
+  /** Verify an incoming move against the chain (v6). `advance` false = peek
+   *  only (the host verifies BEFORE committing — the commit may still flag).
+   *  A bad or missing signature is a LOUD protocol failure. */
+  private verifyIncomingMove(ply: number, uci: string, clockMs: Clocks, sig: string | undefined, advance: boolean): boolean {
+    if (!this.chain) return true
+    if (sig === undefined) {
+      this.failSigned(`unsigned move at ply ${ply} in a signed game`)
+      return false
+    }
+    const err = advance
+      ? this.chain.accept(ply, uci, sigClock(clockMs), sig)
+      : this.chain.check(ply, uci, sigClock(clockMs), sig)
+    if (err) {
+      this.failSigned(err)
+      return false
+    }
+    return true
+  }
+
+  /** Terminal countersignature (esig) over segment.ts witnessEndBytes for the
+   *  transcript as WE verified it. Null in unsigned games. */
+  private signTerminal(result: '1-0' | '0-1' | '1/2-1/2', reason: string): string | null {
+    if (!this.chain || !this.signing || !this.gameKey) return null
+    const transcript = transcriptDigest(this.gameKey, this.chain.moves, result, reason)
+    return signWitnessEnd(this.signing.priv, this.signing.key, this.gameKey, result, this.chain.plies, transcript).sig
+  }
+
+  /** v6 fail-loud: tell the peer why, then tear down. A signed session NEVER
+   *  silently degrades to unsigned play. */
+  private failSigned(detail: string): void {
+    this.sendWire({ t: 'error', message: `signed play failure: ${detail}` })
+    this.fail(`Signed game integrity failure: ${detail}`)
   }
 
   /** The color that moves FIRST in this game. Wire v4: rides in the game
@@ -854,6 +1248,10 @@ export class MpNetSession {
     this.drawBlockedUntilPly = { white: 0, black: 0 }
     this.plyCount = 0
     this.moves = []
+    // v6: per-game signed state resets with the game; the host/guest re-adopt
+    // a fresh game key right after (rematches mint a new one).
+    this.clearSignedGame()
+    this.guestMoveUnacked = false
     // Clocks IDLE: the first mover is to move but turnStartedAt stays 0 (no
     // debit, no flag) until its first move commits (D1/MP-03).
     this.toMove = this.firstMover()
@@ -1005,10 +1403,16 @@ export class MpNetSession {
     const gid = this.gameId
     this.clocks[loser] = 0
     if (this.byoState) this.byoState[loser] = { periodsLeft: 0, inByo: true }
+    // v6: the host countersigns the flag verdict it is about to relay. (The
+    // store may still adjudicate an insufficient-material draw — that
+    // refinement of the SIGNED result is A6's; see the brick report.)
+    const esig = this.signTerminal(loser === 'white' ? '0-1' : '1-0', REASON_FLAG)
     this.endGame()
     const clockMs = { ...this.clocks }
     const byo = this.byoSnapshot()
-    this.sendWire({ t: 'flag', gameId: gid, by: loser, clockMs, ...(byo ? { byo } : {}) })
+    const msg: WireMsg = { t: 'flag', gameId: gid, by: loser, clockMs, ...(byo ? { byo } : {}), ...(esig ? { esig } : {}) }
+    this.sendWire(msg)
+    this.sendWitness(msg)
     this.emitEvent({ type: 'flag', gameId: gid, by: loser, clockMs, ...(byo ? { byo } : {}) })
   }
 
@@ -1023,7 +1427,9 @@ export class MpNetSession {
       if (this.over || this.suspended || this.plyCount >= 2) return
       const gid = this.gameId
       this.endGame()
-      this.sendWire({ t: 'abort', gameId: gid, reason: 'no-first-move' })
+      const msg: WireMsg = { t: 'abort', gameId: gid, reason: 'no-first-move' }
+      this.sendWire(msg)
+      this.sendWitness(msg) // v6: close the witness's view (host abort watchdog)
       this.emitEvent({ type: 'abort', gameId: gid, reason: 'no-first-move' })
     }, MP_TIMING.FIRST_MOVE_ABORT_MS)
   }
@@ -1052,14 +1458,21 @@ export class MpNetSession {
   /** A 'move' wire message arrived. Host: it's the guest's move — enforce turn +
    *  ply order, time it with lag forgiveness, relay the authoritative clocks.
    *  Guest: it's the host's authoritative move. Both drop out-of-order plies. */
-  private onWireMove(ply: number, uci: string, clockMs: Clocks, byo?: MpByo): void {
+  private onWireMove(ply: number, uci: string, clockMs: Clocks, byo?: MpByo, sig?: string): void {
     if (this.over || this.suspended) return
     // Reject duplicates / out-of-order: the next expected ply is plyCount.
+    // (Signed games too: a wrong-ply arrival is a benign dup/lag delivery —
+    // the chain itself refuses anything that would actually commit out of
+    // order, and the witness refuses it loudly.)
     if (ply !== this.plyCount) return
 
     if (this.role === 'host') {
       // The guest moved. Enforce turn order; ignore their clock hint entirely.
       if (this.toMove !== this.guestColor) return
+      // v6 signed game: verify the guest's sig over ITS claimed clock snapshot
+      // BEFORE committing (peek — the commit below may still flag). Bad or
+      // missing sig ⇒ loud teardown, never a silent drop.
+      if (this.chain && !this.verifyIncomingMove(ply, uci, clockMs, sig, false)) return
       // Kernel seam (v4): the wire no longer proves legality (moves are opaque
       // game-codec strings) — ask the registered validator before committing.
       // Silently drop an illegal move, exactly like an out-of-turn one. The
@@ -1071,6 +1484,21 @@ export class MpNetSession {
       const committedPly = this.plyCount
       const authoritative = this.commitMove(this.guestColor as MpColor, uci, lagForgive)
       if (!authoritative) return // guest flagged; flagLoss already fired
+      // v6: the move committed — advance the sig chain (already verified) and
+      // mirror the guest's move to the witness EXACTLY as signed (its claimed
+      // clocks; our authoritative clocks ride the 'clock' ack as always).
+      if (this.chain) {
+        // The sig was already verified at the pre-commit peek and the chain head
+        // is unchanged (commitMove never touches this.chain), so advance without
+        // a second ed25519 verify. sig is defined here — the peek rejects an
+        // unsigned move before we ever reach commit.
+        const err = this.chain.advanceChecked(committedPly, uci, sigClock(clockMs), sig as string)
+        if (err) {
+          this.failSigned(err)
+          return
+        }
+        this.sendWitness({ t: 'move', gameId: this.gameId, ply: committedPly, uci, clockMs, ...(sig ? { sig } : {}) })
+      }
       const authByo = this.byoSnapshot()
       // Surface the guest's move to the HOST renderer with authoritative clocks…
       this.emitEvent({
@@ -1096,6 +1524,8 @@ export class MpNetSession {
       // authoritative host→guest; v5: the byo snapshot rides along). Record it,
       // adopt the clocks, flip the turn. Turn parity keys off the FIRST MOVER
       // (even ply = first mover's turn), not a hardcoded white.
+      // v6 signed game: verify the host's sig first (fail loud on tampering).
+      if (this.chain && !this.verifyIncomingMove(ply, uci, clockMs, sig, true)) return
       this.clocks = { ...clockMs }
       if (byo) this.byoState = { white: { ...byo.white }, black: { ...byo.black } }
       this.recordMove(uci)
@@ -1116,6 +1546,9 @@ export class MpNetSession {
   /** Host→guest clock ack/resync. Guest mirrors the authoritative snapshot. */
   private onWireClock(clockMs: Clocks, toMove: MpColor, byo?: MpByo): void {
     if (this.role === 'host' || this.over) return
+    // v6: the host's authoritative clock ack confirms it committed our move —
+    // our optimistic chain move is now part of the shared transcript.
+    this.guestMoveUnacked = false
     this.clocks = { ...clockMs }
     if (byo) this.byoState = { white: { ...byo.white }, black: { ...byo.black } }
     this.toMove = toMove
@@ -1128,7 +1561,14 @@ export class MpNetSession {
     })
   }
 
-  private onStart(gameId: number, yourColor: MpColor, config: MpGameConfig, name: string | undefined): void {
+  private onStart(
+    gameId: number,
+    yourColor: MpColor,
+    config: MpGameConfig,
+    name: string | undefined,
+    gameKeyB?: string,
+    players?: { w: string; b: string }
+  ): void {
     // Guest adopts its color + the game config + host id/name; clocks arrive via
     // move/clock events. Ignore a re-`start` for a game we already have.
     if (this.role !== 'guest') return
@@ -1137,6 +1577,9 @@ export class MpNetSession {
     this.gameId = gameId
     if (name) this.peerName = name
     this.beginGame()
+    // v6: adopt the host's game key AFTER beginGame (which clears signed state).
+    this.adoptSignedGameFromWire(gameKeyB, players, yourColor)
+    if (!this.transport) return // adoptSignedGameFromWire failed loud — no start event
     this.emitEvent({
       type: 'start',
       gameId,
@@ -1174,6 +1617,16 @@ export class MpNetSession {
 
   private applyFlag(by: MpColor, clockMs: Clocks, byo?: MpByo): void {
     if (this.over) return
+    // v6: the host flagged US on a move we optimistically signed into our chain
+    // but the host never committed (it timed out on that very move) — roll it
+    // back so our getSignedGame() transcript matches the host's and witness's,
+    // which stopped one ply short. Only when the loss is OURS and a move is
+    // still unacked; a normal flag (opponent lost, or our move already acked)
+    // leaves the chain untouched.
+    if (by === this.myColor && this.guestMoveUnacked && this.chain) {
+      this.chain.rollbackLast()
+    }
+    this.guestMoveUnacked = false
     this.clocks = { ...clockMs }
     if (byo) this.byoState = { white: { ...byo.white }, black: { ...byo.black } }
     this.endGame()
@@ -1218,15 +1671,25 @@ export class MpNetSession {
     this.guestColor = newGuestColor
     this.gameId += 1
     this.beginGame()
-    this.sendWire({ t: 'rematchStart', gameId: this.gameId, yourColor: newGuestColor })
+    this.setupSignedGame() // v6: a signed rematch mints a FRESH game key
+    const msg: WireMsg = {
+      t: 'rematchStart',
+      gameId: this.gameId,
+      yourColor: newGuestColor,
+      ...(this.gameKey && this.gamePlayers ? { gameKey: this.gameKey, players: this.gamePlayers } : {})
+    }
+    this.sendWire(msg)
+    this.sendWitness(msg)
     this.emitEvent({ type: 'rematchStart', gameId: this.gameId, yourColor: newHostColor })
   }
 
-  private onRematchStart(gameId: number, yourColor: MpColor): void {
+  private onRematchStart(gameId: number, yourColor: MpColor, gameKeyB?: string, players?: { w: string; b: string }): void {
     if (!this.config || this.role !== 'guest') return
     this.myColor = yourColor
     this.gameId = gameId
     this.beginGame()
+    this.adoptSignedGameFromWire(gameKeyB, players, yourColor) // v6
+    if (!this.transport) return // failed loud
     this.emitEvent({ type: 'rematchStart', gameId, yourColor })
   }
 
@@ -1318,7 +1781,12 @@ export class MpNetSession {
       // rebuild any game, not just chess.
       ...(this.config ? { config: this.config } : {}),
       // v5: byo-yomi survives the reconnect (consumed periods stay consumed).
-      ...(this.byoState ? { byo: this.byoSnapshot() } : {})
+      ...(this.byoState ? { byo: this.byoSnapshot() } : {}),
+      // v6: the game key + players survive too. The rebonding guest KEPT its
+      // chain across the suspend (same session object, D9), so these are a
+      // consistency echo, not fresh adoption — a brand-new session cannot
+      // rejoin a signed game mid-flight (the move sigs aren't resent).
+      ...(this.gameKey && this.gamePlayers ? { gameKey: this.gameKey, players: this.gamePlayers } : {})
     })
   }
 
@@ -1351,6 +1819,22 @@ export class MpNetSession {
     this.over = false
     this.inGame = true
     this.suspended = false
+    // v6: a signed game's per-move sigs are NOT resent in the resync, so our
+    // chain can resume only if it already matches the authoritative transcript
+    // exactly (the suspend normally freezes BOTH sides, so it does). If the host
+    // committed a move we never received before it noticed us gone, our chain
+    // lags and cannot be reconciled from UCIs alone — tear the signed game down
+    // loudly rather than break opaquely on the next signature (finding H). Full
+    // signed-game resumption (resync carrying the SignedMove chain) is A6.
+    if (this.chain) {
+      const cm = this.chain.moves
+      const desynced = cm.length !== this.moves.length || this.moves.some((u, i) => cm[i]?.move !== u)
+      if (desynced) {
+        this.failSigned('signed game desynced on reconnect (missing move signatures)')
+        return
+      }
+      this.guestMoveUnacked = false
+    }
     // Surface the authoritative clocks + turn immediately (peer-back already fired
     // on rebond); the store re-anchors its clock snapshot from this.
     this.emitEvent({
@@ -1473,6 +1957,9 @@ export class MpNetSession {
     this.ghostPeerId = null
     this.handshaked = false
     this.suspended = false
+    this.witnessPeerId = null // v6: the seat dies with the transport
+    this.witnessRoot = null
+    this.witnessKey = null
     this.clearAllTimers()
   }
 
@@ -1542,5 +2029,14 @@ export class MpNetSession {
     this.missedEvals = 0
     this.rtt = 0
     this.rttPinnedForTests = false
+    // v6: identities + witness seat + signed-game state (witnessListeners
+    // survive, same L1 rule as listeners).
+    this.peerRoot = null
+    this.peerKey = null
+    this.witnessPeerId = null
+    this.witnessRoot = null
+    this.witnessKey = null
+    this.guestMoveUnacked = false
+    this.clearSignedGame()
   }
 }

@@ -42,9 +42,42 @@ import type { MpGameConfig } from '@shared/types'
 //     the clock semantics themselves changed → v4 peers must be refused (the
 //     hello version gate already does). Absent tc.byoyomi keeps every message
 //     byte-identical to v4.
-export const PROTOCOL_VERSION = 5
+//
+// v6 over v5: signed play + the witness seat (docs/ACCOUNTS-SPEC.md §3).
+//   - `role` gains 'witness' — a third, non-playing peer that follows the game
+//     and countersigns the move stream. The session admits exactly ONE.
+//   - hello gains OPTIONAL identity fields `root`/`key` (account root + device
+//     signing key, b64u). Both sides sending identity = signed play.
+//   - start/rematchStart/resync gain OPTIONAL `gameKey` + `players` (roots by
+//     color) — the host-minted global game key every signature covers
+//     (accounts segment.ts gameKey), binding sigs to THIS game so nothing is
+//     replayable into another.
+//   - move gains an OPTIONAL `sig`: ed25519 by the mover over segment.ts
+//     moveSigBytes(gameKey, ply, uci, clockMs, prevSig) — the per-move chain.
+//   - gameOver/resign/flag gain an OPTIONAL `esig`: the sender's terminal
+//     countersignature over segment.ts witnessEndBytes.
+//   - NEW witness→player messages `wclk`/`wend` carry the witness's periodic
+//     clock countersignature and terminal stream signature.
+//   The wire only BOUNDS these shapes (b64u lengths, string caps); signature
+//   verification lives in the sessions (mpSession/witnessCore). Every addition
+//   is optional, so an unsigned session's messages stay byte-identical to v5 —
+//   but signed clock semantics ride on hello identity, so v5 peers are refused
+//   by the hello version gate as usual.
+export const PROTOCOL_VERSION = 6
 
-const roleSchema = z.enum(['host', 'guest'])
+const roleSchema = z.enum(['host', 'guest', 'witness'])
+
+// v6 signature-material bounds. Deliberately REDECLARED here rather than
+// imported from src/shared/accounts (events.ts zB64u32/zB64u64) — the mp wire
+// stays standalone (zod + shared types only) so it keeps bundling anywhere
+// without dragging the accounts layer in. Shapes must stay in lockstep.
+const B64U_RE = /^[A-Za-z0-9_-]+$/
+/** b64u of 32 bytes (roots, keys, game keys, digests): exactly 43 chars. */
+const b64u32Schema = z.string().length(43).regex(B64U_RE)
+/** b64u of 64 bytes (ed25519 signatures): exactly 86 chars. */
+const b64u64Schema = z.string().length(86).regex(B64U_RE)
+/** Player account roots by color (rides beside gameKey on start/resync). */
+const playersSchema = z.object({ w: b64u32Schema, b: b64u32Schema }).strict()
 
 export const helloMsgSchema = z
   .object({
@@ -57,7 +90,13 @@ export const helloMsgSchema = z
     /** Sender's trimmed display name (≤24 chars, control chars stripped). */
     name: z.string().optional(),
     /** App version string, informational only (never gates compatibility). */
-    app: z.string().optional()
+    app: z.string().optional(),
+    /** v6: sender's account root (b64u). Present ⇒ the sender offers signed
+     *  play (players) or names its signing identity (witness). */
+    root: b64u32Schema.optional(),
+    /** v6: sender's device signing key (b64u) — what its move/stream sigs
+     *  verify against. Rides with `root`; absent = unsigned, exactly v5. */
+    key: b64u32Schema.optional()
   })
   .strict()
 export type HelloMsg = z.infer<typeof helloMsgSchema>
@@ -79,15 +118,23 @@ export function sanitizeName(raw: string | null | undefined): string | undefined
   return cleaned.length > 0 ? cleaned : undefined
 }
 
-/** The hello THIS build sends, carrying our role + optional display name. */
-export function makeHello(role: 'host' | 'guest', name?: string, appVersion?: string): HelloMsg {
+/** The hello THIS build sends, carrying our role + optional display name.
+ *  v6: `identity` rides as the optional root/key pair when the sender offers
+ *  signed play (players) or names its signing key (witness). */
+export function makeHello(
+  role: 'host' | 'guest' | 'witness',
+  name?: string,
+  appVersion?: string,
+  identity?: { root: string; key: string }
+): HelloMsg {
   const clean = sanitizeName(name)
   return {
     t: 'hello',
     v: PROTOCOL_VERSION,
     role,
     ...(clean ? { name: clean } : {}),
-    ...(appVersion ? { app: appVersion } : {})
+    ...(appVersion ? { app: appVersion } : {}),
+    ...(identity ? { root: identity.root, key: identity.key } : {})
   }
 }
 
@@ -165,12 +212,19 @@ export const wireMsgSchema = z.discriminatedUnion('t', [
       gameId: z.number().int(),
       yourColor: colorSchema,
       config: mpGameConfigSchema,
-      name: z.string().optional()
+      name: z.string().optional(),
+      // v6: host-minted global game key + player roots by color (signed play
+      // only — segment.ts gameKey binds every signature to THIS game). Absent
+      // = unsigned, byte-identical to v5.
+      gameKey: b64u32Schema.optional(),
+      players: playersSchema.optional()
     })
     .strict(),
   // either direction: the sender's move (uci) at a given 0-based ply + the
   // sender's clocks after it. clockMs is authoritative only host -> guest.
   // v5: `byo` rides along whenever the config has byo-yomi (host-authoritative).
+  // v6: `sig` = the mover's ed25519 over segment.ts moveSigBytes(gameKey, ply,
+  // uci, clockMs, prevSig) — the per-move chain (signed play only).
   z
     .object({
       t: z.literal('move'),
@@ -178,7 +232,8 @@ export const wireMsgSchema = z.discriminatedUnion('t', [
       ply: z.number().int().min(0),
       uci: moveStrSchema,
       clockMs: clocksSchema,
-      byo: byoSchema.optional()
+      byo: byoSchema.optional(),
+      sig: b64u64Schema.optional()
     })
     .strict(),
   // host -> guest: authoritative clock ack after committing a guest move, and a
@@ -193,14 +248,16 @@ export const wireMsgSchema = z.discriminatedUnion('t', [
     })
     .strict(),
   // time-out. REPLACES resign-for-flag. clockMs has the loser (`by`) at 0
-  // (with byo-yomi, the loser's periodsLeft is 0 too).
+  // (with byo-yomi, the loser's periodsLeft is 0 too). v6: `esig` = the
+  // sender's terminal countersignature over segment.ts witnessEndBytes.
   z
     .object({
       t: z.literal('flag'),
       gameId: z.number().int(),
       by: colorSchema,
       clockMs: clocksSchema,
-      byo: byoSchema.optional()
+      byo: byoSchema.optional(),
+      esig: b64u64Schema.optional()
     })
     .strict(),
   // first-move grace expired or a player aborted; no result is recorded.
@@ -212,16 +269,26 @@ export const wireMsgSchema = z.discriminatedUnion('t', [
     })
     .strict(),
   // board-terminal ending (checkmate/stalemate/insufficient/…), confirmed both sides.
+  // v6: `esig` = the sender's terminal countersignature (witnessEndBytes).
   z
     .object({
       t: z.literal('gameOver'),
       gameId: z.number().int(),
       result: z.enum(['1-0', '0-1', '1/2-1/2']),
-      reason: z.string()
+      reason: z.string(),
+      esig: b64u64Schema.optional()
     })
     .strict(),
-  // genuine resignation only.
-  z.object({ t: z.literal('resign'), gameId: z.number().int(), by: colorSchema }).strict(),
+  // genuine resignation only. v6: `esig` = the resigner's terminal counter-
+  // signature over segment.ts witnessEndBytes (absent = unsigned, exactly v5).
+  z
+    .object({
+      t: z.literal('resign'),
+      gameId: z.number().int(),
+      by: colorSchema,
+      esig: b64u64Schema.optional()
+    })
+    .strict(),
   z.object({ t: z.literal('drawOffer'), gameId: z.number().int() }).strict(),
   z.object({ t: z.literal('drawDecline'), gameId: z.number().int() }).strict(),
   z.object({ t: z.literal('drawAccept'), gameId: z.number().int() }).strict(),
@@ -229,7 +296,16 @@ export const wireMsgSchema = z.discriminatedUnion('t', [
   z.object({ t: z.literal('rematchOffer') }).strict(),
   z.object({ t: z.literal('rematchDecline') }).strict(),
   // host -> guest on mutual rematch; `yourColor` is again the GUEST's (swapped) color.
-  z.object({ t: z.literal('rematchStart'), gameId: z.number().int(), yourColor: colorSchema }).strict(),
+  // v6: a signed rematch mints a FRESH gameKey (same players, new nonce).
+  z
+    .object({
+      t: z.literal('rematchStart'),
+      gameId: z.number().int(),
+      yourColor: colorSchema,
+      gameKey: b64u32Schema.optional(),
+      players: playersSchema.optional()
+    })
+    .strict(),
   // reconnect: a rejoining peer asks the host to resume from the ply it has.
   z.object({ t: z.literal('resumeReq'), gameId: z.number().int(), havePly: z.number().int().min(0) }).strict(),
   // host -> peer: full authoritative snapshot to rebuild the live game after a rebond.
@@ -245,7 +321,37 @@ export const wireMsgSchema = z.discriminatedUnion('t', [
       // (optional so a config-less resync still parses; chess needs no rebuild).
       config: mpGameConfigSchema.optional(),
       // v5: byo-yomi state survives a reconnect (periods consumed stay consumed).
-      byo: byoSchema.optional()
+      byo: byoSchema.optional(),
+      // v6: the game key + player roots survive a reconnect too (signed play).
+      gameKey: b64u32Schema.optional(),
+      players: playersSchema.optional()
+    })
+    .strict(),
+  // v6 witness -> players: periodic countersignature over the interleaved
+  // clock stream — the witness's ed25519 over segment.ts witnessClockBytes
+  // (gameKey, ply, clockMs, wts) at its own clock reading `wts` (unix ms).
+  z
+    .object({
+      t: z.literal('wclk'),
+      gameId: z.number().int(),
+      ply: z.number().int().min(0),
+      clockMs: clocksSchema,
+      wts: z.number().int().min(0),
+      sig: b64u64Schema
+    })
+    .strict(),
+  // v6 witness -> players: terminal stream signature — the witness's ed25519
+  // over segment.ts witnessEndBytes(gameKey, result, plies, transcript). This
+  // is exactly what SegmentPayload.wstream carries into BOTH players' chains.
+  z
+    .object({
+      t: z.literal('wend'),
+      gameId: z.number().int(),
+      result: z.enum(['1-0', '0-1', '1/2-1/2']),
+      reason: z.string().min(1).max(64),
+      plies: z.number().int().min(0).max(4096),
+      transcript: b64u32Schema,
+      sig: b64u64Schema
     })
     .strict(),
   // graceful goodbye before leaving the room.
