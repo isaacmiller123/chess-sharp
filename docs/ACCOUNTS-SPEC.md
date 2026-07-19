@@ -381,6 +381,13 @@ can carry (advertised):
   at minimal scale). Rated play genuinely requires a third machine (§4).
 - **C-11** The §5 overlay is new work; signaling/bootstrap currently ride third-party Nostr relays +
   public TURN, which must be replaceable (operator peer as fallback).
+- **C-12** On the reconstruction floor (owner gone, <`K_rec` shard rows, no chain linkage to vet a
+  revoke's signer), a device-signed revocation minted with a leaked certified key is
+  indistinguishable from the legitimate cold-root flow, so honoring it — required so a
+  device-revoked key cannot forge (§0) — can transiently hide an honest device's content: the
+  viewer shrinks the case (root-refuted signers ignored, contested pairs gate both), surfaces it as
+  `revocationContested`, and any reconstructing chain adjudicates and heals it (§14 — degraded,
+  self-healing, never silent).
 
 ## §13 Open parameters (set at build time, calibrated where noted)
 

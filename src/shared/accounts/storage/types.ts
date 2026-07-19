@@ -49,10 +49,25 @@ export interface Shard extends CanonicalObject {
  * a witnessed event of `root` (owner-signed + witness-attested), `headId` its
  * event id, and `blobHash`/`blobLen` bind the erasure-coded bytes
  * (chainToBytes of the chain at that head). After reconstruction the viewer
- * verifies the chain AND checks its witnessed head equals `headId` — a header
- * carrying a real head event but a foreign blobHash dies at that gate.
+ * verifies the chain AND checks its witnessed head equals `headId`.
  * `certs` carry the cert events proving head.body.key belongs to root (empty
  * when root-signed), so verification needs no external context.
+ *
+ * `commitSig` binds blobHash/blobLen AND every shard body to OWNER authority at
+ * STORE time: an ed25519 signature by `head.body.key` (itself proven for root by
+ * `certs`) over the commitment tuple (shards.ts snapshotCommitBytes), which
+ * includes `bodyHashes`. Without it a keyless attacker could pair a replayed
+ * real head with a foreign blobHash and pin a shard slot the real snapshot could
+ * never displace — the reconstruct gate catches a forged blob but only AFTER a
+ * poison row has locked the key. A verifier re-checks it, so blobHash and the
+ * per-row body bytes are authenticated with no external context; only the owner
+ * (or a certified device) can cut a snapshot.
+ *
+ * `bodyHashes[i]` = sha256 of shard row i's body bytes (n entries, idx order),
+ * committed by `commitSig`. A store-time verifier binds each accepted shard body
+ * to its owner-committed hash, so a keyless attacker cannot pin a slot with a
+ * same-length garbage/byte-flipped body (which the framing's blob-level dataHash
+ * cannot see per-row) and strand an otherwise-recoverable snapshot.
  */
 export interface SnapshotHeader {
   v: 1
@@ -67,6 +82,13 @@ export interface SnapshotHeader {
   n: number
   /** PARAMS_A3_DIGEST the job was cut under. */
   params: B64u
+  /** b64u(sha256(body)) of every shard row, idx order (n entries) — the owner's
+   * per-row body commitment, authenticated by commitSig. */
+  bodyHashes: B64u[]
+  /** ed25519 by head.body.key over snapshotCommitBytes(header) — the owner's
+   * commitment that blobHash/blobLen + bodyHashes are the snapshot of the chain
+   * at headId. */
+  commitSig: B64u
 }
 
 /** What a shard carrier stores + serves per (subject, idx): the job header
@@ -286,6 +308,15 @@ export interface HolderSummary {
  * so the §5 acceptance proof can assert the guaranteed floor vs expected. */
 export interface ReconstructedProfile {
   root: B64u
+  /** FLOOR path only — the C-12 honest signal (spec §12): present (true) when
+   * the view honored ≥1 DEVICE-signed revocation with no chain linkage to vet
+   * it. NO-FORGE (§0) requires honoring such revokes (device-to-device
+   * revocation is a model feature), but their evidence is mintable by any
+   * leaked certified key, so honest content MAY be transiently withheld: the
+   * view is revocation-DEGRADED, never silently complete. Absent whenever a
+   * verified chain adjudicated (expected path) and when only root-signed /
+   * chain-linked revocations gate; a reconstructing chain heals it (§14). */
+  revocationContested?: boolean
   /** Verified newest witnessed head seen across sources. */
   head?: { id: EventId; height: number }
   /** Newest checkpoint that passed incremental verify (+ spot-check when

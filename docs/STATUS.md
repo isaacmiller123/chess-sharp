@@ -278,3 +278,58 @@ typecheck (node/web/server) green.
   isolated bundling — fallback only. Operator peer architecture: werift.
 - Known A6 item: keyring.removeAccount + createAccount same creds = honest dead end (chain is
   preserved by design; record re-adoption flow lands with the account UI).
+
+## Decentralized accounts — Phase A2 COMPLETE: witness fabric + PIN (2026-07-16)
+Binding spec: docs/ACCOUNTS-SPEC.md v1.1 §1/§4/§8/§11; params docs/ACCOUNTS-PARAMS.md
+(PARAMS_A2_DIGEST = oDyonXFK6JWN23sLdAqWJwaFiuxkm4eeZq7cxxdy2zc). Committed fecb758 + review-pass
+42e716a. Converged clean over 5 Opus review rounds (defects 13→10→13→1→0) + a /code-review pass.
+- **src/shared/accounts/witness/** (platform-neutral, deterministic): canonical witness set +
+  eligibility, XOR-distance/closestEligible/prefixBucket (witness/distance.ts; nodeId =
+  sha256(rootPub)), write lease with epochs, diversity-bound witnessed time, the tOPRF PIN
+  committee (Shamir + OPRF), presence/attestation/slash, FabricEndpoint abstraction with MockFabric
+  (suites) + TrysteroFabric (server/operator/peer.ts, trystero 0.25.2 + werift).
+- **Proof (in test):** lease grant/takeover PIN-gated; a forced same-epoch fork is slashed; a
+  different-epoch double-grant is appealed. Judge WASM sha256 =
+  a8fbc05ec6920b56d7485826dcb02c5ffd2826bcbf751cf973046f237a9096f1 (stockfish-18-lite-single).
+- Suites: test-accounts-{witness,pin,lease,fabric}.mjs + operator-smoke.mjs + test-judge-node.mjs.
+  Desktop 100% intact.
+- **4 residual seams deferred to A3's authority layer** (documented in docs/A3-KICKOFF.md): committee
+  failure-counter anti-spreading; full canonical-set lease verification at attest; authoritative
+  pin-record-chain anchoring for handoff; authenticated device-ownership at lease grant.
+
+## Decentralized accounts — Phase A3 COMPLETE: overlay + storage + wire v6 (2026-07-19)
+Binding spec: docs/ACCOUNTS-SPEC.md v1.1 §5 (three retention layers, Kademlia overlay,
+authenticated pointers, reconstruction viewer) + §8 (wire v6); params docs/ACCOUNTS-PARAMS.md §Storage
+(N_shards=40, K_rec=12); plan docs/A3-KICKOFF.md. PARAMS_A3_DIGEST =
+ACxJEbqGQj7VOdWBvaLMiYuhfDHluYo0bZ0gbu_1yNE. Bricks 1/2/6 committed 17b39f4; bricks 3/4/5 built by a
+pure-Fable fleet then driven through 5 adversarial Fable review+verify+fix rounds (per the accounts
+model policy), each finding independently verified before fixing.
+- **src/shared/accounts/storage/** — RS codec (rs.ts: GF(2^8), Cauchy MDS matrix, any 12-of-40
+  reconstruct, sha256 integrity); shard duty + repair (shards.ts: distance-assigned shard keys,
+  publish-on-write, finalSync, background runRepair — eviction=churn=healed; owner-committed
+  per-shard body auth via SnapshotHeader.commitSig + bodyHashes); authenticated pointers (pointers.ts:
+  segment/chain/shard proof kinds, proof-ranked per-key cap that survives sybil floods, index built
+  at write time so viewing never searches); reconstruction viewer (viewer.ts: resolve → verified
+  contact sheet → freshest-holder profile + newest M-of-N checkpoint + head, incremental verify +
+  spot-check, lazy history pager).
+- **overlay/** — Kademlia over FabricEndpoint (k-buckets, iterative FIND_NODE/VALUE/STORE, bootstrap;
+  operator peer = fallback relay). **wire v6** — PROTOCOL_VERSION 6, `witness` role, per-move
+  signature chaining + countersigned clock stream; existing test-mp GREEN behind the v5 gate.
+- **THE §5 PROOF (test-accounts-reconstruct.mjs):** 1,000 witnessed games + 50 five-cosigner
+  checkpoints, 300 opponent nodes on a real overlay at production 40/12 geometry, owner's node gone
+  forever → a fresh viewer reconstructs profile + newest checkpoint + head + FULL history BIT-FAITHFUL
+  to the original chain bytes; degraded <K_rec → honest temporary unavailability → runRepair
+  re-encodes/redistributes → heals. Failure mode is temporary unavailability that heals, never loss.
+- **Authority model, both viewing paths:** the EXPECTED path (verified chain reconstructs) is
+  absolute on NO-FORGE + NO-SUPPRESS — head/segment/checkpoint/name/profile source ONLY from the
+  verified chain (or verifyChain-gated); a non-linking pool event by ANY key (incl. a certified,
+  non-revoked leaked device key) can neither inject content nor outrank the verified head. The FLOOR
+  path (no chain to vet linkage) fails toward NO-FORGE and honestly surfaces the one irreducible
+  residual via `revocationContested` — accepted compromise **C-12** (spec §12).
+- Suites (all green): test-accounts-shards (246), -pointers (105), -reconstruct (217), plus -rs (102)
+  and -overlay (78); registered in package.json + .github/workflows/build.yml. Desktop 100% intact:
+  electron-vite build + typecheck (node/web/server) exit 0.
+- **A2→A3 residual seams:** substrate now exists (replicated chains/certs, chain-authoritative
+  storage) but the witness-side hooks are NOT wired — deferred to A4's first brick. The new-module
+  browser byte-parity is exercised inside the suites; wiring RS/overlay parity into the playwright CI
+  gate is a small follow-up.

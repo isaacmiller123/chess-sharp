@@ -77,7 +77,8 @@ jobs:
                    test-updater test-accounts-core test-accounts-chain \
                    test-accounts-witness test-accounts-pin test-accounts-lease \
                    test-accounts-fabric test-accounts-rs test-accounts-overlay \
-                   test-judge-node; do
+                   test-accounts-shards test-accounts-pointers \
+                   test-accounts-reconstruct test-judge-node; do
             echo "== $t =="; node scripts/$t.mjs
           done
 
