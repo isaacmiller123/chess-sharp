@@ -38,6 +38,11 @@
 // Runtime guide: a game is ~5-10s to play and ~10-20s to analyze; the default
 // schedule (172 games, 344 rows, ~25-28 rows/band) is ~20-30 min at
 // concurrency 4. Use --self 1 --cross1 0 --cross2 0 for a smoke pass.
+//
+// The game-generation machinery (weak model play, random book, schedule) lives
+// in scripts/lib/game-gen.mjs (extracted verbatim, shared with the judge-config
+// corpus harness scripts/gen-judge-corpus.mjs). The ANALYSIS side below is this
+// script's own: review-pipeline parity at a fixed depth.
 
 import { execSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
@@ -45,11 +50,8 @@ import { appendFileSync, writeFileSync, mkdirSync, readFileSync, existsSync, mkd
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { Chess } from 'chessops'
-import { makeFen } from 'chessops/fen'
-import { parseUci } from 'chessops/util'
 import { Uci, defaultEnginePath } from './lib/uci.mjs'
-import { weakDepth, weakMultiPv, pickWeakMove } from './lib/weak-model.mjs'
+import { NATIVE_FLOOR, BOOK_PLIES, playGame, buildSchedule } from './lib/game-gen.mjs'
 
 // ---- CLI ---------------------------------------------------------------------------
 
@@ -70,8 +72,6 @@ const CONCURRENCY = Number(flag('concurrency', '4'))
 const ANALYSIS_DEPTH = Number(flag('analysis-depth', '11'))
 const MOVETIME = Number(flag('movetime', '120'))
 const MAX_PLIES = Number(flag('max-plies', '160'))
-const NATIVE_FLOOR = 1320
-const BOOK_PLIES = 6
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const ENGINE = flag('engine', defaultEnginePath(repoRoot))
@@ -174,153 +174,14 @@ async function analyzeGame(eng, plies, depth) {
   return { white: side('white'), black: side('black') }
 }
 
-// ---- Game play -----------------------------------------------------------------------
-
-/** Configure a player engine for its band before a game. */
-async function configurePlayer(eng, elo) {
-  if (elo >= NATIVE_FLOOR) {
-    eng.setOption('UCI_LimitStrength', 'true')
-    eng.setOption('UCI_Elo', elo)
-  } else {
-    // Weak path plays FULL-strength short searches; the pick model weakens choice.
-    eng.setOption('UCI_LimitStrength', 'false')
-    eng.setOption('Skill Level', 20)
-  }
-  eng.send('ucinewgame')
-  await eng.ready()
-}
-
-/** One player move; returns { uci, cp } with cp side-to-move POV (clamped). */
-async function playerMove(eng, elo, fen, fullmove) {
-  if (elo >= NATIVE_FLOOR) {
-    const { move, cp } = await eng.bestMove(fen, { movetime: MOVETIME })
-    return { uci: move, cp }
-  }
-  const { cands, best } = await eng.searchMultiPv(fen, weakDepth(elo), weakMultiPv(elo))
-  if (best === '(none)' || !best) return { uci: null, cp: 0 }
-  const uci = cands.length ? pickWeakMove(cands, elo, fullmove, false) : best
-  const cp = cands.find((c) => c.uci === uci)?.cp ?? cands[0]?.cp ?? 0
-  return { uci, cp }
-}
-
-/** Random-but-sane opening: uniform among candidates within 60cp of best (depth 8). */
-async function randomOpening(eng, pos, plies) {
-  const out = []
-  for (let i = 0; i < plies; i++) {
-    const fen = makeFen(pos.toSetup())
-    const { lines } = await eng.analyze(fen, 8, 6)
-    const cands = [...lines.values()]
-      .filter((l) => l.pv.length > 0)
-      .map((l) => ({ uci: l.pv[0], cp: l.mate != null ? (l.mate > 0 ? 10000 : -10000) : l.cp }))
-    if (cands.length === 0) break
-    const best = Math.max(...cands.map((c) => c.cp))
-    const ok = cands.filter((c) => best - c.cp <= 60)
-    const pick = ok[Math.floor(Math.random() * ok.length)]
-    const mv = parseUci(pick.uci)
-    if (!mv || !pos.isLegal(mv)) break
-    const fenBefore = fen
-    pos.play(mv)
-    out.push({ uci: pick.uci, fenBefore, fenAfter: makeFen(pos.toSetup()), mateDelivered: false })
-  }
-  return out
-}
-
-/**
- * Plays one game whiteElo vs blackElo. Returns { plies, resultWhite, ending }
- * with resultWhite in {1, 0.5, 0} and ending one of
- * mate|stalemate|draw|50move|adjudicated|plycap.
- */
-async function playGame(whiteEng, blackEng, analyzerEng, whiteElo, blackElo) {
-  await configurePlayer(whiteEng, whiteElo)
-  await configurePlayer(blackEng, blackElo)
-
-  const pos = Chess.default()
-  const plies = await randomOpening(analyzerEng, pos, BOOK_PLIES)
-
-  let hopelessStreak = 0
-  let hopelessSign = 0
-  let lastWhiteCp = 0
-
-  while (plies.length < MAX_PLIES) {
-    if (pos.isEnd()) break
-    if (pos.halfmoves >= 100) return { plies, resultWhite: 0.5, ending: '50move' }
-    const fen = makeFen(pos.toSetup())
-    const whiteToMove = pos.turn === 'white'
-    const [eng, elo] = whiteToMove ? [whiteEng, whiteElo] : [blackEng, blackElo]
-    const { uci, cp } = await playerMove(eng, elo, fen, pos.fullmoves)
-    if (!uci || uci === '(none)') break
-
-    // Adjudication bookkeeping (white-POV eval from the mover's own search).
-    const whiteCp = whiteToMove ? cp : -cp
-    lastWhiteCp = whiteCp
-    const sign = whiteCp > 0 ? 1 : -1
-    if (Math.abs(whiteCp) >= 800 && (hopelessSign === 0 || sign === hopelessSign)) {
-      hopelessStreak++
-      hopelessSign = sign
-    } else {
-      hopelessStreak = 0
-      hopelessSign = 0
-    }
-
-    const mv = parseUci(uci)
-    if (!mv || !pos.isLegal(mv)) throw new Error(`illegal move ${uci} in ${fen}`)
-    pos.play(mv)
-    plies.push({
-      uci,
-      fenBefore: fen,
-      fenAfter: makeFen(pos.toSetup()),
-      mateDelivered: pos.isCheckmate()
-    })
-
-    if (hopelessStreak >= 6) {
-      return { plies, resultWhite: hopelessSign > 0 ? 1 : 0, ending: 'adjudicated' }
-    }
-  }
-
-  const outcome = pos.outcome()
-  if (outcome && outcome.winner) {
-    return { plies, resultWhite: outcome.winner === 'white' ? 1 : 0, ending: 'mate' }
-  }
-  if (pos.isEnd()) return { plies, resultWhite: 0.5, ending: 'stalemate' }
-  // Ply cap: score by the last seen eval.
-  const resultWhite = lastWhiteCp >= 250 ? 1 : lastWhiteCp <= -250 ? 0 : 0.5
-  return { plies, resultWhite, ending: 'plycap' }
-}
-
-// ---- Schedule -------------------------------------------------------------------------
-
-function buildSchedule() {
-  const games = []
-  for (let i = 0; i < BANDS.length; i++) {
-    // Edge bands get 2 extra self-play games (they have fewer cross partners).
-    const bonus = i === 0 || i === BANDS.length - 1 ? 2 : 0
-    for (let g = 0; g < SELF_GAMES + bonus; g++) games.push([BANDS[i], BANDS[i]])
-    if (i + 1 < BANDS.length) {
-      for (let g = 0; g < CROSS1_GAMES; g++) {
-        games.push(g % 2 === 0 ? [BANDS[i], BANDS[i + 1]] : [BANDS[i + 1], BANDS[i]])
-      }
-    }
-    if (i + 2 < BANDS.length) {
-      for (let g = 0; g < CROSS2_GAMES; g++) {
-        games.push(g % 2 === 0 ? [BANDS[i], BANDS[i + 2]] : [BANDS[i + 2], BANDS[i]])
-      }
-    }
-  }
-  // Shuffle so partial runs still cover all bands roughly evenly.
-  for (let i = games.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[games[i], games[j]] = [games[j], games[i]]
-  }
-  return games
-}
-
 // ---- Runner ---------------------------------------------------------------------------
+// Game play + schedule come from scripts/lib/game-gen.mjs (extracted verbatim).
 
 async function main() {
   mkdirSync(path.dirname(OUT), { recursive: true })
   if (has('fresh')) writeFileSync(OUT, '')
 
-  const schedule = buildSchedule()
+  const schedule = buildSchedule(BANDS, SELF_GAMES, CROSS1_GAMES, CROSS2_GAMES)
   console.log(`engine: ${ENGINE}`)
   console.log(
     `games: ${schedule.length} (self ${SELF_GAMES}/band +2 edge, cross1 ${CROSS1_GAMES}, cross2 ${CROSS2_GAMES}) | ` +
@@ -354,7 +215,8 @@ async function main() {
           blackEng,
           analyzerEng,
           whiteElo,
-          blackElo
+          blackElo,
+          { movetime: MOVETIME, maxPlies: MAX_PLIES, bookPlies: BOOK_PLIES }
         )
         if (plies.length < 8) throw new Error(`degenerate game (${plies.length} plies)`)
         const s = await analyzeGame(analyzerEng, plies, ANALYSIS_DEPTH)

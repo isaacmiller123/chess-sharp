@@ -1,0 +1,313 @@
+{
+  "fitDate": "2026-07-21",
+  "corpus": "scripts/data/judge-elo-corpus.jsonl",
+  "corpusRows": 352,
+  "trainRows": 282,
+  "holdoutRows": 70,
+  "analysisDepth": null,
+  "accKnots": [
+    {
+      "feat": 65.524,
+      "elo": 400
+    },
+    {
+      "feat": 75.717,
+      "elo": 600
+    },
+    {
+      "feat": 80.287,
+      "elo": 903
+    },
+    {
+      "feat": 82.3,
+      "elo": 1259
+    },
+    {
+      "feat": 85.55,
+      "elo": 1691
+    },
+    {
+      "feat": 88.374,
+      "elo": 2100
+    },
+    {
+      "feat": 89.913,
+      "elo": 2300
+    },
+    {
+      "feat": 90.867,
+      "elo": 2500
+    },
+    {
+      "feat": 93.19,
+      "elo": 2700
+    }
+  ],
+  "acplKnots": [
+    {
+      "feat": 4.96,
+      "elo": 400
+    },
+    {
+      "feat": 4.588,
+      "elo": 600
+    },
+    {
+      "feat": 4.354,
+      "elo": 903
+    },
+    {
+      "feat": 4.099,
+      "elo": 1259
+    },
+    {
+      "feat": 3.931,
+      "elo": 1500
+    },
+    {
+      "feat": 3.759,
+      "elo": 1783
+    },
+    {
+      "feat": 3.608,
+      "elo": 2100
+    },
+    {
+      "feat": 3.312,
+      "elo": 2395
+    },
+    {
+      "feat": 2.939,
+      "elo": 2700
+    }
+  ],
+  "coef": {
+    "a0": 11.4,
+    "a1": 0.1,
+    "c0": -86.2,
+    "bShrink": -0.32,
+    "gOpp": -0.1257
+  },
+  "shrink": {
+    "center": 1500,
+    "fullMoves": 30,
+    "minMoves": 6
+  },
+  "clamp": {
+    "floor": 250,
+    "ceil": 3000
+  },
+  "mae": {
+    "no opp (estimateElo)": {
+      "train": 328.8,
+      "holdout": 331.8
+    },
+    "with opp (Ex+oppElo)": {
+      "train": 292.8,
+      "holdout": 296.4
+    },
+    "acc only (no acpl)": {
+      "train": 450.1,
+      "holdout": 454.2
+    }
+  },
+  "perBand": [
+    {
+      "band": 400,
+      "nTrain": 21,
+      "biasTrain": 69,
+      "maeTrain": 69,
+      "nHold": 4,
+      "biasHold": 127,
+      "maeHold": 127
+    },
+    {
+      "band": 600,
+      "nTrain": 23,
+      "biasTrain": 133,
+      "maeTrain": 198,
+      "nHold": 2,
+      "biasHold": 87,
+      "maeHold": 111
+    },
+    {
+      "band": 800,
+      "nTrain": 19,
+      "biasTrain": 175,
+      "maeTrain": 260,
+      "nHold": 9,
+      "biasHold": -118,
+      "maeHold": 172
+    },
+    {
+      "band": 1000,
+      "nTrain": 20,
+      "biasTrain": -13,
+      "maeTrain": 296,
+      "nHold": 8,
+      "biasHold": -12,
+      "maeHold": 164
+    },
+    {
+      "band": 1200,
+      "nTrain": 22,
+      "biasTrain": 217,
+      "maeTrain": 396,
+      "nHold": 6,
+      "biasHold": 174,
+      "maeHold": 354
+    },
+    {
+      "band": 1320,
+      "nTrain": 21,
+      "biasTrain": -127,
+      "maeTrain": 345,
+      "nHold": 7,
+      "biasHold": -223,
+      "maeHold": 348
+    },
+    {
+      "band": 1500,
+      "nTrain": 22,
+      "biasTrain": 53,
+      "maeTrain": 328,
+      "nHold": 6,
+      "biasHold": -366,
+      "maeHold": 366
+    },
+    {
+      "band": 1700,
+      "nTrain": 27,
+      "biasTrain": 84,
+      "maeTrain": 423,
+      "nHold": 1,
+      "biasHold": 289,
+      "maeHold": 289
+    },
+    {
+      "band": 1900,
+      "nTrain": 19,
+      "biasTrain": -89,
+      "maeTrain": 376,
+      "nHold": 9,
+      "biasHold": -263,
+      "maeHold": 366
+    },
+    {
+      "band": 2100,
+      "nTrain": 23,
+      "biasTrain": -92,
+      "maeTrain": 309,
+      "nHold": 5,
+      "biasHold": -463,
+      "maeHold": 514
+    },
+    {
+      "band": 2300,
+      "nTrain": 23,
+      "biasTrain": -9,
+      "maeTrain": 273,
+      "nHold": 5,
+      "biasHold": -284,
+      "maeHold": 393
+    },
+    {
+      "band": 2500,
+      "nTrain": 21,
+      "biasTrain": -246,
+      "maeTrain": 325,
+      "nHold": 4,
+      "biasHold": -16,
+      "maeHold": 248
+    },
+    {
+      "band": 2700,
+      "nTrain": 21,
+      "biasTrain": -174,
+      "maeTrain": 179,
+      "nHold": 4,
+      "biasHold": -322,
+      "maeHold": 322
+    }
+  ],
+  "residStd": {
+    "noOpp": [
+      {
+        "label": "<15",
+        "mid": 10,
+        "n": 4,
+        "std": 413
+      },
+      {
+        "label": "15-24",
+        "mid": 20,
+        "n": 18,
+        "std": 513
+      },
+      {
+        "label": "25-39",
+        "mid": 32,
+        "n": 123,
+        "std": 467
+      },
+      {
+        "label": ">=40",
+        "mid": 48,
+        "n": 207,
+        "std": 390
+      }
+    ],
+    "withOpp": [
+      {
+        "label": "<15",
+        "mid": 10,
+        "n": 4,
+        "std": 337
+      },
+      {
+        "label": "15-24",
+        "mid": 20,
+        "n": 18,
+        "std": 448
+      },
+      {
+        "label": "25-39",
+        "mid": 32,
+        "n": 123,
+        "std": 415
+      },
+      {
+        "label": ">=40",
+        "mid": 48,
+        "n": 207,
+        "std": 349
+      }
+    ],
+    "accOnly": [
+      {
+        "label": "<15",
+        "mid": 10,
+        "n": 4,
+        "std": 364
+      },
+      {
+        "label": "15-24",
+        "mid": 20,
+        "n": 18,
+        "std": 681
+      },
+      {
+        "label": "25-39",
+        "mid": 32,
+        "n": 123,
+        "std": 638
+      },
+      {
+        "label": ">=40",
+        "mid": 48,
+        "n": 207,
+        "std": 517
+      }
+    ]
+  }
+}

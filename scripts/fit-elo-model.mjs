@@ -31,6 +31,9 @@
 // (constants) and scripts/test-est-elo.mjs (golden bounds).
 //
 // Usage: node scripts/fit-elo-model.mjs [--corpus scripts/data/elo-corpus.jsonl]
+//                                       [--out scripts/data/elo-fit.json]
+// (Path flags only; the default invocation is unchanged. The judge-config refit
+// uses --corpus scripts/data/judge-elo-corpus.jsonl --out scripts/data/judge-elo-fit.json.)
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -43,7 +46,7 @@ function flag(name, def) {
 }
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const CORPUS = path.resolve(repoRoot, flag('corpus', 'scripts/data/elo-corpus.jsonl'))
-const OUT = path.resolve(repoRoot, 'scripts/data/elo-fit.json')
+const OUT = path.resolve(repoRoot, flag('out', 'scripts/data/elo-fit.json'))
 
 const ELO_FLOOR = 250
 const ELO_CEIL = 3000
