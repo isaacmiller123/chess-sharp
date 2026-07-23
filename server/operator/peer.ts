@@ -8,9 +8,13 @@
 // MockFabric (suites) and TrysteroFabric (production) are swappable:
 //   (a) TrysteroFabric — a FabricEndpoint over trystero with werift's
 //       RTCPeerConnection as the Node WebRTC polyfill (passive, always-on),
-//   (b) the pinned canonical judge WASM (server/judge/nodeEngine.ts) constructed
-//       + content-hash-verified at startup as witness-of-last-resort. A2 only
-//       wires it; running Tier-2 is A5.
+//   (b) the pinned canonical judge, held as the shared JudgeEngine adapter
+//       (server/judge/nodeAdapter.ts over the A2 harness), constructed +
+//       content-hash-verified at startup as witness-of-last-resort. Tier-2 duty
+//       drives this handle ONLY through judgeGame (spec §8: ONE canonical judge
+//       surface) — never the raw A2 analyseFixedNodes protocol, whose
+//       per-position TT clear + parse rules are a different bit surface. A2
+//       wired it; running Tier-2 is A5 (mounted at A6).
 //
 // This module is NOT mounted into server/index.ts's main flow (that lands in
 // A6/A-final). It exports startOperatorPeer() + the TrysteroFabric factory; the
@@ -35,8 +39,8 @@ import {
   type WitnessServeHandle,
 } from '@shared/accounts/witness'
 import type { B64u } from '@shared/accounts'
-import { assertWasmHash } from '../judge/contentHash.js'
-import { newInstance, type JudgeInstance } from '../judge/nodeEngine.js'
+import type { JudgeEngine } from '@shared/accounts/judge'
+import { newNodeJudgeEngine } from '../judge/nodeAdapter.js'
 
 /** The operator peer's own identity — a normal account's root + device keypair. */
 export interface OperatorIdentity {
@@ -81,7 +85,12 @@ export interface OperatorPeer {
   readonly fabric: FabricEndpoint
   readonly witness: WitnessServeHandle
   readonly member: MemberServeHandle
-  readonly judge?: JudgeInstance
+  /** The last-resort Tier-2 capability as the CANONICAL judge surface (spec
+   * §8): the shared JudgeEngine adapter, to be driven ONLY through judgeGame.
+   * Deliberately NOT the raw A2 JudgeInstance — its analyseFixedNodes protocol
+   * (per-position TT clear, divergent parse rules) cannot reproduce the
+   * judgeOutputDigest canonical verifiers compute over a multi-position game. */
+  readonly judge?: JudgeEngine
   /** (Re)broadcast the peer's presence into the fabric. */
   announce(nowMs?: number): void
   stop(): Promise<void>
@@ -100,19 +109,17 @@ export async function startOperatorPeer(opts: StartOperatorPeerOpts): Promise<Op
 
   const fabric = opts.fabric ?? (await createTrysteroFabric(opts))
 
-  // (b) Judge: construct + content-hash-verify. Best-effort — the peer witnesses
+  // (b) Judge: the canonical §8 surface — newNodeJudgeEngine content-hash-gates
+  // (typed JudgeWasmHashError, no opt-out) BEFORE spawning, and the wrapped
+  // newInstance re-verifies at spawn. Best-effort — the peer witnesses
   // regardless (spec §11: witness-of-last-resort, not a hard dependency).
-  let judge: JudgeInstance | undefined
+  let judge: JudgeEngine | undefined
   const jc = opts.judge ?? {}
   if (jc.enabled !== false) {
     try {
-      // Cheap content-pin check first (newInstance repeats it before spawning).
-      if (jc.wasmPath) assertWasmHash(jc.wasmPath)
-      else assertWasmHash()
-      judge = await newInstance({
+      judge = await newNodeJudgeEngine({
         ...(jc.enginePath ? { enginePath: jc.enginePath } : {}),
         ...(jc.wasmPath ? { wasmPath: jc.wasmPath } : {}),
-        verifyContentHash: true,
       })
     } catch (e) {
       // eslint-disable-next-line no-console
@@ -155,7 +162,7 @@ export async function startOperatorPeer(opts: StartOperatorPeerOpts): Promise<Op
     judge,
     announce,
     async stop() {
-      if (judge) await judge.quit().catch(() => {})
+      if (judge) await judge.close().catch(() => {})
       await fabric.close()
     },
   }

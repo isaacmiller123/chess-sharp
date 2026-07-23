@@ -7,7 +7,16 @@
 //
 // Platform-neutral: no `node:` imports, no DOM globals.
 
-import { basicFold, type BasicFoldState } from './checkpoint'
+import { basicFold, foldById, foldIdOfState, type BasicFoldState } from './checkpoint'
+import { verifySegmentEvent } from './segment'
+
+/** Rated-shaped segment payload: carries the §6 ladder binding (kind + a
+ * running clock). The A4-10 checkpoint rule keys on this shape. */
+function isRatedShaped(payload: CanonicalObject): boolean {
+  const p = payload as { kind?: unknown; tc?: { baseMs?: unknown } }
+  return typeof p.kind === 'string' && typeof p.tc === 'object' && p.tc !== null &&
+    typeof p.tc.baseMs === 'number' && p.tc.baseMs > 0
+}
 import {
   canonicalBytes,
   canonicalHash,
@@ -297,7 +306,14 @@ export function verifyChain(chain: Chain): VerifyResult {
   let head: { id: EventId; height: number } | null = null
   let fold: BasicFoldState = basicFold.init(chain.root)
   const foldAt = new Map<number, BasicFoldState>()
+  /** The exact witnessed sequence the basic fold walked — alt-fold audits
+   * (a4-v1 in-chain checkpoints) must fold the identical sequence. */
+  const walked: SignedEvent[] = []
   const ckpts: { rec: Rec; payload: CheckpointPayload }[] = []
+  /** First-seen witnessed height per segment game key (A4-09 dup-game rule). */
+  const segGameAt = new Map<string, number>()
+  /** Lowest witnessed height carrying a rated-shaped segment (A4-10 rule). */
+  let firstRatedHeight = -1
 
   if (!byHeight.has(0)) {
     err('bad-genesis', 'missing genesis (no witnessed event at height 0)')
@@ -350,14 +366,56 @@ export function verifyChain(chain: Chain): VerifyResult {
         if (pub === chain.root) err('bad-payload', 'the root key cannot be revoked', r.id)
         else if (!revokedAt.has(pub)) revokedAt.set(pub, { height: h, ts: b.ts })
       }
+      if (b.type === 'segment') {
+        // A4 review fixes. (A4-09) one game, one chain entry — a repeated game
+        // key is replay fraud regardless of window; (A4-01/02/08) a verified
+        // chain implies verified segments: the witness-stream binding and any
+        // embedded oppCkpt must verify or the chain does not.
+        const game = (b.payload as { game?: unknown }).game
+        if (typeof game === 'string') {
+          const first = segGameAt.get(game)
+          if (first !== undefined) err('dup-game', `segment game key repeats (first at height ${first})`, r.id)
+          else segGameAt.set(game, h)
+          if (firstRatedHeight === -1 && isRatedShaped(b.payload)) firstRatedHeight = h
+        }
+        const segErr = verifySegmentEvent(r.ev)
+        if (segErr !== null) err('bad-segment', `segment verification failed: ${segErr}`, r.id)
+      }
       if (b.type === 'ckpt') ckpts.push({ rec: r, payload: b.payload as CheckpointPayload })
       fold = basicFold.step(fold, r.ev)
       foldAt.set(h, fold)
+      walked.push(r.ev)
       head = { id: r.id, height: h }
     }
   }
 
   // --- checkpoints: self-authenticating; mismatch is fraud ('bad-checkpoint')
+  // The audit selects each checkpoint's fold by the ONE rule checkpoint.ts
+  // uses (foldIdOfState → registry): basic-v1 reads the incrementally-built
+  // foldAt; any other registered fold (a4-v1) is recomputed lazily in a single
+  // pass over the SAME walked event sequence, memoizing states only at the
+  // audited `through` heights (memory O(#ckpts), not O(chain)). Unknown or
+  // malformed fold ids fail closed as fraud — never skipped.
+  const altAt = new Map<string, Map<number, CanonicalObject> | null>()
+  const altFoldStates = (fid: string): Map<number, CanonicalObject> | null => {
+    const hit = altAt.get(fid)
+    if (hit !== undefined) return hit
+    const alt = foldById(fid)
+    if (!alt) {
+      altAt.set(fid, null)
+      return null
+    }
+    const wanted = new Set<number>()
+    for (const c of ckpts) if (foldIdOfState(c.payload.state) === fid) wanted.add(c.payload.through)
+    const states = new Map<number, CanonicalObject>()
+    let s = alt.init(chain.root)
+    for (const ev of walked) {
+      s = alt.step(s, ev)
+      if (wanted.has(ev.body.height)) states.set(ev.body.height, s)
+    }
+    altAt.set(fid, states)
+    return states
+  }
   let prevCk: { id: EventId; through: number } | null = null
   for (const { rec, payload } of ckpts) {
     const h = rec.ev.body.height
@@ -368,8 +426,24 @@ export function verifyChain(chain: Chain): VerifyResult {
     else if ((payload.prevCkpt ?? '') !== (prevCk?.id ?? '')) bad = 'prevCkpt does not reference the prior checkpoint'
     else if (prevCk && payload.through <= prevCk.through) bad = 'through does not advance past the prior checkpoint'
     else {
-      const truth = foldAt.get(payload.through)
-      if (!truth || toB64u(canonicalHash(truth)) !== payload.stateDigest) bad = 'state recomputation mismatch'
+      const fid = foldIdOfState(payload.state)
+      if (fid === null) bad = 'malformed fold id in checkpoint state'
+      else if (fid === basicFold.id && firstRatedHeight !== -1 && payload.through >= firstRatedHeight)
+        // A4 review fix (A4-10): a chain with rated segments cannot hide its
+        // ladders/reputation behind a structural checkpoint — fold-downgrade
+        // sandbagging is fraud, not a choice.
+        bad = 'chain has rated segments — checkpoint must embed the a4-v1 fold'
+      else if (fid === basicFold.id) {
+        const truth = foldAt.get(payload.through)
+        if (!truth || toB64u(canonicalHash(truth)) !== payload.stateDigest) bad = 'state recomputation mismatch'
+      } else {
+        const states = altFoldStates(fid)
+        if (!states) bad = `unknown fold id '${fid}'`
+        else {
+          const truth = states.get(payload.through)
+          if (!truth || toB64u(canonicalHash(truth)) !== payload.stateDigest) bad = 'state recomputation mismatch'
+        }
+      }
     }
     if (bad) err('bad-checkpoint', bad, rec.id)
     prevCk = { id: rec.id, through: payload.through }

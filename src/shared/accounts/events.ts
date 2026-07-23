@@ -142,6 +142,126 @@ export const zSegmentPayload = z.strictObject({
   wstream: z.strictObject({ wkey: zB64u32, sig: zB64u64 }),
   oppCkpt: zCkptEvent.optional(),
   oppProfile: zProfileSnapshot,
+  // A4 ladder binding (§6): game kind + clock. Absent (pre-A4 segments or
+  // unlimited/unrated play) ⇒ the rating fold skips the segment.
+  kind: z.string().min(1).max(32).optional(),
+  tc: z.strictObject({ baseMs: z.int().min(0).max(86_400_000), incMs: z.int().min(0).max(3_600_000) }).optional(),
+  // A4 review fix (A4-02): certs proving the embedded oppCkpt's signing key
+  // belongs to the opponent root when it is a device key (recursion-bounded,
+  // like commend certs; z.lazy only for the forward declaration — zCertEvent
+  // is defined below zSegmentPayload). Absent when the oppCkpt is root-signed.
+  oppCerts: z.array(z.lazy(() => zCertEvent)).max(8).optional(),
+})
+
+/**
+ * A cert SignedEvent, validated by a NON-RECURSIVE schema (body pinned to a
+ * cert payload) — the same recursion-bounding pattern as zCkptEvent. Used
+ * where cert events ride INSIDE another payload (commend certs): a cert
+ * payload carries no event-typed field, so nesting depth is bounded.
+ */
+export const zCertEvent = z.strictObject({
+  body: z.strictObject({
+    v: z.literal(1),
+    lane: z.literal('p'),
+    type: z.literal('cert'),
+    root: zB64u32,
+    key: zB64u32,
+    height: zHeight,
+    prev: zB64u32.optional(),
+    ts: zTs,
+    payload: zCertPayload,
+  }),
+  sig: zB64u64,
+  wit: z.array(z.lazy(() => zWitnessAttestation)).optional(),
+})
+
+/** A4 conduct event (§6b) — see types.ts ConductPayload for semantics.
+ * A4 review fix (A4-13): 'rematch-accept' additionally carries the
+ * COUNTERPARTY's signature (sig by key over rematchBytes, certs proving
+ * key∈opp when not root-signed) — a unilateral self-claim never counts. */
+export const zConductPayload = z
+  .strictObject({
+    kind: z.enum(['abort', 'noshow', 'rematch-accept']),
+    game: zB64u32,
+    opp: zB64u32,
+    prior: zB64u32.optional(),
+    sig: zB64u64.optional(),
+    key: zB64u32.optional(),
+    certs: z.array(zCertEvent).max(8).optional(),
+  })
+  .refine((p) => (p.kind === 'rematch-accept') === (p.prior !== undefined), {
+    message: "prior is required for 'rematch-accept' and forbidden otherwise",
+    path: ['prior'],
+  })
+  .refine((p) => (p.kind === 'rematch-accept') === (p.sig !== undefined && p.key !== undefined), {
+    message: "sig+key are required for 'rematch-accept' and forbidden otherwise",
+    path: ['sig'],
+  })
+  .refine((p) => p.kind === 'rematch-accept' || p.certs === undefined, {
+    message: "certs only accompany 'rematch-accept'",
+    path: ['certs'],
+  })
+
+/** A4 commendation (§6b) — see types.ts CommendPayload. Certs are inline,
+ * recursion-bounded cert events of the COMMENDER (body.root === opp). */
+export const zCommendPayload = z.strictObject({
+  game: zB64u32,
+  opp: zB64u32,
+  key: zB64u32,
+  sig: zB64u64,
+  certs: z.array(zCertEvent).max(8).optional(),
+})
+
+/** A4 PIN anchor (§1 seam 3) — see types.ts PinAnchorPayload. */
+export const zPinAnchorPayload = z.strictObject({
+  record: zB64u32,
+  gen: z.int().min(0),
+})
+
+/** A6 friend edge (§3/§10) — see types.ts FriendPayload. Certs are inline,
+ * recursion-bounded cert events of the PEER (body.root === peer), present
+ * exactly when the countersigning key is not the peer root itself — the
+ * commend pattern, but schema-enforceable here because `key` and `peer` are
+ * both payload fields. Countersig VERIFICATION is social/friends.ts's fold
+ * rule (a schema cannot check signatures); an in-chain add with a forged
+ * countersig is a schema-valid event the fold ignores. */
+export const zFriendPayload = z
+  .strictObject({
+    action: z.enum(['add', 'remove']),
+    peer: zB64u32,
+    key: zB64u32.optional(),
+    sig: zB64u64.optional(),
+    certs: z.array(zCertEvent).min(1).max(8).optional(),
+  })
+  .refine((p) => (p.action === 'add') === (p.sig !== undefined && p.key !== undefined), {
+    message: "key+sig are required for 'add' and forbidden for 'remove'",
+    path: ['sig'],
+  })
+  .refine((p) => p.action !== 'add' || (p.key === p.peer) === (p.certs === undefined), {
+    message: "certs are required iff key is not the peer root ('add')",
+    path: ['certs'],
+  })
+  .refine((p) => p.action === 'add' || p.certs === undefined, {
+    message: "certs only accompany 'add'",
+    path: ['certs'],
+  })
+
+/** A5 pairing record — see types.ts PairingPayload. */
+export const zPairingPayload = z.strictObject({
+  game: zB64u32,
+  opp: zB64u32,
+  kind: z.string().min(1).max(32),
+  tc: z.strictObject({ baseMs: z.int().min(0).max(86_400_000), incMs: z.int().min(0).max(3_600_000) }),
+  atWts: zTs,
+})
+
+/** A5 anticheat self-ban — see types.ts SelfBanPayload. */
+export const zSelfBanPayload = z.strictObject({
+  kind: z.literal('anticheat'),
+  ladder: z.string().min(1).max(64),
+  window: z.int().min(0),
+  expiryWts: zTs,
+  verdict: zB64u32,
 })
 
 export const PAYLOAD_SCHEMA: Record<EventType, z.ZodType> = {
@@ -151,6 +271,12 @@ export const PAYLOAD_SCHEMA: Record<EventType, z.ZodType> = {
   profile: zProfilePayload,
   ckpt: zCheckpointPayload,
   segment: zSegmentPayload,
+  conduct: zConductPayload,
+  commend: zCommendPayload,
+  pin: zPinAnchorPayload,
+  pairing: zPairingPayload,
+  selfban: zSelfBanPayload,
+  friend: zFriendPayload,
 }
 
 /** The lane each event type belongs to (types.ts registry). */
@@ -161,6 +287,12 @@ export const LANE_FOR: Record<EventType, Lane> = {
   profile: 'p',
   ckpt: 'w',
   segment: 'w',
+  conduct: 'w',
+  commend: 'w',
+  pin: 'w',
+  pairing: 'w',
+  selfban: 'w',
+  friend: 'w',
 }
 
 // ---------------------------------------------------------------------------
@@ -175,7 +307,7 @@ export const LANE_FOR: Record<EventType, Lane> = {
 export const zEventBodyCore = z.strictObject({
   v: z.literal(1),
   lane: z.enum(['w', 'p']),
-  type: z.enum(['genesis', 'cert', 'revoke', 'profile', 'ckpt', 'segment']),
+  type: z.enum(['genesis', 'cert', 'revoke', 'profile', 'ckpt', 'segment', 'conduct', 'commend', 'pin', 'pairing', 'selfban', 'friend']),
   root: zB64u32,
   key: zB64u32,
   height: zHeight,
@@ -196,6 +328,10 @@ export const zEventBody = zEventBodyCore.superRefine((b, ctx) => {
   // not a weaker cert, it is an invalid payload.
   if (b.type === 'cert' && b.key !== b.root)
     ctx.addIssue({ code: 'custom', message: 'cert events must be signed by the root key', path: ['key'] })
+  // A friend edge has two DISTINCT endpoints (spec §3/§10) — a self-edge is
+  // meaningless and refused outright, not left to the fold.
+  if (b.type === 'friend' && (b.payload as { peer?: unknown }).peer === b.root)
+    ctx.addIssue({ code: 'custom', message: 'friend event peer must not be the chain root', path: ['payload'] })
   const res = PAYLOAD_SCHEMA[b.type].safeParse(b.payload)
   if (!res.success)
     for (const issue of res.error.issues)

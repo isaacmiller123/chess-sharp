@@ -308,13 +308,23 @@ after arbitrary prior engine use yields identical bits.)
 - **Verdict records**: a Tier-2 verdict is a signed record (by the computing party, reproducible
   by anyone) published into shard space under the accused's key — the channel verdict-portability
   adopts from, so phones adopt + spot-check network-computed verdicts.
-- **Self-ban, with a defined deadline (closes the compliant-client trap):** on the deterministic
-  trigger firing, the honest client MUST append a signed self-ban **before any further
-  witnessed-lane event** after the K-window-completing game. Suppression is provable *only*
-  relative to that deterministic trigger — never relative to an arbitrary third-party Tier-2 run —
-  so a compliant client that never had cause to run Tier-2 is never condemned by a stranger's later
-  computation until the trigger condition is itself met on-chain. A condemning trigger with no
-  timely self-ban → permanent distrust; serving the 90-day sentence is the lenient path.
+- **Self-ban, with a defined deadline (closes the compliant-client trap):** the ban obligation
+  anchors on the **deterministic conviction condition** — the accumulated statistic crossing the
+  astronomically-low-FPR conviction line (5σ; per-look FPR ≈ 2.9e-7, union-bounded < 3e-3 over
+  10⁴ windows) on either the trailing-K window or the lifetime accumulation — NEVER on the 3σ
+  escalation condition, which obliges only the deeper Tier-2 analysis. *[DECIDED 2026-07-22,
+  resolving this section's prior ambiguity ("deterministic trigger" vs "astronomically-low
+  thresholds"); prime directive: an honest player is never banned. A 3σ-gated obligation carries
+  ≈1.35e-3/window one-sided FPR — an honest 1k/3k/10k-game career would eventually owe a false
+  90-day self-ban with probability ≈23%/58%/94%, the §0 false-fraud this spec forbids. Sustained
+  metering still convicts via the lifetime accumulation (≈4 windows at 2.6σ/window).]* On the
+  conviction firing, the honest client MUST append a signed self-ban **before any further
+  witnessed-lane event** after the conviction-completing game. Suppression is provable *only*
+  relative to that deterministic conviction — never relative to an arbitrary third-party Tier-2
+  run, and never relative to mere escalation — so a compliant client that never had cause to run
+  Tier-2 is never condemned by a stranger's later computation until the conviction condition is
+  itself met on-chain. A conviction with no timely self-ban → permanent distrust; serving the
+  90-day sentence is the lenient path.
 
 ## §9 Bans, rerolls, and the smurf economy
 

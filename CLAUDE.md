@@ -1,7 +1,7 @@
 # Chess# — project instructions
 
 ## Chess School is governed by a binding spec
-**[docs/SCHOOL-SPEC.md](docs/SCHOOL-SPEC.md) is the authoritative source of truth for all School work**
+**[docs/building/SCHOOL-SPEC.md](docs/building/SCHOOL-SPEC.md) is the authoritative source of truth for all School work**
 (curriculum, lessons, tests, placement/Elo, UI, and the build process). Read it before any School change and
 conform to it exactly. It outranks any code comment, memory, or prior plan. Do not stray from it; changes
 need explicit user approval.
@@ -24,6 +24,6 @@ Coach persona = **Viktor** (exacting old-school master).
 
 ## Build/run notes
 - Node/npm/brew are at `/opt/homebrew/bin` (NOT on default PATH) — prepend it for shell commands.
-- Cross-platform Win+Mac (see docs/DATASETS.md, docs/architecture.md). Engine + puzzle DB load via
+- Cross-platform Win+Mac (see docs/building/DATASETS.md, docs/building/architecture.md). Engine + puzzle DB load via
   src/main/datasets (imported-first, then bundled). Keep all hooks before any early return in React (a
   hook-after-return caused a prior #300 crash).

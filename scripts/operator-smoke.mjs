@@ -2,7 +2,17 @@
 // peer against a MockFabric (NOT real relays — CI stays offline/deterministic)
 // and prove it serves lease grants + PIN evaluations as an ordinary eligible
 // node, plus that its judge integration content-hash-verifies + constructs the
-// pinned canonical WASM at startup.
+// pinned canonical WASM at startup AS the canonical §8 JudgeEngine surface:
+// a judgeGame run through the peer-held handle must reproduce a fresh canonical
+// re-run's judgeOutputDigest bit-for-bit (A5-32 regression — the raw A2
+// analyseFixedNodes protocol, per-position TT clear + divergent parse, must
+// never be the peer's judge capability). A5-24 regression: the peer's judge
+// path is exercised END-TO-END here — driven over a MULTI-position fixture
+// (TT-granularity-sensitive), bit-cross-checked against the canonical surface,
+// config-echo-bound to PARAMS_A5_DIGEST, and judgeGame is asserted to
+// fail-close on per-position TT reset BEFORE any engine I/O. CI-safe by
+// construction: MockFabric (no relays), and the esbuild + pinned-WASM
+// footprint already runs in the CI wall via test-judge-node.
 //
 //   node scripts/operator-smoke.mjs
 //
@@ -14,10 +24,12 @@ import { build } from 'esbuild'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { JUDGE_PARITY_POSITIONS } from './lib/accounts-fixture.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
 const PEER_TS = resolve(ROOT, 'server/operator/peer.ts').replace(/\\/g, '/')
+const ADAPTER_TS = resolve(ROOT, 'server/judge/nodeAdapter.ts').replace(/\\/g, '/')
 const ENGINE_JS = resolve(ROOT, 'node_modules/stockfish/bin/stockfish-18-lite-single.js')
 const ENGINE_WASM = resolve(ROOT, 'node_modules/stockfish/bin/stockfish-18-lite-single.wasm')
 
@@ -33,8 +45,10 @@ function eq(a, b, msg) {
 
 const ENTRY = `
 export * as peer from '${PEER_TS}'
+export * as adapter from '${ADAPTER_TS}'
 export * as A from '@shared/accounts'
 export * as W from '@shared/accounts/witness'
+export * as J from '@shared/accounts/judge'
 `
 
 async function main() {
@@ -64,7 +78,7 @@ async function run(outdir) {
     external: ['trystero', 'werift'],
     absWorkingDir: ROOT, logLevel: 'warning',
   })
-  const { peer, A, W } = await import(pathToFileURL(outfile).href)
+  const { peer, adapter, A, W, J } = await import(pathToFileURL(outfile).href)
   const { PARAMS_A2, PARAMS_A2_DIGEST } = W
   const NOW = 1_700_000_000_000
 
@@ -112,6 +126,58 @@ async function run(outdir) {
   // the peer announced witness-capable presence into the fabric
   const dir = opEndpoint.directory()
   ok(dir.nodes.has(opNodeId), 'the peer announced its presence into the fabric')
+
+  // --- integration (b): the judge capability IS the canonical §8 surface -----
+  // A5-32 regression: the peer must hold the shared JudgeEngine adapter (driven
+  // ONLY via judgeGame), never the raw A2 JudgeInstance, whose analyseFixedNodes
+  // protocol (per-position TT clear, divergent parser, no fail-closed checks)
+  // is a different bit surface from the canonical judgeGame path.
+  console.log('\n· the peer-held judge is the canonical JudgeEngine, bit-equal to a canonical re-run …')
+  ok(typeof op.judge.send === 'function' && typeof op.judge.onLine === 'function', 'the judge exposes the JudgeEngine send/onLine surface')
+  ok(typeof op.judge.onError === 'function' && typeof op.judge.close === 'function', 'the judge exposes the JudgeEngine onError/close surface (not quit/onExit)')
+  ok(op.judge.analyseFixedNodes === undefined && op.judge.quit === undefined, 'the non-canonical A2 analyseFixedNodes/quit surface is NOT reachable from the peer handle')
+  // Cross-check the surfaces: judge the MULTI-position parity fixture through
+  // the peer-held handle via canonical judgeGame, then re-run it on a FRESH
+  // canonical newNodeJudgeEngine — the judgeOutputDigest must match bit-for-bit
+  // (the TT evolves across positions within a judged game, so any
+  // per-position-reset or parse fork splits position i>0's bits). SMOKE-ONLY
+  // node trim for wall-time: `nodes` ONLY may differ from PARAMS_A5
+  // (multiPv/hashMb/ttReset stay pinned via judgeConfigForTier(2)).
+  const SMOKE_T2 = { ...J.judgeConfigForTier(2), nodes: 20000 }
+  // A5-24: the digest parity below has teeth ONLY over a multi-position game —
+  // with a single position, per-game and per-position TT reset coincide and
+  // the cross-check would be vacuously green against the A5-32 fork.
+  ok(JUDGE_PARITY_POSITIONS.length >= 2, `the parity fixture is multi-position (${JUDGE_PARITY_POSITIONS.length} positions) — digest parity is TT-granularity-sensitive`)
+  const viaPeer = await J.judgeGame(op.judge, JUDGE_PARITY_POSITIONS, SMOKE_T2)
+  const freshCanonical = await adapter.newNodeJudgeEngine({ enginePath: ENGINE_JS, wasmPath: ENGINE_WASM })
+  const viaCanonical = await J.judgeGame(freshCanonical, JUDGE_PARITY_POSITIONS, SMOKE_T2)
+  await freshCanonical.close()
+  eq(viaPeer.positions.length, JUDGE_PARITY_POSITIONS.length, `judgeGame drove all ${JUDGE_PARITY_POSITIONS.length} parity positions through the peer-held judge`)
+  eq(viaPeer.positions[2].lines[0].mate, 1, 'mate-in-1 parity position judged {mate: 1} at rank 1 through the peer-held judge')
+  eq(J.judgeOutputDigest(viaPeer), J.judgeOutputDigest(viaCanonical), 'the peer-held judge reproduces a canonical re-run judgeOutputDigest bit-for-bit (Tier-2 config, warm per-game TT)')
+  // A5-24: a receipt computed through the peer handle names the CURRENT rule
+  // set — the config echo folds PARAMS_A5_DIGEST into every JudgeOutput, so
+  // canonical verifiers can bind the peer's bits to the params they check.
+  eq(viaPeer.config.params, J.PARAMS_A5_DIGEST, 'the peer-run JudgeOutput config echo is stamped with the current PARAMS_A5_DIGEST')
+  // A5-24: the canonical surface FAIL-CLOSES on the A2 harness's TT
+  // granularity BEFORE any engine I/O — judgeGame can never be driven
+  // per-position, so the analyseFixedNodes bit surface is structurally
+  // excluded from §8 verdicts (not merely untested). If the canonical adapter
+  // ever collapsed into the per-position protocol, test-judge-node's frozen
+  // judgeGame digests catch it; here the stub throws on ANY engine contact,
+  // pinning the validate-before-I/O ordering (fail-closed, no partial output).
+  const untouchable = {
+    send: () => { throw new Error('engine I/O reached before config validation') },
+    onLine: () => () => {},
+    close: async () => {},
+  }
+  const perPosErr = await J.judgeGame(untouchable, JUDGE_PARITY_POSITIONS, { ...SMOKE_T2, ttReset: 'per-position' }).then(() => null, (e) => e)
+  ok(
+    perPosErr !== null && perPosErr.name === 'JudgeConfigError',
+    perPosErr !== null && perPosErr.name === 'JudgeConfigError'
+      ? "judgeGame fail-closes on ttReset:'per-position' (JudgeConfigError, before any engine I/O)"
+      : `judgeGame must fail-close on ttReset:'per-position' with JudgeConfigError before engine I/O (got ${perPosErr ? `${perPosErr.name}: ${perPosErr.message}` : 'resolved output'})`,
+  )
 
   // --- integration (a-ish): the peer SERVES a lease grant --------------------
   console.log('\n· client requests a lease grant from the operator …')

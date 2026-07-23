@@ -3,25 +3,40 @@
 //
 // The judge's trust model is reproducibility, not client residence: a verdict
 // is a pure function of countersigned data replayed against a BIT-IDENTICAL
-// engine binary on every machine. That binary is pinned here by the sha256 of
-// its raw `.wasm` bytes; a loader (server/judge/nodeEngine.ts, and the browser
+// engine binary on every machine. That binary is pinned by the sha256 of its
+// raw `.wasm` bytes; a loader (server/judge/nodeEngine.ts, and the browser
 // judge at A5) MUST verify the file against this hash before trusting any
 // output. If the shipped binary ever drifts (e.g. a floated `stockfish` semver
 // bump republishes the blob), this check fails LOUDLY — which is the intended
 // behaviour for a content-pinned judge.
 //
-// node-only (server/**). Not imported by src/shared/**.
+// SINGLE SOURCE OF TRUTH (A5-12): the sha256 of record is
+// PARAMS_A5.judgeWasmSha256 (src/shared/accounts/judge/params.ts) — the only
+// copy folded into PARAMS_A5_DIGEST (which every JudgeOutput/Tier1Record
+// attests) and the value the web gate (src/web/engines/judge.ts) verifies.
+// JUDGE_WASM_SHA256 below is DERIVED from it, never a second literal, so the
+// node and web gates can never silently diverge: re-pinning the binary
+// requires editing params.ts, which drifts PARAMS_A5_DIGEST — every verdict
+// then names the new rule set, exactly as §8 demands.
 //
-// The pinned values below are the sha256 + byte length of
+// node-only (server/**). Not imported by src/shared/** (this server → shared
+// import is the allowed direction; nodeAdapter.ts already depends on the
+// shared judge core).
+//
+// JUDGE_WASM_BYTES is the byte length of
 //   node_modules/stockfish/bin/stockfish-18-lite-single.wasm
-// as resolved by the repo lockfile (stockfish@18.0.8). The byte length is an
-// independent cross-check — it also equals the `l=7295411` constant the
-// Emscripten glue (stockfish-18-lite-single.js) bakes in for its own length
-// guard, so a mismatch on either field means the wrong blob.
+// as resolved by the repo lockfile (stockfish@18.0.8) — an independent
+// cross-check kept HERE because canonical PARAMS_A5 carries the hash only
+// (adding a field would drift PARAMS_A5_DIGEST). It also equals the
+// `l=7295411` constant the Emscripten glue (stockfish-18-lite-single.js)
+// bakes in for its own length guard, so a mismatch on either field means the
+// wrong blob. A re-pin must update it alongside params.ts; forgetting either
+// side fails the node gate loudly (never silently).
 
 import { readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
+import { PARAMS_A5 } from '@shared/accounts/judge/params'
 
 /** Base filename of the pinned single-thread judge WASM. */
 export const JUDGE_WASM_FILENAME = 'stockfish-18-lite-single.wasm'
@@ -29,11 +44,14 @@ export const JUDGE_WASM_FILENAME = 'stockfish-18-lite-single.wasm'
 /** Package-relative module id used for default resolution. */
 export const JUDGE_WASM_MODULE_ID = 'stockfish/bin/stockfish-18-lite-single.wasm'
 
-/** sha256 (hex) of the pinned judge WASM — the spec §8 content-hash pin. */
-export const JUDGE_WASM_SHA256 =
-  'a8fbc05ec6920b56d7485826dcb02c5ffd2826bcbf751cf973046f237a9096f1'
+/**
+ * sha256 (hex) of the pinned judge WASM — the spec §8 content-hash pin,
+ * derived from the digest-attested PARAMS_A5.judgeWasmSha256 (single source
+ * of truth; see header — never re-pin here, re-pin in params.ts).
+ */
+export const JUDGE_WASM_SHA256 = PARAMS_A5.judgeWasmSha256
 
-/** Byte length of the pinned judge WASM (independent cross-check). */
+/** Byte length of the pinned judge WASM (independent cross-check, see header). */
 export const JUDGE_WASM_BYTES = 7295411
 
 export interface WasmHash {

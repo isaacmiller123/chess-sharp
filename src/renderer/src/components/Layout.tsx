@@ -8,6 +8,7 @@ import {
   BookOpen,
   Dices,
   User,
+  Fingerprint,
   Settings as SettingsIcon,
   type LucideIcon
 } from 'lucide-react'
@@ -24,6 +25,7 @@ export type ViewKey =
   | 'school'
   | 'openings'
   | 'progress'
+  | 'account'
   | 'settings'
 
 export const NAV: { key: ViewKey; label: string; Icon: LucideIcon }[] = [
@@ -34,7 +36,8 @@ export const NAV: { key: ViewKey; label: string; Icon: LucideIcon }[] = [
   { key: 'puzzles', label: 'Puzzles', Icon: Puzzle },
   { key: 'school', label: 'School', Icon: SchoolIcon },
   { key: 'openings', label: 'Openings', Icon: BookOpen },
-  { key: 'progress', label: 'Progress', Icon: User }
+  { key: 'progress', label: 'Progress', Icon: User },
+  { key: 'account', label: 'Account', Icon: Fingerprint }
 ]
 
 export function Layout({

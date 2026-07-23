@@ -344,6 +344,7 @@ export type FabricRequestKind =
   | 'pin-prove' // client → member: pinKey-signed success proof
   | 'pin-report' // any → member: request signed PinAttemptReport
   | 'pin-fuse-sign' // any → member: co-sign a fuse trip (member self-qualifies on its own counter)
+  | 'pin-counter-sync' // any → member: exchange signed counter reports (A4 seam 1 anti-spreading gossip)
   | 'pin-handoff' // client → old member: authorize re-provision
   | 'fuse-check' // any → member: current fuse state for a root
   | 'head' // any → witness: cached head for a root/lane

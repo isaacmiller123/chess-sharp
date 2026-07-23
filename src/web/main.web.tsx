@@ -6,6 +6,7 @@
 
 import { webApi } from './webApi'
 import { authStore } from './authStore'
+import { ACCOUNTS_DECENTRALIZED } from './accountsFlag'
 // Decentralized accounts (A1 packaging): side-effect import pulls the shared
 // accounts tree (ed25519 + hash-wasm argon2) into the web bundle and exposes
 // the window.__chessAccounts dev/test surface. Not the interim server
@@ -35,11 +36,16 @@ if (!import.meta.env.DEV) {
 }
 
 async function boot(): Promise<void> {
-  // Resolve the session cookie BEFORE the renderer boots: webApi routes every
-  // user-data namespace on auth state at call time, so the first settings/
-  // games reads must already know whether an account is live. boot() never
-  // rejects (offline / dev-without-server resolves to logged-out local mode).
-  await authStore.boot()
+  // A-final switch (accountsFlag.ts, spec §14): when the decentralized
+  // accounts are live (the default), the interim session is NEVER consulted —
+  // authStore stays {known:false}, webApi routes all user data to the local
+  // layer, and the interim chip renders null. OFF (VITE_ACCOUNTS_
+  // DECENTRALIZED=0 build): resolve the session cookie BEFORE the renderer
+  // boots, as before — webApi routes every user-data namespace on auth state
+  // at call time, so the first settings/games reads must already know whether
+  // an account is live. boot() never rejects (offline / dev-without-server
+  // resolves to logged-out local mode).
+  if (!ACCOUNTS_DECENTRALIZED) await authStore.boot()
   await import('@/main')
   // The account chip is its own React root, mounted after the renderer so the
   // design-token stylesheet is loaded (the chip's CSS carries dark fallbacks

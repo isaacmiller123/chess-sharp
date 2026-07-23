@@ -22,7 +22,12 @@ await build({
   format: 'cjs',
   sourcemap: true,
   define: {
-    __WEB_APP_VERSION__: JSON.stringify(pkg.version)
+    __WEB_APP_VERSION__: JSON.stringify(pkg.version),
+    // A-final (ACCOUNTS-SPEC §14, server/afinal.ts): every SHIPPED build
+    // defaults to the decentralized accounts (interim /api/auth answers 410).
+    // Env ACCOUNTS_DECENTRALIZED=0/1 overrides at runtime; ad-hoc bundles
+    // without this define (the pre-A-final test rigs) fall back OFF.
+    __ACCOUNTS_DECENTRALIZED_DEFAULT__: JSON.stringify('on')
   },
   logLevel: 'info'
 })

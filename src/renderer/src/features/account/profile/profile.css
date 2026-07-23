@@ -1,0 +1,1159 @@
+/*
+ * Accounts UI — profile surfaces (.aprof- namespace).
+ * ProfileTab (own profile + personal-lane editor), ProfilePage (view anyone),
+ * ReconstructionCard (§5 staged viewing flow), RatingLadders (§6 display
+ * states), ReputationPanel (§6b). Tokens only — no hard-coded color/space/
+ * radius/shadow/font/duration values. Imported once by ProfileTab.tsx.
+ */
+
+/* ============================================================
+   Card chrome (shared by every aprof surface)
+   ============================================================ */
+
+.aprof-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Feature accent rail along the top edge (School-card family resemblance). */
+.aprof-rail::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--account-accent);
+}
+
+.aprof-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+.aprof-card-head-row {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.aprof-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+.aprof-eyebrow svg {
+  color: var(--account-accent);
+  flex: none;
+}
+.aprof-eyebrow .account-handle-mono {
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-primary);
+}
+
+.aprof-card-sub {
+  margin: 0;
+  line-height: var(--lh-body);
+}
+
+.aprof-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  flex: 1;
+}
+
+.aprof-card-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border);
+  background: var(--bg-subtle);
+  line-height: var(--lh-body);
+}
+.aprof-card-foot svg {
+  flex: none;
+  color: var(--text-muted);
+}
+
+/* ============================================================
+   ProfileTab — two-up: preview | editor
+   ============================================================ */
+
+.aprof-tab {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+/* ---- Identity block (shared by preview + page header) ---- */
+.aprof-identity {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-5);
+}
+
+.aprof-avatar {
+  width: 64px;
+  height: 64px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--account-accent-soft);
+  color: var(--account-accent);
+  font-family: var(--font-figurine);
+  font-size: var(--fs-3xl);
+  overflow: hidden;
+}
+.aprof-avatar.is-img {
+  object-fit: cover;
+}
+.aprof-avatar-glyph {
+  line-height: var(--lh-tight);
+}
+
+.aprof-identity-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.aprof-name {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.01em;
+  line-height: var(--lh-tight);
+}
+.aprof-tag {
+  margin-left: var(--space-1);
+  color: var(--account-accent);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+}
+
+.aprof-handle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+}
+.aprof-copy {
+  display: inline-flex;
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+.aprof-copy:hover {
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+
+.aprof-identity-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.aprof-identity-meta svg {
+  flex: none;
+}
+.aprof-dot {
+  color: var(--text-muted);
+}
+
+.aprof-bio {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+}
+
+/* ---- In-card section headers ---- */
+.aprof-sect {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+.aprof-sect-title {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+.aprof-sect-sub {
+  line-height: var(--lh-body);
+}
+
+/* ============================================================
+   RatingLadders — §6 display states
+   ============================================================ */
+
+.aprof-ladders {
+  display: flex;
+  flex-direction: column;
+}
+
+.aprof-ladder {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+}
+.aprof-ladder:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.aprof-ladder:last-child {
+  padding-bottom: 0;
+}
+
+.aprof-ladder-ico {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+.aprof-ladder-ico.is-bullet {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+.aprof-ladder-ico.is-blitz {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.aprof-ladder-ico.is-rapid {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.aprof-ladder-ico.is-classical {
+  background: var(--accent-soft);
+  color: var(--info);
+}
+
+.aprof-ladder-id {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.aprof-ladder-name {
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+}
+.aprof-ladder-games {
+  line-height: var(--lh-body);
+}
+
+.aprof-ladder-state {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  text-align: right;
+}
+
+.aprof-ladder-rating {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+}
+.aprof-ladder-band {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.aprof-spark {
+  flex: none;
+  color: var(--account-accent);
+  opacity: 0.9;
+}
+
+.aprof-state-pill {
+  flex: none;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+/* §9 active ladder ban — a public fact, shown to every viewer (A4-17). */
+.aprof-state-pill.is-banned {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.aprof-banned-note {
+  white-space: nowrap;
+}
+.aprof-compact-state.is-banned {
+  color: var(--danger);
+}
+
+.aprof-reveal {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+.aprof-reveal-bar {
+  display: block;
+  width: 140px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.aprof-reveal-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--account-accent);
+  transition: width var(--dur-base) var(--ease-out);
+}
+.aprof-reveal-note {
+  line-height: var(--lh-tight);
+  white-space: nowrap;
+}
+
+.aprof-pips {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+.aprof-pip {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+}
+.aprof-pip.is-filled {
+  background: var(--account-accent);
+  border-color: var(--account-accent);
+}
+.aprof-placement-note {
+  white-space: nowrap;
+}
+
+/* ---- compact single-row variant ---- */
+.aprof-ladders.is-compact {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.aprof-compact-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+}
+.aprof-compact-cell svg {
+  flex: none;
+}
+.aprof-compact-val {
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
+}
+.aprof-compact-band {
+  margin-left: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-regular);
+}
+.aprof-compact-state {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+/* ============================================================
+   ReputationPanel — §6b
+   ============================================================ */
+
+.aprof-rep {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.aprof-rep-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.aprof-rep-score {
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+}
+.aprof-rep-scoremeta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.aprof-tier {
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.aprof-tier.is-exemplary {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.aprof-tier.is-solid {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.aprof-tier.is-mixed {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+.aprof-tier.is-poor {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.aprof-commend {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--success-soft);
+  color: var(--success);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  white-space: nowrap;
+}
+
+.aprof-rep-meter {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.aprof-rep-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width var(--dur-base) var(--ease-out);
+}
+.aprof-rep-fill.is-exemplary {
+  background: var(--success);
+}
+.aprof-rep-fill.is-solid {
+  background: var(--accent);
+}
+.aprof-rep-fill.is-mixed {
+  background: var(--warning);
+}
+.aprof-rep-fill.is-poor {
+  background: var(--danger);
+}
+
+.aprof-rep-breakdown {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.aprof-rep-breakdown li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-sm);
+}
+.aprof-rep-breakdown li:first-child {
+  border-top: 0;
+}
+.aprof-rep-mark {
+  display: inline-flex;
+  flex: none;
+  color: var(--success);
+}
+.aprof-rep-mark.is-neg {
+  color: var(--warning);
+}
+.aprof-rep-label {
+  color: var(--text-secondary);
+  min-width: 0;
+}
+.aprof-rep-value {
+  margin-left: auto;
+  flex: none;
+  text-align: right;
+  color: var(--text-primary);
+}
+
+/* ============================================================
+   Editor (personal lane)
+   ============================================================ */
+
+.aprof-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.aprof-field-labelrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.aprof-field-label {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+}
+.aprof-field-hint {
+  line-height: var(--lh-body);
+}
+
+.aprof-count {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.aprof-count.is-max {
+  color: var(--warning);
+}
+
+.aprof-textarea {
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+  color: var(--text-primary);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  resize: vertical;
+  min-height: 84px;
+}
+.aprof-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.aprof-country-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.aprof-country {
+  flex: none;
+  width: 72px;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+
+.aprof-flairs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.aprof-flair {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-family: var(--font-figurine);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-tight);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-instant) var(--ease-out);
+}
+.aprof-flair:hover {
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+.aprof-flair:active {
+  transform: scale(0.92);
+}
+.aprof-flair.on {
+  background: var(--account-accent-soft);
+  border-color: var(--account-accent);
+}
+
+.aprof-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.aprof-avatar-mini {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--account-accent-soft);
+  color: var(--account-accent);
+  font-family: var(--font-figurine);
+  font-size: var(--fs-lg);
+  overflow: hidden;
+  object-fit: cover;
+}
+.aprof-file-input {
+  display: none;
+}
+
+.aprof-btn-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--fs-sm);
+}
+.aprof-btn-note {
+  color: var(--text-muted);
+  font-weight: var(--fw-regular);
+  font-size: var(--fs-xs);
+}
+
+.aprof-alert,
+.aprof-status {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+}
+.aprof-alert {
+  color: var(--danger);
+}
+.aprof-status {
+  color: var(--success);
+}
+.aprof-alert svg,
+.aprof-status svg {
+  flex: none;
+  margin-top: var(--space-1);
+}
+
+/* ============================================================
+   ReconstructionCard — §5 staged viewing flow
+   ============================================================ */
+
+.aprof-stages {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-3) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.aprof-stage {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+}
+.aprof-stage:first-child {
+  border-top: 0;
+}
+
+.aprof-stage-mark {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.aprof-stage.is-done .aprof-stage-mark {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.aprof-stage.is-active .aprof-stage-mark {
+  background: var(--account-accent-soft);
+  color: var(--account-accent);
+}
+
+.aprof-stage-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1;
+}
+.aprof-stage-title {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  line-height: var(--lh-tight);
+}
+.aprof-stage.is-pending .aprof-stage-title {
+  color: var(--text-muted);
+  font-weight: var(--fw-medium);
+}
+.aprof-stage-detail {
+  line-height: var(--lh-body);
+}
+
+.aprof-shardmeter {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  height: 6px;
+  margin-top: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.aprof-shardmeter-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--account-accent);
+  transition: width var(--dur-fast) var(--ease-out);
+}
+
+.aprof-spin {
+  animation: aprof-spin calc(var(--dur-slow) * 3) linear infinite;
+}
+@keyframes aprof-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================================
+   ProfilePage — view anyone (§5, §9, §10)
+   ============================================================ */
+
+.aprof-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.aprof-page-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.aprof-page-title {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+}
+.aprof-page-top .account-handle-mono {
+  margin-left: auto;
+}
+
+.aprof-head-card {
+  padding: var(--space-6);
+  gap: var(--space-4);
+}
+
+.aprof-meta {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  flex: none;
+}
+.aprof-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+}
+.aprof-meta-pill svg {
+  flex: none;
+}
+
+.aprof-staleness {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.aprof-staleness.is-stale {
+  color: var(--warning);
+}
+.aprof-staleness svg {
+  flex: none;
+}
+
+/* ---- §9 standing strip (ban state is public data) ---- */
+.aprof-standing {
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-lg);
+  background: var(--danger-soft);
+  animation: fade-rise var(--dur-base) var(--ease-out) both;
+}
+.aprof-standing-icon {
+  display: inline-flex;
+  flex: none;
+  margin-top: var(--space-1);
+  color: var(--danger);
+}
+.aprof-standing-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.aprof-standing-titlerow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.aprof-standing-title {
+  color: var(--danger);
+  font-size: var(--fs-base);
+}
+.aprof-standing-days {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--danger);
+  color: var(--text-inverse);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  white-space: nowrap;
+}
+.aprof-standing-sub {
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+}
+
+/* ---- §2 verification strip ---- */
+.aprof-verify {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--success-soft);
+  color: var(--success);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  animation: fade-rise var(--dur-base) var(--ease-out) both;
+}
+.aprof-verify svg {
+  flex: none;
+}
+.aprof-verify-spot {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-xs);
+}
+
+.aprof-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+/* ---- Game history ---- */
+.aprof-games {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.aprof-game {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-sm);
+}
+.aprof-game:first-child {
+  border-top: 0;
+}
+
+.aprof-result {
+  flex: none;
+  width: 44px;
+  padding: var(--space-1) 0;
+  border-radius: var(--radius-sm);
+  text-align: center;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+}
+.aprof-result.is-win {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.aprof-result.is-loss {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.aprof-result.is-draw {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+.aprof-game-ladder {
+  flex: none;
+  width: 82px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+}
+.aprof-game-opp {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aprof-game-color {
+  flex: none;
+}
+.aprof-game-when {
+  margin-left: auto;
+  flex: none;
+}
+.aprof-game-witnessed {
+  display: inline-flex;
+  flex: none;
+  color: var(--success);
+}
+
+.aprof-games-empty {
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+}
+
+.aprof-games-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border);
+}
+.aprof-games-note {
+  margin: 0;
+}
+
+/* ---- Honest empty state (unknown key) ---- */
+.aprof-missing {
+  align-self: center;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 460px;
+  padding: var(--space-8);
+  text-align: center;
+}
+.aprof-missing-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+.aprof-missing-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+}
+.aprof-missing p {
+  margin: 0;
+  line-height: var(--lh-body);
+}
+.aprof-missing .btn {
+  margin-top: var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+
+@media (max-width: 980px) {
+  .aprof-tab,
+  .aprof-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .aprof-identity {
+    flex-wrap: wrap;
+  }
+  .aprof-meta {
+    margin-left: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    width: 100%;
+  }
+  .aprof-game {
+    flex-wrap: wrap;
+  }
+  .aprof-game-when {
+    margin-left: 0;
+  }
+}
+
+/* ---- §6 provisional-information projection (A4-17) ---- */
+.aprof-ladder-state.is-pool,
+.aprof-ladder-state.is-bracket {
+  gap: var(--space-3);
+}
+.aprof-state-pill.is-pool {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.aprof-pool-note {
+  max-width: 24ch;
+  text-align: right;
+  line-height: var(--lh-body);
+}
+.aprof-bracket {
+  flex: none;
+  padding: var(--space-1) var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--account-accent-soft);
+  color: var(--account-accent);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  white-space: nowrap;
+  cursor: help;
+}
+
+/* ---- C-12 degradation surface (A4-29) ---- */
+.aprof-contested {
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-lg);
+  background: var(--warning-soft);
+  animation: fade-rise var(--dur-base) var(--ease-out) both;
+}
+.aprof-contested-icon {
+  display: inline-flex;
+  flex: none;
+  margin-top: var(--space-1);
+  color: var(--warning);
+}
+.aprof-contested-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.aprof-contested-title {
+  color: var(--warning);
+  font-size: var(--fs-base);
+}
+.aprof-contested-sub {
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+}
+.aprof-degraded-badge,
+.aprof-mofn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-pill);
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  white-space: nowrap;
+  cursor: help;
+}

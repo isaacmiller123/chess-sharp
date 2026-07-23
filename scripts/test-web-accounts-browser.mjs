@@ -27,6 +27,12 @@ import {
   GOLDENS,
   FIXTURE_ENTRY_TS,
   FIXTURE_HTML,
+  JUDGE_GOLDENS,
+  JUDGE_FIXTURE_ENTRY_TS,
+  JUDGE_FIXTURE_HTML,
+  JUDGE_ENGINE_ENTRY_TS,
+  JUDGE_ENGINE_HTML,
+  JUDGE_PARITY_POSITIONS,
   bundleFixture,
   findNodeBuiltinRefs,
 } from './lib/accounts-fixture.mjs'
@@ -95,6 +101,7 @@ const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.mjs': 'text/javascript; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
+  '.wasm': 'application/wasm',
 }
 
 function serveDir(dir) {
@@ -211,8 +218,121 @@ async function run(outdir) {
       eq(result.unicodeVerifyOk, true, 'in-browser unicode chain verifies ok')
       eq(result.unicodeVerifyDigest, GOLDENS.unicodeChainVerifyDigest, 'in-browser unicode verify digest matches its golden')
       eq(result.unicodeChainFileSha256, GOLDENS.unicodeChainFileSha256, 'in-browser unicode chain file sha256 matches its golden')
+
+      console.log('\n· browser A3/A4 parity (detmath, RS, routing, a4 fold) vs goldens …')
+      eq(result.detmathDigest, GOLDENS.detmathDigest, 'in-browser detmath float64 bit-grid digest matches its golden')
+      eq(result.rsRoundtripOk, true, 'in-browser RS 12-of-40 reconstruct is byte-identical')
+      eq(result.rsDigest, GOLDENS.rsDigest, 'in-browser RS digest matches its golden')
+      eq(result.routingDigest, GOLDENS.routingDigest, 'in-browser overlay routing digest matches its golden')
+      eq(result.a4ParamsDigest, GOLDENS.a4ParamsDigest, 'in-browser PARAMS_A4 digest matches its golden')
+      eq(result.a4VerifyOk, true, 'in-browser rated a4 fixture chain verifies ok')
+      eq(result.a4CkptDeepOk, true, 'in-browser a4-v1 checkpoint verifies deeply')
+      eq(result.a4StateHash, GOLDENS.a4StateHash, 'in-browser a4-v1 fold state hash matches its golden')
     }
     eq(pageErrors.length, 0, `no uncaught page errors${pageErrors.length ? `: ${pageErrors[0]}` : ''}`)
+
+    // ═══ A5 J6 — judge verdict-bit parity (spec §14-A5 cross-platform gate) ═══
+    // Section 1 (always): tier1Record + windowVerdict + anchor digests over
+    // FIXED synthetic inputs — the browser must compute the same verdict bits
+    // as node, byte for byte, no engine required.
+    console.log('\n· A5 judge core parity: tier1Record + windowVerdict, browser vs node …')
+    const judgeEntry = resolve(outdir, 'judge.entry.ts')
+    writeFileSync(judgeEntry, JUDGE_FIXTURE_ENTRY_TS)
+    const judgeBrowserOut = resolve(outdir, 'judge.browser.mjs')
+    const judgeNodeOut = resolve(outdir, 'judge.node.mjs')
+    await bundleFixture(judgeEntry, judgeBrowserOut, 'browser')
+    await bundleFixture(judgeEntry, judgeNodeOut, 'node')
+    writeFileSync(resolve(outdir, 'judge.html'), JUDGE_FIXTURE_HTML)
+    eq(findNodeBuiltinRefs(readFileSync(judgeBrowserOut, 'utf8')).length, 0, 'judge browser bundle carries no node builtins')
+
+    const judgeOracle = (await import(pathToFileURL(judgeNodeOut).href)).runJudgeFixture()
+    eq(judgeOracle.judgeParamsDigest, JUDGE_GOLDENS.paramsDigest, 'node judge oracle names the current PARAMS_A5_DIGEST')
+    eq(judgeOracle.syntheticOutputDigest, JUDGE_GOLDENS.syntheticOutputDigest, 'node synthetic JudgeOutput digest matches its golden')
+    eq(judgeOracle.tier1RecordDigest, JUDGE_GOLDENS.tier1RecordDigest, 'node tier1Record digest matches its golden')
+    eq(judgeOracle.anchorsJudgeDigest, JUDGE_GOLDENS.anchorsJudgeDigest, 'node TIER2_ANCHORS_JUDGE digest matches its golden')
+    eq(judgeOracle.windowVerdictJson, JUDGE_GOLDENS.windowVerdictJson, 'node windowVerdict bits match their golden')
+
+    const judgePage = await browser.newPage()
+    const judgePageErrors = []
+    judgePage.on('pageerror', (e) => judgePageErrors.push(String(e)))
+    await judgePage.goto(`http://127.0.0.1:${port}/judge.html`, { waitUntil: 'load' })
+    await judgePage.waitForFunction('window.__judgeResult !== undefined || window.__judgeError !== undefined', {
+      timeout: 60_000,
+    })
+    const judgeError = await judgePage.evaluate('window.__judgeError')
+    if (judgeError) {
+      ok(false, `in-browser judge fixture completed without error (got: ${judgeError})`)
+    } else {
+      ok(true, 'in-browser judge fixture completed without error')
+      const judgeResult = JSON.parse(await judgePage.evaluate('window.__judgeResult'))
+      const jFields = Object.keys(judgeOracle).sort()
+      eq(Object.keys(judgeResult).sort().join(','), jFields.join(','), 'browser judge run emits the same field set')
+      for (const f of jFields) eq(judgeResult[f], judgeOracle[f], `browser === node: judge ${f}`)
+    }
+    eq(judgePageErrors.length, 0, `no uncaught judge-page errors${judgePageErrors.length ? `: ${judgePageErrors[0]}` : ''}`)
+    await judgePage.close()
+
+    // Section 2 (engine, LOCAL-ONLY): the REAL web judge adapter
+    // (src/web/engines/judge.ts — hash-verified pinned wasm in a dedicated
+    // worker) judges 3 of J1's golden positions at the TRUE Tier-1 config;
+    // the digest must equal the node adapter's LIVE digest for the same
+    // subset. Engine work never runs in default CI suites (A5 convention,
+    // test-judge-node gating) — CI prints the skip loudly and the cheap
+    // section above still proves verdict-bit parity there.
+    if (process.env.CI) {
+      console.log('\n· A5 judge ENGINE parity: SKIP under CI (engine-heavy suites are local-only — test-judge-node convention)')
+    } else {
+      console.log('\n· A5 judge ENGINE parity: real web adapter, 3 golden positions at TRUE t1 (≈1 min) …')
+      const enginesDirPath = resolve(outdir, 'engines')
+      mkdirSync(enginesDirPath, { recursive: true })
+      const ENGINE_JS = resolve(ROOT, 'node_modules/stockfish/bin/stockfish-18-lite-single.js')
+      const ENGINE_WASM = resolve(ROOT, 'node_modules/stockfish/bin/stockfish-18-lite-single.wasm')
+      writeFileSync(resolve(enginesDirPath, 'stockfish-18-lite-single.js'), readFileSync(ENGINE_JS))
+      writeFileSync(resolve(enginesDirPath, 'stockfish-18-lite-single.wasm'), readFileSync(ENGINE_WASM))
+
+      // node oracle: the Node adapter over the SAME subset, digest computed live
+      const nodeJudgeEntry = resolve(outdir, 'judge-node-adapter.entry.ts')
+      writeFileSync(
+        nodeJudgeEntry,
+        `export * as core from '${resolve(ROOT, 'src/shared/accounts/judge/index.ts').replace(/\\/g, '/')}'\n` +
+          `export * as adapter from '${resolve(ROOT, 'server/judge/nodeAdapter.ts').replace(/\\/g, '/')}'\n`,
+      )
+      const nodeJudgeOut = resolve(outdir, 'judge-node-adapter.mjs')
+      await bundleFixture(nodeJudgeEntry, nodeJudgeOut, 'node')
+      const { core, adapter } = await import(pathToFileURL(nodeJudgeOut).href)
+      const nodeEng = await adapter.newNodeJudgeEngine({ enginePath: ENGINE_JS, wasmPath: ENGINE_WASM })
+      let nodeDigest
+      try {
+        const nodeOut = await core.judgeGame(nodeEng, JUDGE_PARITY_POSITIONS, core.judgeConfigForTier(1))
+        nodeDigest = core.judgeOutputDigest(nodeOut)
+        eq(nodeOut.config.nodes, 200000, 'node engine parity run used the TRUE t1 node count')
+      } finally {
+        await nodeEng.close()
+      }
+
+      const engineEntry = resolve(outdir, 'judge-engine.entry.ts')
+      writeFileSync(engineEntry, JUDGE_ENGINE_ENTRY_TS)
+      const engineBrowserOut = resolve(outdir, 'judge-engine.browser.mjs')
+      await bundleFixture(engineEntry, engineBrowserOut, 'browser')
+      writeFileSync(resolve(outdir, 'judge-engine.html'), JUDGE_ENGINE_HTML)
+
+      const enginePage = await browser.newPage()
+      await enginePage.goto(`http://127.0.0.1:${port}/judge-engine.html`, { waitUntil: 'load' })
+      await enginePage.waitForFunction('window.__engineResult !== undefined || window.__engineError !== undefined', {
+        timeout: 300_000,
+      })
+      const engineError = await enginePage.evaluate('window.__engineError')
+      if (engineError) {
+        ok(false, `in-browser judge ENGINE run completed without error (got: ${engineError})`)
+      } else {
+        ok(true, 'in-browser judge ENGINE run completed (hash-verified pinned wasm, dedicated worker)')
+        const engineResult = JSON.parse(await enginePage.evaluate('window.__engineResult'))
+        eq(engineResult.positions, JUDGE_PARITY_POSITIONS.length, `browser judged all ${JUDGE_PARITY_POSITIONS.length} parity positions`)
+        eq(engineResult.params, 'ok', 'browser JudgeOutput config echo names PARAMS_A5_DIGEST')
+        eq(engineResult.digest, nodeDigest, 'VERDICT-BIT PARITY: browser judgeOutputDigest === node adapter digest (TRUE t1 config, live)')
+      }
+      await enginePage.close()
+    }
   } finally {
     await browser.close().catch(() => {})
     server.close()

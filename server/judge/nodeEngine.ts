@@ -30,6 +30,7 @@
 
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { createRequire } from 'node:module'
+import { basename, dirname, extname, join, resolve as resolvePath } from 'node:path'
 import { assertWasmHash } from './contentHash.js'
 
 /** Package-relative module id of the pinned single-thread judge engine glue. */
@@ -88,6 +89,8 @@ export interface JudgeInstance {
   send(cmd: string): void
   /** subscribe to engine output lines; returns an unsubscribe function. */
   onLine(cb: (line: string) => void): () => void
+  /** subscribe to child-process exit (fires once, incl. after quit()); returns unsubscribe. */
+  onExit(cb: () => void): () => void
   /** resolve once the engine answers `readyok` (UCI `isready` barrier). */
   isready(): Promise<void>
   /**
@@ -106,17 +109,79 @@ export interface NewInstanceOptions {
   /** override the engine glue path (defaults to the resolved shipped build). */
   enginePath?: string
   /**
-   * verify the sibling `.wasm` against the pinned content hash before spawning.
-   * Defaults to true. Pass an explicit `wasmPath` if the sibling is elsewhere.
+   * verify the EXACT `.wasm` the child loads (its enginePath sibling) against
+   * the pinned content hash immediately before spawning. Defaults to true —
+   * there is no production reason to disable it (verified bytes == executed
+   * bytes, spec §8 / A5-13).
    */
   verifyContentHash?: boolean
-  /** explicit `.wasm` path for the content-hash check (defaults to enginePath's sibling). */
+  /**
+   * OPTIONAL cross-check only. If given it MUST name the enginePath sibling the
+   * spawned child actually loads (loadedWasmPath) — a divergent path is refused
+   * fail-closed with JudgeWasmPathError. It CANNOT redirect the engine: the glue
+   * self-resolves its own `__dirname` sibling and never receives this value
+   * (A5-13). Omit it and the gate uses the loaded sibling directly.
+   */
   wasmPath?: string
 }
 
-function resolveEnginePath(): string {
+/** Resolve the shipped engine glue path (package resolution relative to this module). */
+export function resolveEnginePath(): string {
   const require = createRequire(import.meta.url)
   return require.resolve(JUDGE_ENGINE_MODULE_ID)
+}
+
+/**
+ * The `.wasm` the spawned judge child ACTUALLY loads. The shipped Emscripten
+ * glue's Node branch (`require.main === module`, the mode this harness spawns it
+ * in via `node <enginePath>`) resolves its binary as
+ * `path.join(__dirname, basename(__filename, extname) + '.wasm')` and
+ * readFileSync's THAT — the parent never hands it a wasmPath. The §8 content-
+ * hash gate must therefore hash THIS exact file so the verified bytes are the
+ * executed bytes (A5-13), the node analogue of the web adapter instantiating the
+ * worker over its verified-bytes blob: URL (src/web/engines/judge.ts).
+ */
+export function loadedWasmPath(enginePath: string): string {
+  return join(dirname(enginePath), basename(enginePath, extname(enginePath)) + '.wasm')
+}
+
+/**
+ * The §8 gate was pointed at a `.wasm` the spawned judge child will never load.
+ * Because the child self-resolves its enginePath sibling (loadedWasmPath) and
+ * ignores any external wasmPath, verifying a divergent file would attest bytes
+ * that never execute — a checked-vs-loaded split — so the judge REFUSES fail-
+ * closed rather than gate a file decoupled from the one it runs (A5-13).
+ */
+export class JudgeWasmPathError extends Error {
+  override readonly name = 'JudgeWasmPathError'
+  constructor(
+    /** the wasmPath the caller asked the gate to verify. */
+    readonly requestedWasmPath: string,
+    /** the enginePath sibling the child actually loads and the gate verifies. */
+    readonly loadedPath: string,
+    /** the engine glue the child is spawned as (`node <enginePath>`). */
+    readonly enginePath: string,
+  ) {
+    super(
+      `judge content-hash gate pointed at ${requestedWasmPath}, but the spawned ` +
+        `judge child (node ${enginePath}) loads its sibling ${loadedPath} and never ` +
+        `the given path — refusing to verify a .wasm the engine never executes`,
+    )
+  }
+}
+
+/**
+ * Resolve the exact `.wasm` the §8 gate must hash: always the loaded sibling
+ * (loadedWasmPath). If the caller supplied an explicit wasmPath it is treated as
+ * a cross-check and MUST name that same file, else JudgeWasmPathError — closing
+ * the checked-vs-loaded split (A5-13).
+ */
+export function gatedWasmPath(enginePath: string, wasmPath?: string): string {
+  const loaded = loadedWasmPath(enginePath)
+  if (wasmPath !== undefined && resolvePath(wasmPath) !== resolvePath(loaded)) {
+    throw new JudgeWasmPathError(wasmPath, loaded, enginePath)
+  }
+  return loaded
 }
 
 function parseInfoLine(line: string): AnalysisLine | null {
@@ -158,8 +223,13 @@ function parseInfoLine(line: string): AnalysisLine | null {
 export async function newInstance(opts: NewInstanceOptions = {}): Promise<JudgeInstance> {
   const enginePath = opts.enginePath ?? resolveEnginePath()
   if (opts.verifyContentHash !== false) {
-    const wasmPath = opts.wasmPath ?? enginePath.replace(/\.js$/i, '.wasm')
-    assertWasmHash(wasmPath)
+    // §8 gate: hash the EXACT file the child will load (its enginePath sibling),
+    // and refuse a wasmPath that names any other file — the verified bytes are
+    // the executed bytes (A5-13). Runs immediately before spawn to keep the
+    // check->load window minimal; assertWasmHash throws on a hash mismatch and
+    // gatedWasmPath throws JudgeWasmPathError on a decoupled path, both before
+    // any child process exists.
+    assertWasmHash(gatedWasmPath(enginePath, opts.wasmPath))
   }
 
   const child: ChildProcessWithoutNullStreams = spawn(process.execPath, [enginePath], {
@@ -204,6 +274,15 @@ export async function newInstance(opts: NewInstanceOptions = {}): Promise<JudgeI
   const onLine = (cb: (line: string) => void): (() => void) => {
     listeners.add(cb)
     return () => listeners.delete(cb)
+  }
+  const onExit = (cb: () => void): (() => void) => {
+    let live = true
+    void exitPromise.then(() => {
+      if (live) cb()
+    })
+    return () => {
+      live = false
+    }
   }
 
   /** Wait for a specific token line (e.g. 'uciok', 'readyok'). */
@@ -305,5 +384,5 @@ export async function newInstance(opts: NewInstanceOptions = {}): Promise<JudgeI
     await exitPromise
   }
 
-  return { send, onLine, isready, analyseFixedNodes, quit }
+  return { send, onLine, onExit, isready, analyseFixedNodes, quit }
 }

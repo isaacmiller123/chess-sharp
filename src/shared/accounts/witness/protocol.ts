@@ -29,7 +29,6 @@ import {
 import {
   applyEval,
   applySuccess,
-  effectiveCount,
   fuseRecordBody,
   isFuseActive,
   makeFuseRecord,
@@ -59,6 +58,15 @@ import {
   type Partial as OprfPartial,
 } from './oprf'
 import { pointFromBytes, pointToBytes, scalarFromBytes, shareCommitment, type Rng } from './shamir'
+import {
+  convergedEffectiveCount,
+  mergeCounterReports,
+  signCounterReport,
+  verifyCounterReport,
+  type CounterRegression,
+  type SignedCounterReport,
+} from './counters'
+import { checkDeviceOwnership, checkHandoffAnchor, type DeviceOwnership, type PinAnchor } from './chainauth'
 import { PARAMS_A2 } from './params'
 import type {
   FabricEndpoint,
@@ -167,9 +175,18 @@ export interface WitnessDeps {
   timeWindowMs: number
   /** Full lease validity check (threshold + eligibility over the canonical set).
    * When a witness holds the subject's chain facts (via A3 replication) it wires
-   * verifyLease here; without it the witness enforces only the context-free
-   * ≥1-valid-grant floor in admitEvent. */
+   * verifyLease here — chainauth.makeChainLeaseCheck builds it (A4 seam 2);
+   * without it the witness enforces only the context-free ≥1-valid-grant floor
+   * in admitEvent. */
   verifyLease?: (lease: Lease) => boolean
+  /** A4 seam 4 — authenticated device ownership at grant: the subject's
+   * chain-derived device facts (chainauth.deviceOwnershipFromChain over the
+   * A3-replicated chain), or null when the witness holds no verified chain for
+   * the root. With facts, a grant is signed only for a CERTIFIED, UNREVOKED
+   * child of the root (revocation wins); without, the A2 attribution-only
+   * behavior remains and the response is LABELED path:'attributed' — never a
+   * silent blind-sign upgrade. */
+  ownershipOf?: (root: B64u) => DeviceOwnership | null | Promise<DeviceOwnership | null>
 }
 
 export interface WitnessServeHandle {
@@ -195,17 +212,14 @@ export function witnessServe(
 ): WitnessServeHandle {
   const fuseOf = deps.fuseOf ?? (() => null)
 
-  // NOTE (A3 residual): the witness blind-signs any well-formed leaseBody after
-  // the fuse check. Preventing a witness from being tricked into signing two
-  // conflicting same-epoch leases to different devices — the self-inflicted
-  // double-grant §4 would slash it for — requires AUTHENTICATING the grant
-  // request (device-key possession / the takeover PIN session for a device
-  // change), which is A3's device-ownership layer. A local conflict memory can't
-  // do it soundly (an unauthenticated attacker either bypasses it by pre-bumping
-  // the epoch or weaponizes it as a front-running lockout). What A2 CAN keep
-  // sound is the ADJUDICATION's attribution: slash.adjudicate binds each grantor
-  // to its advertised key (keyOf), so a fabricated grant set can never frame an
-  // honest witness.
+  // A4 seam 4 (closes the A3-residual blind-sign): with deps.ownershipOf wired
+  // to the A3-replicated chain, the grantor AUTHENTICATES the requesting device
+  // before signing — a certified, unrevoked child of the root (revocation wins,
+  // §1). For roots the witness holds no verified chain for, the A2 behavior is
+  // kept EXACTLY (fuse check, then sign) but the response carries
+  // path:'attributed' so the degradation is surfaced, never silent; the
+  // adjudication attribution (slash.adjudicate keyOf binding) stays the sound
+  // backstop on that path.
   // lease-grant and lease-renew are identical: sign the presented body unless a
   // fuse bans the root. (A renewal is just a fresh grant at the same epoch/device
   // with a new clock reading.)
@@ -214,7 +228,10 @@ export function witnessServe(
     const wts = deps.wts()
     const fuse = fuseOf(leaseBody.root)
     if (fuse && isFuseActive(fuse, wts)) return asMsg({ error: 'fuse-active' })
-    return asMsg({ grant: signGrant(leaseBody, id.nodeId, id.key, id.priv, wts) })
+    const own = deps.ownershipOf ? await deps.ownershipOf(leaseBody.root) : null
+    const check = checkDeviceOwnership(own, leaseBody.device, leaseBody.root)
+    if (!check.ok) return asMsg({ error: check.reason })
+    return asMsg({ grant: signGrant(leaseBody, id.nodeId, id.key, id.priv, wts), path: check.path })
   }
   onSafe(fabric, 'lease-grant', serveGrant)
   onSafe(fabric, 'lease-renew', serveGrant)
@@ -308,6 +325,12 @@ export interface MemberDeps {
    * still bounded. This gates ONLY the success proof; the fuse trippedWts window
    * is the §4 witnessed-time window (PARAMS_A2.timeWindowMs), independent of this. */
   sessionWindowMs?: number
+  /** A4 seam 3 — chain-authoritative PIN anchoring: resolve the subject's
+   * NEWEST verified 'pin' anchor (chainauth.verifiedPinAnchor over a chain the
+   * member holds via A3 replication, or resolved through the viewer/overlay).
+   * null ⇒ no chain resolvable ⇒ the A2 pinKey-gated co-signature gate remains
+   * the live authority (labeled 'cosig-fallback' in the response). */
+  anchorOf?: (root: B64u) => PinAnchor | null | Promise<PinAnchor | null>
 }
 
 /** Bound on the per-root recent-nonce window a member retains (prevents an
@@ -333,7 +356,19 @@ interface MemberShare {
    * to the member's OWN provisioned context (a fuse for a record it doesn't hold
    * a share under can't co-opt its signature). */
   pinRecord: EventId
+  /** The record's committee (A4 seam 1: whose counter reports count). Empty
+   * for a bare direct provision — then convergence adds nothing and every
+   * count-bearing decision reduces to the A2 own-counter behavior. */
+  committee: NodeId[]
+  /** Provision generation for this root: 0 at first enrollment, +1 per
+   * accepted handoff re-provision (tags this member's counter reports). */
+  gen: number
   counter: PinCounterState
+  /** A4 seam 1 — converged gossip memory: the (gen, fails)-maximal VERIFIED
+   * signed counter report per committee peer. Bounded by committee size. */
+  reports: Map<NodeId, SignedCounterReport>
+  /** Misbehavior evidence collected while merging (regressing signed pairs). */
+  evidence: CounterRegression[]
   /** Recent issued eval nonces (bounded). A nonce is REMOVED on a proven success,
    * so its presence means "issued and not yet spent" — one set covers both replay
    * protection and the rate window, with no unbounded `succeeded` set. */
@@ -344,9 +379,29 @@ interface MemberShare {
 export interface MemberServeHandle {
   /** Provision this member's share for a root (transport-encrypted in prod; the
    * mock delivers it in the clear). `pinRecord` binds the share to its PIN record
-   * so pin-fuse-sign can reject a fuse for a record it doesn't hold. */
-  provision(root: B64u, i: number, scalar: bigint, commitment: B64u, pinPub: B64u, pinRecord: EventId): void
+   * so pin-fuse-sign can reject a fuse for a record it doesn't hold. `opts`
+   * carries the record's committee (enables A4 counter convergence) + gen. */
+  provision(
+    root: B64u,
+    i: number,
+    scalar: bigint,
+    commitment: B64u,
+    pinPub: B64u,
+    pinRecord: EventId,
+    opts?: { committee?: readonly NodeId[]; gen?: number },
+  ): void
   counter(root: B64u): PinCounterState
+  /** A4 seam 1 — one gossip round: exchange signed counter reports with every
+   * committee peer ('pin-counter-sync'), merge the verified responses, and
+   * return this member's CONVERGED effective count for the root. Unreachable
+   * peers are skipped (their last merged report still counts). */
+  syncCounters(root: B64u): Promise<number>
+  /** The member's current converged effective count (no network). */
+  convergedCount(root: B64u): number
+  /** Verified counter reports currently held for a root (≤1 per member). */
+  counterReports(root: B64u): SignedCounterReport[]
+  /** Regression evidence collected for a root (signed pairs, portable). */
+  counterEvidence(root: B64u): CounterRegression[]
 }
 
 export function memberServe(
@@ -358,6 +413,51 @@ export function memberServe(
   const fuseOf = deps.fuseOf ?? (() => null)
 
   const ensure = (root: B64u): MemberShare | null => shares.get(root) ?? null
+
+  // --- A4 seam 1 helpers: converged counter-report gossip -------------------
+
+  /** This member's fresh signed report for a root (generated on demand). */
+  const ownReport = (root: B64u, s: MemberShare): SignedCounterReport =>
+    signCounterReport(
+      { root, w: id.nodeId, rec: s.pinRecord, gen: s.gen, fails: memberFails(s.counter), asOfWts: deps.wts() },
+      id.key,
+      id.priv,
+    )
+
+  /** Advertised-key join from TRUSTED presence (the same basis pin-provision
+   * uses for the old committee — a node can only announce for a nodeId derived
+   * from a root it controls, so it cannot spoof a peer's key binding). */
+  const advertisedKey = (w: NodeId): B64u | undefined => fabric.directory().nodes.get(w)?.body.key
+
+  /** Verify + merge incoming reports for a share: current-committee members
+   * only, signature under the advertised key, monotonic (gen, fails) merge;
+   * regressing signed pairs are retained as misbehavior evidence. Junk merges
+   * nothing — a requester can only ever RAISE the converged count with real
+   * signatures, or lower nothing by omission (conservative both ways). */
+  const mergeIncoming = (root: B64u, s: MemberShare, incoming: unknown): void => {
+    if (!Array.isArray(incoming) || s.committee.length === 0) return
+    const cset = new Set(s.committee)
+    const ok: SignedCounterReport[] = []
+    for (const r of incoming.slice(0, 4 * PARAMS_A2.pinN)) {
+      if (!verifyCounterReport(r, advertisedKey)) continue
+      const rep = r as SignedCounterReport
+      if (rep.body.root !== root || !cset.has(rep.body.w) || rep.body.w === id.nodeId) continue
+      ok.push(rep)
+    }
+    const res = mergeCounterReports(s.reports, ok)
+    s.reports = res.merged
+    for (const e of res.regressions) if (s.evidence.length < 64) s.evidence.push(e)
+  }
+
+  /** The member's converged effective count: never below its OWN monotonic
+   * counter (ground truth — exactly the A2 floor), lifted by the converged
+   * statistic over the merged verified report set (counters.ts header math). */
+  const convergedOf = (root: B64u, s: MemberShare): number => {
+    const own = memberFails(s.counter)
+    if (s.committee.length === 0) return own
+    const all: SignedCounterReport[] = [...s.reports.values(), ownReport(root, s)]
+    return Math.max(own, convergedEffectiveCount(all, s.committee, PARAMS_A2.pinT))
+  }
 
   onSafe(fabric, 'pin-provision', async (_from, payload) => {
     const p = fromMsg<{
@@ -396,6 +496,14 @@ export function memberServe(
     if (existing) {
       if (nr.prev === undefined) return asMsg({ error: 'already-provisioned-needs-handoff' })
     }
+    // A4 seam 3 — chain-authoritative anchoring: resolve the subject's newest
+    // VERIFIED 'pin' anchor when this member can (A3 replication / overlay).
+    const anchor = deps.anchorOf ? await deps.anchorOf(root) : null
+    // A chain-anchored account can never take the initial-shaped path — even at
+    // a FRESH member holding no local share: the anchor proves a committee
+    // already exists, which is exactly the reset a root-key thief would deal.
+    if (nr.prev === undefined && anchor !== null) return asMsg({ error: 'chain-anchored-needs-handoff' })
+    let admitPath: 'initial' | 'chain-anchored' | 'cosig-fallback' = 'initial'
     if (nr.prev !== undefined) {
       if (!p.oldRecord || !p.handoff) return asMsg({ error: 'reprovision-needs-handoff' })
       if (!verifyPinRecord(p.oldRecord).ok) return asMsg({ error: 'bad-old-record' })
@@ -411,10 +519,9 @@ export function memberServe(
       }
       // The carried count's FLOOR is enforced authoritatively by the OLD committee
       // members (each refuses in pin-handoff to sign a carriedFails below its own
-      // count), so ≥ pinT handoff signatures already attest carriedFails ≥ the
-      // effective count. minCarry=0 here; the signed carriedFails is the floor.
-      // (Verifying oldRecord/pinPub are the account's REAL current record is a
-      // reader/A3 concern — see the header note on chain-authoritative state.)
+      // CONVERGED count, A4 seam 1), so ≥ pinT handoff signatures already attest
+      // carriedFails ≥ the effective count. minCarry=0 here; the signed
+      // carriedFails is the floor.
       const hv = verifyHandoff(p.handoff, {
         oldCommittee: p.oldRecord.payload.committee,
         keyOf,
@@ -423,12 +530,20 @@ export function memberServe(
         minCarry: 0,
       })
       if (!hv.ok) return asMsg({ error: 'bad-handoff', detail: hv.errors })
+      // A4 seam 3 (closes the A3 residual): with a resolved anchor, the
+      // presented oldRecord MUST be the account's REAL current record — a
+      // captured stale/foreign record cannot authorize a re-provision. With no
+      // chain resolvable the A2 co-signature gate above remains the live
+      // authority, and the response says so ('cosig-fallback').
+      const anchorCheck = checkHandoffAnchor(p.oldRecord, anchor)
+      if (!anchorCheck.ok) return asMsg({ error: anchorCheck.reason })
+      admitPath = anchorCheck.path
       startFails = nr.carriedFails ?? 0
     }
     // A member re-provisioned into an OVERLAPPING committee must never LOSE its
     // own accumulated failures — floor the starting count by what it already
-    // holds (a purely local monotonicity invariant, no chain anchoring needed).
-    if (existing) startFails = Math.max(startFails, memberFails(existing.counter))
+    // holds, CONVERGED (A4 seam 1: its merged view, never below its own local).
+    if (existing) startFails = Math.max(startFails, convergedOf(root, existing))
 
     shares.set(root, {
       i: p.i,
@@ -436,11 +551,15 @@ export function memberServe(
       commitment: nr.shareCommitments[p.i - 1],
       pinPub: nr.pinPub,
       pinRecord: newId,
+      committee: [...nr.committee],
+      gen: existing ? existing.gen + 1 : 0,
       counter: { evaluations: startFails, successes: 0 },
+      reports: new Map(),
+      evidence: existing ? existing.evidence : [],
       issued: new Set(),
       evalCount: 0,
     })
-    return asMsg({ ok: true })
+    return asMsg({ ok: true, path: admitPath })
   })
 
   onSafe(fabric, 'pin-eval', async (_from, payload) => {
@@ -505,6 +624,20 @@ export function memberServe(
     return asMsg({ report })
   })
 
+  // A4 seam 1 — counter-report gossip: merge the (verified) reports the caller
+  // pushes, answer with everything held plus this member's own fresh report.
+  // One kind gives both push and pull, so peers converge by exchanging; the
+  // aggregator (tripFuseIfDue) pulls with an empty push. Publishing under the
+  // account key into overlay space is a byte-transport variant of the same
+  // records — the fabric exchange is the wave-1b dissemination path.
+  onSafe(fabric, 'pin-counter-sync', async (_from, payload) => {
+    const p = fromMsg<{ root: B64u; reports?: unknown }>(payload)
+    const s = ensure(p.root)
+    if (!s) return asMsg({ error: 'not-provisioned' })
+    mergeIncoming(p.root, s, p.reports)
+    return asMsg({ reports: [...s.reports.values(), ownReport(p.root, s)] })
+  })
+
   // Co-sign a fuse trip ONLY on the strength of THIS member's OWN monotonic
   // failure counter for THIS root. A fuse is real iff ≥ pinT members each
   // independently confirm their own count crossed the threshold — so it cannot be
@@ -513,6 +646,10 @@ export function memberServe(
   onSafe(fabric, 'pin-fuse-sign', async (_from, payload) => {
     const p = fromMsg<{
       body: { v: 1; root: B64u; fails: number; trippedWts: number; expiryWts: number; pinRecord: EventId; params: B64u }
+      /** A4 seam 1: the aggregator's merged report set — verified + merged
+       * before this member computes its converged count. Optional; only real
+       * signatures can raise the count, omission only lowers it. */
+      reports?: unknown
     }>(payload)
     const s = ensure(p.body.root)
     if (!s) return asMsg({ error: 'not-provisioned' })
@@ -538,12 +675,18 @@ export function memberServe(
     // counter is monotonically ≥ 100 post-trip). No trips value is trusted.
     const threshold =
       held && held.body.root === p.body.root ? held.body.fails + PARAMS_A2.pinRefill : PARAMS_A2.pinLifetimeFails
-    const own = memberFails(s.counter)
+    // A4 seam 1: qualify on the CONVERGED count — the member's own monotonic
+    // counter merged with the verified committee report set (requester-supplied
+    // reports merged first; only real member signatures count), so a guesser
+    // who SPREADS across rotating quorums can no longer hold every member's
+    // view below the threshold (~n/(n−t+1)× budget stretch closed).
+    mergeIncoming(p.body.root, s, p.reports)
+    const own = convergedOf(p.body.root, s)
     if (own < threshold) return asMsg({ error: 'not-due' })
     if (p.body.fails < threshold) return asMsg({ error: 'body-below-threshold' })
-    // Upper-bound the recorded count by MY OWN observed failures. With ≥ pinT
-    // signers each enforcing this, body.fails ≤ the t-th-largest counter = the
-    // committee-effective count — so the recorded fails can never be inflated to
+    // Upper-bound the recorded count by MY converged observation. With ≥ pinT
+    // signers each enforcing this over trim-bounded verified reports, the
+    // recorded fails can never be inflated by a report-forging minority to
     // push a FUTURE cycle's threshold (held.body.fails + pinRefill) out of reach.
     if (p.body.fails > own) return asMsg({ error: 'body-above-own-count' })
     return asMsg({ sig: signFuse(canon, id.nodeId, id.key, id.priv) })
@@ -551,10 +694,11 @@ export function memberServe(
 
   // Co-sign a committee handoff ONLY when the requester proves PIN knowledge (a
   // session against the pinPub THIS member holds — a password thief without the
-  // PIN cannot produce it) AND the carried count is ≥ this member's own count
-  // (so ≥ pinT signatures force carriedFails ≥ the effective count, §1).
+  // PIN cannot produce it) AND the carried count is ≥ this member's CONVERGED
+  // count (A4 seam 1: so ≥ pinT signatures force carriedFails ≥ the effective
+  // count even against a guesser who spread across rotating quorums, §1).
   onSafe(fabric, 'pin-handoff', async (_from, payload) => {
-    const p = fromMsg<{ root: B64u; prevPinRecord: EventId; newPinRecord: EventId; carriedFails: number; session: PinSession }>(payload)
+    const p = fromMsg<{ root: B64u; prevPinRecord: EventId; newPinRecord: EventId; carriedFails: number; session: PinSession; reports?: unknown }>(payload)
     const s = ensure(p.root)
     if (!s) return asMsg({ error: 'not-provisioned' })
     if (!p.session || !verifyPinSession(p.session, s.pinPub)) return asMsg({ error: 'bad-session' })
@@ -562,7 +706,8 @@ export function memberServe(
       return asMsg({ error: 'bad-session-scope' })
     // The session must authorize THIS specific new record — no replay to another.
     if (p.session.body.record !== p.newPinRecord) return asMsg({ error: 'session-record-mismatch' })
-    if (p.carriedFails < memberFails(s.counter)) return asMsg({ error: 'carried-below-my-count' })
+    mergeIncoming(p.root, s, p.reports)
+    if (p.carriedFails < convergedOf(p.root, s)) return asMsg({ error: 'carried-below-my-count' })
     const sig = signHandoff(p.root, p.prevPinRecord, p.newPinRecord, p.carriedFails, id.nodeId, id.key, id.priv)
     return asMsg({ sig })
   })
@@ -570,20 +715,52 @@ export function memberServe(
   serveFuseCheck(fabric, fuseOf, deps.wts)
 
   return {
-    provision(root, i, scalar, commitment, pinPub, pinRecord) {
+    provision(root, i, scalar, commitment, pinPub, pinRecord, opts) {
       shares.set(root, {
         i,
         scalar,
         commitment,
         pinPub,
         pinRecord,
+        committee: [...(opts?.committee ?? [])],
+        gen: opts?.gen ?? 0,
         counter: newCounter(),
+        reports: new Map(),
+        evidence: [],
         issued: new Set(),
         evalCount: 0,
       })
     },
     counter(root) {
       return shares.get(root)?.counter ?? newCounter()
+    },
+    async syncCounters(root) {
+      const s = shares.get(root)
+      if (!s) return 0
+      const mine = [...s.reports.values(), ownReport(root, s)]
+      for (const w of s.committee) {
+        if (w === id.nodeId) continue
+        try {
+          const res = await req<{ reports?: unknown; error?: string }>(fabric, w, 'pin-counter-sync', {
+            root,
+            reports: mine,
+          })
+          mergeIncoming(root, s, res.reports)
+        } catch {
+          // unreachable peer — its last merged report (if any) still counts
+        }
+      }
+      return convergedOf(root, s)
+    },
+    convergedCount(root) {
+      const s = shares.get(root)
+      return s ? convergedOf(root, s) : 0
+    },
+    counterReports(root) {
+      return [...(shares.get(root)?.reports.values() ?? [])]
+    },
+    counterEvidence(root) {
+      return [...(shares.get(root)?.evidence ?? [])]
     },
   }
 }
@@ -918,30 +1095,54 @@ export interface TripFuseOpts {
   heldFuse?: FuseRecord | null
   /** Co-signatures required (default pinT). */
   minSigs?: number
+  /** Pre-held VERIFIED counter reports seeding the converged set (optional —
+   * e.g. reports pulled from overlay records under the account key). */
+  reports?: readonly SignedCounterReport[]
 }
 
 /**
- * Establish the committee-effective failure count from the members' MONOTONIC,
- * success-aware attempt counters (pin-report → effectiveCount, the t-th-largest),
- * and — if it reaches the current cycle's fuse threshold — gather ≥ minSigs
- * committee co-signatures on a threshold-signed fuse record. Each co-signer
- * (pin-fuse-sign) signs ONLY on the strength of ITS OWN counter for THIS root and
- * PIN record, so a fuse cannot be forged from attacker-supplied reports/committee
- * or cross-root-replayed. Returns null when the fuse is not due or the committee
- * won't co-sign. This is the live rate-limit enforcement (previously unwired).
- *
- * NOTE (accepted A2 residual): effectiveCount is the t-th-largest of per-member
- * counters, which an attacker who SPREADS guesses across the committee can hold
- * below the threshold (~n/(n-t+1)× the nominal budget). Defeating spreading needs
- * the spec's committee-wide gossip of served evaluations, whose reliable, Byzantine
- * dissemination + authoritative storage land with A3's overlay — the counters and
- * this trip flow are the seam. The count remains monotonic, success-aware, and
- * unforgeable; only the spreading discount is deferred.
+ * Establish the committee-effective failure count from the members' SIGNED,
+ * MONOTONIC, gen-tagged counter reports — pulled via 'pin-counter-sync' from
+ * every member, verified against their advertised keys, merged, and reduced
+ * with the CONVERGED anti-spreading statistic (counters.ts, A4 seam 1: a
+ * guesser spreading across rotating quorums can no longer hold the count below
+ * the true guess total) — and, if it reaches the current cycle's fuse
+ * threshold, gather ≥ minSigs committee co-signatures on a threshold-signed
+ * fuse record. The merged report set rides the pin-fuse-sign payload so each
+ * co-signer converges to the same view before self-qualifying; a member still
+ * signs ONLY on the strength of its OWN converged observation for THIS root
+ * and PIN record, so a fuse cannot be forged from attacker-supplied
+ * reports/committee or cross-root-replayed. Returns null when the fuse is not
+ * due or the committee won't co-sign. This is the live rate-limit enforcement.
  */
 export async function tripFuseIfDue(opts: TripFuseOpts): Promise<FuseRecord | null> {
-  // 1. effective count from monotonic per-member attempt reports (t-th-largest).
-  const reports = await collectAttemptReports(opts.fabric, opts.root, opts.committee, (w) => opts.keyOf.get(w))
-  const effective = effectiveCount(reports, PARAMS_A2.pinT)
+  // 1. CONVERGED effective count over the merged verified report set.
+  const keyOf = (w: NodeId): B64u | undefined => opts.keyOf.get(w)
+  let merged = new Map<NodeId, SignedCounterReport>()
+  const ingest = (incoming: unknown): void => {
+    if (!Array.isArray(incoming)) return
+    const ok: SignedCounterReport[] = []
+    for (const r of incoming.slice(0, 4 * PARAMS_A2.pinN)) {
+      if (!verifyCounterReport(r, keyOf)) continue
+      const rep = r as SignedCounterReport
+      if (rep.body.root === opts.root) ok.push(rep)
+    }
+    merged = mergeCounterReports(merged, ok).merged
+  }
+  ingest([...(opts.reports ?? [])])
+  const pulls = await Promise.all(
+    opts.committee.map(async (w): Promise<unknown> => {
+      try {
+        const res = await req<{ reports?: unknown; error?: string }>(opts.fabric, w, 'pin-counter-sync', { root: opts.root })
+        return res.reports
+      } catch {
+        return null // unreachable member — its report may still arrive via peers
+      }
+    }),
+  )
+  for (const reps of pulls) ingest(reps)
+  const reportSet = [...merged.values()]
+  const effective = convergedEffectiveCount(reportSet, opts.committee, PARAMS_A2.pinT)
   // The due-threshold is the SAME floor each member derives from the account's
   // held fuse — so the aggregator never tries a trip the committee would refuse.
   const threshold =
@@ -951,13 +1152,14 @@ export async function tripFuseIfDue(opts: TripFuseOpts): Promise<FuseRecord | nu
   if (effective < threshold) return null
 
   // 2. gather ≥ minSigs independent co-signatures (concurrently — signing has no
-  //    per-request cost); each member self-qualifies on its own counter +
-  //    PIN-record binding inside pin-fuse-sign.
+  //    per-request cost); each member self-qualifies on its own CONVERGED count
+  //    (the merged report set rides along) + PIN-record binding inside
+  //    pin-fuse-sign.
   const body = fuseRecordBody(opts.root, effective, opts.wts, opts.pinRecord)
   const gathered = await Promise.all(
     opts.committee.map(async (w): Promise<{ w: NodeId; key: B64u; sig: B64u } | null> => {
       try {
-        const res = await req<{ sig?: { w: NodeId; key: B64u; sig: B64u }; error?: string }>(opts.fabric, w, 'pin-fuse-sign', { body })
+        const res = await req<{ sig?: { w: NodeId; key: B64u; sig: B64u }; error?: string }>(opts.fabric, w, 'pin-fuse-sign', { body, reports: reportSet })
         const g = res.sig
         const key = opts.keyOf.get(w)
         return g && g.w === w && key && g.key === key ? g : null

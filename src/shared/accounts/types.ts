@@ -48,9 +48,9 @@ export interface NormalizedName {
 export type Lane = 'w' | 'p'
 
 /**
- * Event types: A1 set + A3's 'segment'. A2 carries lease/witness/PIN state as
- * standalone records (witness/types.ts); A4 adds conduct events. The registry
- * is open but every type's payload schema is closed (zod, .strict()).
+ * Event types: A1 set + A3's 'segment' + A4's conduct/commend/pin. A2 carries
+ * lease/witness/PIN state as standalone records (witness/types.ts). The
+ * registry is open but every type's payload schema is closed (zod, .strict()).
  *
  *  genesis  w  height 0, prev absent, signed by root. payload: GenesisPayload
  *  cert     p  root-signed child-key certificate. payload: CertPayload
@@ -62,8 +62,38 @@ export type Lane = 'w' | 'p'
  *              both heads, witness stream sig, opponent ckpt + profile
  *              snapshot. Deleting one breaks the owner's own hash chain —
  *              that is the retention mechanism (§5 layer 1).
+ *  conduct  w  witnessed conduct fact not derivable from segments (§6b, A4):
+ *              an aborted game, a no-show, an accepted rematch. payload:
+ *              ConductPayload. Appended by the subject's own compliant client
+ *              under witness attestation.
+ *  commend  w  countersigned peer commendation ("good game", §6b, A4) in the
+ *              RECIPIENT's chain, carrying the commender's signature + inline
+ *              certs. payload: CommendPayload. Rate limit (one per opponent
+ *              per game, must reference a real segment) is a fold rule.
+ *  pin      w  chain-authoritative anchor of the CURRENT PIN record digest
+ *              (§1, A4 seam 3): handoff verifiers resolve the newest 'pin'
+ *              event to learn the account's real committee/record. payload:
+ *              PinAnchorPayload.
+ *  friend   w  friend edge (§3/§10, A6) in the SUBJECT's chain: a
+ *              countersigned 'add' (peer's signature over the canonical edge
+ *              bytes, inline certs when device-signed) or a unilateral
+ *              'remove'. payload: FriendPayload. Countersig verification and
+ *              the mutual-read rule live in social/friends.ts (a fold rule,
+ *              like commends — an unverifiable add is ignored, never counted).
  */
-export type EventType = 'genesis' | 'cert' | 'revoke' | 'profile' | 'ckpt' | 'segment'
+export type EventType =
+  | 'genesis'
+  | 'cert'
+  | 'revoke'
+  | 'profile'
+  | 'ckpt'
+  | 'segment'
+  | 'conduct'
+  | 'commend'
+  | 'pin'
+  | 'pairing'
+  | 'selfban'
+  | 'friend'
 
 /**
  * The signed body. `sig` (in SignedEvent) covers canonicalBytes(body).
@@ -117,6 +147,22 @@ export interface SignedEvent {
   wit?: WitnessAttestation[]
 }
 
+/**
+ * A VERIFIER's read-time eligibility view (A4 review fixes A4-03/05/14):
+ * given a witness/cosigner SIGNING key (the `w` of a WitnessAttestation or a
+ * segment's wstream.wkey), is that key one the verifier currently recognizes
+ * as an ELIGIBLE fabric witness (§4 floors — resolved by the caller through
+ * its own NodeDirectory / gossip memory, witness/eligibility.ts)? Signature
+ * validity alone is NOT eligibility: any sybil can mint valid-signing keys,
+ * so every evidence layer that EARNS score from attestations or cosignatures
+ * (mm/trust.ts trustEvidenceOf, ratings/reputation.ts repEvidenceOf,
+ * ratings/fold.ts ratingEvidenceOf — the A4-02 vouched-rating layer) counts a
+ * key only when this predicate accepts it. The predicate is verifier-LOCAL
+ * read-time context — it must never reach a fold or any checkpoint-embedded
+ * state (the A4-04 determinism invariant).
+ */
+export type WitnessEligibility = (w: B64u) => boolean
+
 /** sha256(canonicalBytes(body)) as B64u — the id every `prev` points at. */
 export type EventId = B64u
 
@@ -147,6 +193,126 @@ export interface RevokePayload extends CanonicalObject {
 export interface ProfilePayload extends CanonicalObject {
   /** LWW field writes; keys from PROFILE_FIELDS. Avatar ≤ AVATAR_MAX_BYTES. */
   fields: CanonicalObject
+}
+
+/**
+ * A4 conduct event (§6b). `kind`:
+ *  - 'abort':          a witnessed game that ended with no result.
+ *  - 'noshow':         a witnessed pairing where the subject never moved.
+ *  - 'rematch-accept': the subject accepted a rematch; `prior` names the
+ *                      finished game's key. Counts in the fold only when a
+ *                      segment for `prior` with the same `opp` is in-chain.
+ */
+export interface ConductPayload extends CanonicalObject {
+  kind: 'abort' | 'noshow' | 'rematch-accept'
+  /** Game key ('abort'/'rematch-accept': the new game; 'noshow': the pairing key). */
+  game: B64u
+  /** Counterparty root. */
+  opp: B64u
+  /** Finished game a rematch-accept follows — required for 'rematch-accept'. */
+  prior?: B64u
+}
+
+/**
+ * A4 commendation (§6b) — lives in the RECIPIENT's chain. `sig` is the
+ * commender's ed25519 over canonical commend bytes (ratings/conduct.ts
+ * commendBytes: {v:1, t:'commend', game, from: opp, to: root}) under `key`;
+ * `certs` carry the commender's root-signed cert events proving `key` belongs
+ * to `opp` (absent when root-signed) — verifiable with no recursion into the
+ * commender's chain. The fold accepts at most one per (opp, game) and only
+ * when a segment for `game` naming `opp` is in-chain.
+ */
+export interface CommendPayload extends CanonicalObject {
+  game: B64u
+  /** Commender root. */
+  opp: B64u
+  /** Commender signing key (root or certified child). */
+  key: B64u
+  /** Commender signature over commendBytes. */
+  sig: B64u
+  /** Commender cert events proving `key` (absent when key === opp). */
+  certs?: CanonicalObject[]
+}
+
+/**
+ * A4 PIN anchor (§1 seam 3): canonicalHash of the account's CURRENT PinRecord
+ * (witness/pin.ts). The newest 'pin' event in the verified chain is the
+ * chain-authoritative record a handoff verifier trusts; `gen` is the handoff
+ * generation, strictly increasing across 'pin' events.
+ */
+export interface PinAnchorPayload extends CanonicalObject {
+  record: B64u
+  gen: number
+}
+
+/**
+ * A5 pairing record (§6b input machinery; closes review A4-12): appended
+ * WITNESSED into BOTH players' chains when a rated match is found, BEFORE the
+ * game starts (the witness serves a rated game only when both pairings are
+ * anchored). This makes abort/no-show omission self-executing evidence: a
+ * pairing that is never settled by a later segment or conduct event for the
+ * same `game` counts as misconduct in the reputation fold — the record is
+ * already in your chain, so "forgetting" the abort is no longer possible.
+ */
+export interface PairingPayload extends CanonicalObject {
+  /** The game key the pairing commits to (segment.ts gameKey). */
+  game: B64u
+  /** Counterparty root. */
+  opp: B64u
+  /** Ladder binding, mirroring the segment's (§6). */
+  kind: string
+  tc: { baseMs: number; incMs: number }
+  /** Witnessed match time (the pairing-legality atWts, §7). */
+  atWts: number
+}
+
+/**
+ * A5 anticheat self-ban (§8/§9): appended by the compliant client when the
+ * deterministic Tier-2 CONVICTION fires (A5-21, 2026-07-22: the 5σ line —
+ * the 3σ escalation obliges only deeper analysis, never a ban), BEFORE any
+ * further witnessed-lane event. `verdict` digests the reproducible Tier-2
+ * verdict record published into shard space; `window` names the K-window
+ * that convicted.
+ */
+export interface SelfBanPayload extends CanonicalObject {
+  kind: 'anticheat'
+  /** Ladder id the conviction window ran on. */
+  ladder: string
+  /** Window index (commit-reveal salted, §7b). */
+  window: number
+  /** Ban expiry, diversity-bound witnessed time (§4/§9). */
+  expiryWts: number
+  /** canonicalHash of the Tier-2 verdict record. */
+  verdict: B64u
+}
+
+/**
+ * A6 friend edge (§3 "friendships are witnessed-lane entanglements", §10) —
+ * witnessed lane, in the SUBJECT's own chain. An 'add' asserts the edge WITH
+ * the counterparty's proven consent: `sig` is the peer's ed25519 over
+ * friendBytes({v:1, t:'friend', a, b}) (social/friends.ts; a/b = the two
+ * roots in compareKeys order, so BOTH parties countersign identical bytes and
+ * one signature per party serves both chains) under `key`; `certs` carry the
+ * PEER's root-signed cert events proving key ∈ peer when key !== peer (the
+ * commend inline-cert pattern, recursion-bounded via events.ts zCertEvent).
+ * A 'remove' is unilateral (§3) — the subject's own event signature is the
+ * whole authorization; it carries no countersig material.
+ *
+ * The RELATIONSHIP is the mutual read (social/friends.ts areFriends): friends
+ * iff BOTH chains' latest edge state for the pair is a verified 'add'. A
+ * replayed/stale countersignature can therefore never resurrect an edge the
+ * peer removed — the peer's own chain outranks any material in yours (§0).
+ */
+export interface FriendPayload extends CanonicalObject {
+  action: 'add' | 'remove'
+  /** Counterparty root. Never the chain root itself (no self-edges). */
+  peer: B64u
+  /** 'add' only: peer signing key (the peer root or a certified child). */
+  key?: B64u
+  /** 'add' only: peer countersignature over friendBytes (social/friends.ts). */
+  sig?: B64u
+  /** 'add' only: peer cert events proving `key` — present iff key !== peer. */
+  certs?: CanonicalObject[]
 }
 
 export interface CheckpointPayload extends CanonicalObject {
@@ -193,6 +359,12 @@ export type VerifyErrorCode =
   | 'fork'
   | 'bad-checkpoint'
   | 'wrong-root'
+  /** A4 review fix (A4-09): one game may enter one chain once — a repeated
+   * segment game key is self-evident replay fraud. */
+  | 'dup-game'
+  /** A4 review fix (A4-01/02/08): a segment event whose own verification
+   * (witness stream binding, embedded-oppCkpt authenticity) fails. */
+  | 'bad-segment'
 
 export interface VerifyError {
   code: VerifyErrorCode

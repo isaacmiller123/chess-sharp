@@ -26,6 +26,7 @@ const AnalysisView = lazy(() =>
 const SettingsView = lazy(() =>
   import('./features/settings/SettingsView').then((m) => ({ default: m.SettingsView }))
 )
+const AccountView = lazy(() => import('./features/account/AccountView'))
 
 const TITLES: Record<ViewKey, string> = {
   home: 'Home',
@@ -36,6 +37,7 @@ const TITLES: Record<ViewKey, string> = {
   school: 'School',
   openings: 'Openings',
   progress: 'Progress',
+  account: 'Account',
   settings: 'Settings'
 }
 
@@ -95,6 +97,8 @@ function CurrentView({
           onOpenSettings={() => onNavigate('settings')}
         />
       )
+    case 'account':
+      return <AccountView />
     case 'settings':
       return <SettingsView />
     default:

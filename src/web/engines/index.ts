@@ -68,3 +68,8 @@ export function createPersonaMove(): Api['personas']['move'] {
 export function createDebriefEnricher(): (req: SchoolDebriefReq) => Promise<SchoolDebriefReq> {
   return buildDebriefEnrich()
 }
+
+/** A5 canonical judge (spec §8): a judge-DEDICATED, hash-verified,
+ *  single-thread engine instance — never the pools above, never the assets.ts
+ *  context-sensitive selection. Additive to the webApi contract. */
+export { newWebJudgeEngine } from './judge'

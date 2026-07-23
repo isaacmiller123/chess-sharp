@@ -78,7 +78,14 @@ jobs:
                    test-accounts-witness test-accounts-pin test-accounts-lease \
                    test-accounts-fabric test-accounts-rs test-accounts-overlay \
                    test-accounts-shards test-accounts-pointers \
-                   test-accounts-reconstruct test-judge-node; do
+                   test-accounts-reconstruct test-accounts-detmath \
+                   test-accounts-seams test-accounts-reputation \
+                   test-accounts-trust-mm test-accounts-ratings \
+                   test-accounts-tier1 test-accounts-tier2 \
+                   test-accounts-social test-accounts-mailbox \
+                   test-accounts-embed test-web-accounts-wiring \
+                   test-afinal-flag \
+                   test-judge-fit test-judge-node; do
             echo "== $t =="; node scripts/$t.mjs
           done
 

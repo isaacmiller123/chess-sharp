@@ -14,15 +14,22 @@ import {
   KEY_PURPOSE,
   Keyring,
   StorageLikeKeyStore,
+  appendPersonal,
   createAccountChain,
   deriveChild,
   deriveIdentity,
+  ed25519,
   eventId,
   formatHandle,
+  fromB64u,
   makeKeyfile,
+  normalizeUsername,
   seedToMnemonic,
+  slip10Master,
+  tagOf,
   toB64u,
   verifyChain,
+  type CanonicalObject,
   type Chain,
   type Identity,
   type StorageLike,
@@ -193,9 +200,19 @@ export async function createAccount(
  * different root/tag, so the record simply isn't found — when other tags
  * exist under the name, that mismatch IS the wrong-password signal.
  */
-export async function signIn(name: string, password: string): Promise<AccountsState> {
+export interface SignInOpts {
+  /** A6 additive: explicit "keep me signed in on this device" at sign-in —
+   *  same keyfile semantics as CreateAccountOpts.rememberSeed. */
+  rememberSeed?: boolean
+}
+
+export async function signIn(
+  name: string,
+  password: string,
+  opts?: SignInOpts,
+): Promise<AccountsState> {
   const identity = await deriveIdentity(name, password)
-  const account = await keyring().getAccount(identity.foldedName, identity.tag)
+  let account = await keyring().getAccount(identity.foldedName, identity.tag)
   if (!account) {
     const sameName = (await keyring().listAccounts()).some(
       (a) => a.foldedName === identity.foldedName,
@@ -215,6 +232,12 @@ export async function signIn(name: string, password: string): Promise<AccountsSt
   const vr = verifyChain(chain)
   if (!vr.ok)
     throw new Error(`stored chain failed verification (${vr.errors[0]?.code}) — refusing to sign in`)
+  // Opt-in seed persistence (C-5 keyfile semantics) — only ever ADDS the
+  // seed; forgetting is the explicit separate act (forgetRememberedSeed).
+  if (opts?.rememberSeed && account.seedB64u === undefined) {
+    account = { ...account, seedB64u: toB64u(identity.seed) }
+    await keyring().saveAccount(account)
+  }
   session = { identity, account }
   return getState()
 }
@@ -250,6 +273,164 @@ export async function verifyOwnChain(): Promise<VerifyResult> {
 }
 
 // ---------------------------------------------------------------------------
+// A6 additive surface (renderer wiring — multi-device polish). Everything
+// below is ADDITIVE: no pre-A6 export changes shape or behavior.
+// ---------------------------------------------------------------------------
+
+/** One keyring row for account pickers (no key material ever leaves here). */
+export interface KeyringAccountInfo {
+  foldedName: string
+  displayName: string
+  tag: string
+  handle: string
+  /** This row is the live session's account. */
+  current: boolean
+  /** Carries an opt-in remembered seed (resumeSession candidate). */
+  remembered: boolean
+}
+
+/** List this device's stored accounts (§1: several roots, one machine).
+ * Fail-closed (A6 review wiring-1): a corrupt keyring store yields an empty
+ * list, never a throw that breaks every account's surface. */
+export async function listKeyringAccounts(): Promise<KeyringAccountInfo[]> {
+  let rows: StoredAccount[]
+  try {
+    rows = await keyring().listAccounts()
+  } catch {
+    return []
+  }
+  const cur = session?.account.rootPub
+  return rows.map((a) => ({
+    foldedName: a.foldedName,
+    displayName: a.displayName,
+    tag: a.tag,
+    handle: formatHandle(a.displayName, a.tag),
+    current: a.rootPub === cur,
+    remembered: a.seedB64u !== undefined,
+  }))
+}
+
+/**
+ * Resume a session from an opt-in remembered seed (rememberSeed at create or
+ * sign-in). FAIL-CLOSED at every step: a seed that does not re-derive the
+ * stored root/tag, a missing chain, or a chain failing verification silently
+ * skips the record (never a throw at boot, never a session from unverified
+ * data). No argon2id here — the seed is post-KDF material, so resume is
+ * milliseconds. Returns the (possibly unchanged) state.
+ */
+export async function resumeSession(): Promise<AccountsState> {
+  if (session) return getState()
+  // A6 review wiring-1: the store read itself must be inside the fail-closed
+  // boundary — a corrupt keyring record throwing in listAccounts() would
+  // otherwise break boot for EVERY account on the device.
+  let stored: StoredAccount[]
+  try {
+    stored = await keyring().listAccounts()
+  } catch {
+    return getState()
+  }
+  for (const account of stored) {
+    if (account.seedB64u === undefined) continue
+    try {
+      const seed = fromB64u(account.seedB64u)
+      const master = slip10Master(seed)
+      const rootPub = ed25519.getPublicKey(master.priv)
+      // The remembered seed must re-derive the stored identity exactly.
+      if (toB64u(rootPub) !== account.rootPub) continue
+      if (tagOf(rootPub) !== account.tag) continue
+      const chain = await keyring().loadChain(account.rootPub)
+      if (!chain || chain.root !== account.rootPub) continue
+      if (!verifyChain(chain).ok) continue
+      // A6 review wiring-2: never a session from unverified data — the names
+      // must come from the chain's SIGNED genesis, not the mutable stored
+      // record (a tampered localStorage name would otherwise ride into the
+      // session identity and the exported keyfile).
+      const genesis = chain.events.find((e) => e.body.lane === 'w' && e.body.type === 'genesis')
+      if (!genesis) continue
+      const genesisName = (genesis.body.payload as { name?: unknown }).name
+      if (typeof genesisName !== 'string') continue
+      if (account.displayName !== genesisName) continue
+      if (account.foldedName !== normalizeUsername(genesisName).folded) continue
+      session = {
+        identity: {
+          seed,
+          rootPriv: master.priv,
+          rootPub,
+          tag: account.tag,
+          foldedName: account.foldedName,
+          displayName: account.displayName,
+        },
+        account,
+      }
+      return getState()
+    } catch {
+      /* fail closed — a corrupt record must never block boot */
+    }
+  }
+  return getState()
+}
+
+/** Drop the signed-in account's remembered seed (sign-out hygiene). The
+ *  account record and chain stay — only the auto-resume material goes. */
+export async function forgetRememberedSeed(): Promise<void> {
+  const s = requireSession()
+  if (s.account.seedB64u === undefined) return
+  const stripped: StoredAccount = { ...s.account }
+  delete stripped.seedB64u
+  await keyring().saveAccount(stripped)
+  s.account = stripped
+}
+
+/** The signed-in session's device/root pubs (for chain-derivation callers). */
+export function sessionInfo(): { rootPub: string; devicePub: string; deviceIndex: number } | null {
+  if (!session) return null
+  const { account } = session
+  return { rootPub: account.rootPub, devicePub: account.device.pub, deviceIndex: account.device.index }
+}
+
+/** Load the signed-in account's stored chain (read-only; throws signed out). */
+export async function loadOwnChain(): Promise<Chain> {
+  const { account } = requireSession()
+  const chain = await keyring().loadChain(account.rootPub)
+  if (!chain) throw new Error('no stored chain for the signed-in account')
+  return chain
+}
+
+/** Profile field patch (§10 edit profile) — keys per zProfileFields. */
+export interface ProfileFieldPatch {
+  bio?: string
+  avatar?: string
+  country?: string
+  flair?: string
+}
+
+/**
+ * §10 edit profile: append a signed personal-lane 'profile' record to the
+ * own chain, signed by THIS device's certified key. Verifies the appended
+ * chain before persisting (fail-closed: an invalid field never lands) and
+ * returns the new chain so callers can re-derive without a reload.
+ */
+export async function updateProfile(patch: ProfileFieldPatch): Promise<Chain> {
+  const { identity, account } = requireSession()
+  const fields: { [k: string]: string } = {}
+  for (const k of ['bio', 'avatar', 'country', 'flair'] as const) {
+    const v = patch[k]
+    if (v !== undefined) fields[k] = v
+  }
+  if (Object.keys(fields).length === 0) throw new Error('empty profile update')
+  const chain = await loadOwnChain()
+  const device = deriveChild(identity.seed, KEY_PURPOSE.device, account.device.index)
+  if (toB64u(device.pub) !== account.device.pub)
+    throw new Error('device key mismatch — refusing to sign')
+  const payload: CanonicalObject = { fields }
+  const next = appendPersonal(chain, device.priv, account.device.pub, 'profile', payload, Date.now())
+  const vr = verifyChain(next)
+  if (!vr.ok) throw new Error(`profile update failed verification: ${vr.errors[0]?.code}`)
+  await keyring().saveChain(next.root, next)
+  return next
+}
+
+// ---------------------------------------------------------------------------
 // Dev/test surface (NO UI in A1 — A6 owns UI)
 // ---------------------------------------------------------------------------
 
@@ -261,6 +442,12 @@ const surface = {
   exportKeyfile,
   getState,
   verifyOwnChain,
+  // A6 additions
+  listKeyringAccounts,
+  resumeSession,
+  forgetRememberedSeed,
+  sessionInfo,
+  updateProfile,
 }
 
 declare global {

@@ -99,7 +99,28 @@
       trainer (SRS opening drills), shareable game/profile links, one-click rematch everywhere,
       networking-resilience polish pass.
 
-## 🧭 Exploratory (asked about; not building yet)
+## 🔭 Post-A-final — P2P self-sufficiency ("Bitcoin-grade bootstrap", owner directive 2026-07-21)
+- [ ] **Owner's goal, recorded verbatim in spirit:** the accounts/network substrate should stand on
+      its own like Bitcoin does — no reliance on third-party rendezvous (Nostr relays, public
+      TURN) beyond first contact, and the substrate should be product-agnostic enough to
+      "translate to any platform or idea." NOT to be built now — after the rest (A5, A6, A-final)
+      is finished. The current Nostr/TURN + operator-peer bootstrap is accepted for the interim
+      (spec C-11 already mandates replaceability).
+- [ ] Sketch of the robust design (to be spec'd properly when picked up):
+      1. **Peer address book** — persist known-good peers per device; on startup, redial them
+         before touching any external rendezvous (Bitcoin's addrman pattern).
+      2. **User-base-as-infrastructure** — the DESKTOP app can accept inbound connections
+         (listening socket + UPnP/NAT-PMP attempt): any reachable user self-advertises as a
+         beacon; beacons do signaling introductions AND peer-relay (TURN-equivalent) for
+         NAT-stuck peers. The operator peer stops being special — it's just one more beacon.
+      3. **Beacon seeds shipped in releases** — a signed, per-release list of long-lived community
+         beacons baked into the binary (Bitcoin's DNS-seed pattern), so a fresh install can join
+         with zero third-party services.
+      4. **In-overlay introductions** — once connected to anyone, all further rendezvous rides the
+         overlay itself (FabricEndpoint already abstracts transport for this).
+      5. **Substrate extraction** — keep src/shared/accounts/** game-agnostic (it already is:
+         segments carry a kind string; the judge is a pluggable verdict fn) so the identity/chain/
+         witness/storage stack can be lifted into any future product.
 - [ ] **Web port.** The renderer is already React/TS; the blockers are the Electron-only main process
       (node:sqlite DBs, local Stockfish, IPC). Path: replace IPC with a server/WASM backend —
       Stockfish.wasm in-browser for the engine, a hosted DB/API for puzzles/games. Notes in session.

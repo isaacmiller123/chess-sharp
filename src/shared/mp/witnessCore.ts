@@ -19,9 +19,10 @@ import {
   witnessEndBytes,
   signWitnessEnd,
   makeWitnessedResult,
+  type RatedBinding,
   type SignedMove,
 } from '@shared/accounts/segment'
-import type { B64u } from '@shared/accounts/types'
+import type { B64u, PairingPayload } from '@shared/accounts/types'
 import type { WitnessedResultRecord } from '@shared/accounts/storage/types'
 
 // ---------------------------------------------------------------------------
@@ -49,6 +50,25 @@ export const REASON_RESIGN = 'resign'
 export const REASON_FLAG = 'flag'
 
 type MpResult = '1-0' | '0-1' | '1/2-1/2'
+
+/**
+ * A4 ladder binding (§6): derive the (kind, tc) pair a game rates under from
+ * the wire v6 session config — the SAME config both players and the witness
+ * received in the mirrored `start`. Wire tc names (initialMs/incrementMs) map
+ * onto the segment/ladder names (baseMs/incMs); an absent game selector is
+ * chess (the wire v4 rule). Math.round is defensive only: the wire schema
+ * already pins both fields to integers, but the canonical codec THROWS on
+ * floats and this value flows into signature bytes.
+ */
+export function ladderFromConfig(config: {
+  tc: { initialMs: number; incrementMs: number }
+  game?: { kind?: string }
+}): { kind: string; tc: { baseMs: number; incMs: number } } {
+  return {
+    kind: config.game?.kind ?? 'chess',
+    tc: { baseMs: Math.round(config.tc.initialMs), incMs: Math.round(config.tc.incrementMs) },
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Player-side incremental verifier (used by mpSession AND the witness)
@@ -170,6 +190,31 @@ export interface WitnessGameInit {
   players: { w: { root: B64u; key: B64u }; b: { root: B64u; key: B64u } }
   /** Which color moves first (config.game.firstMover; chess = 'w'). */
   firstMover?: 'w' | 'b'
+  /** A4 ladder binding (§6) the witness observed in the session config
+   *  (ladderFromConfig(start.config)) — folded into the witness's terminal
+   *  wend signature AND the witnessed result, so the segment author cannot
+   *  claim a different ladder than the witness saw. BOTH set on rated games;
+   *  absent = legacy/unrated, byte-identical to the pre-A4 signatures. The
+   *  mirrored `start` is cross-checked against these values (a contradiction
+   *  poisons the follower). */
+  kind?: string
+  tc?: { baseMs: number; incMs: number }
+  /** A5 J5 pairing anchors (spec §3/§8; review deferral A4-12 — the
+   *  anchoring contract in accounts ratings/conduct.ts): a witness serves a
+   *  RATED game only when BOTH players' witnessed 'pairing' events for this
+   *  game key have been seen countersigned. Division of labor, same as
+   *  `players` (roots/keys come from hellos, the core cross-checks the
+   *  mirrored start): verifying the pairing EVENTS (event signatures +
+   *  witness attestations in each player's chain) is the EMBEDDER's job —
+   *  it holds the chain context; the core enforces CONSISTENCY, poisoning
+   *  on feed('start'/'rematchStart') when the anchors are absent on a rated
+   *  game or contradict the session's gameKey / kind / tc / player roots
+   *  (the 2c/F1 poison pattern). Pass the two anchor payloads by the color
+   *  of the player whose chain carries each, or the literal
+   *  'embedder-verified' when the embedder has already cross-checked them.
+   *  Ignored on unrated games (no kind/tc) — the legacy flow stays
+   *  byte-identical. */
+  pairing?: 'embedder-verified' | { w: PairingPayload; b: PairingPayload }
 }
 
 export interface WitnessFeedResult {
@@ -269,7 +314,25 @@ export class WitnessCore {
     return this.terminal ? { wkey: this.wkey, sig: this.terminal.wendSig } : null
   }
 
-  /** The §3 witnessed result record (rage-quit denial), or null pre-terminal. */
+  /** The A4 rated binding for the terminal wend signature, or undefined for a
+   *  legacy/unrated game (⇒ every signature stays the exact pre-A4 byte
+   *  shape). On a rated game (init named kind/tc) the witness binds the FULL
+   *  set — kind/tc from init, players from the session's roots by color, and
+   *  the adjudicated terminal `reason` (A4-01/A4-08: color, opp and reason
+   *  were self-asserted in the segment payload before this). */
+  private binding(reason: string): RatedBinding | undefined {
+    if (!this.g || (this.g.kind === undefined && this.g.tc === undefined)) return undefined
+    return {
+      ...(this.g.kind !== undefined ? { kind: this.g.kind } : {}),
+      ...(this.g.tc !== undefined ? { tc: this.g.tc } : {}),
+      players: { w: this.g.players.w.root, b: this.g.players.b.root },
+      reason,
+    }
+  }
+
+  /** The §3 witnessed result record (rage-quit denial), or null pre-terminal.
+   *  Carries the ladder binding when the game has one — witness-signed, so it
+   *  adjudicates the ladder too. */
   buildWitnessedResult(): WitnessedResultRecord | null {
     if (!this.g || !this.terminal) return null
     return makeWitnessedResult(this.wpriv, this.wroot, this.wkey, {
@@ -280,6 +343,8 @@ export class WitnessCore {
       transcript: this.terminal.transcript,
       plies: this.terminal.plies,
       wts: this.terminal.wts,
+      ...(this.g.kind !== undefined ? { kind: this.g.kind } : {}),
+      ...(this.g.tc !== undefined ? { tc: this.g.tc } : {}),
     })
   }
 
@@ -296,6 +361,37 @@ export class WitnessCore {
         // Consistency only — the caller inits explicitly. A different (or
         // absent) game key means we are NOT following this game: poison.
         if (msg.gameKey !== this.g.gameKey) return this.poison('start does not carry our game key')
+        // A4: when init named a ladder binding, the mirrored start's config
+        // must derive the SAME (kind, tc) — the witness signs those values
+        // into its wend, so a contradicting config means it is not observing
+        // the game it thinks it is. (rematchStart carries no config; the
+        // rematch reuses the session config.)
+        if (msg.t === 'start' && (this.g.kind !== undefined || this.g.tc !== undefined)) {
+          const lb = ladderFromConfig(msg.config)
+          const kindOk = this.g.kind === undefined || this.g.kind === lb.kind
+          const tcOk =
+            this.g.tc === undefined ||
+            (this.g.tc.baseMs === lb.tc.baseMs && this.g.tc.incMs === lb.tc.incMs)
+          if (!kindOk || !tcOk) return this.poison('start config contradicts the ladder binding')
+        }
+        // A4 review fix (A4-01), same contradiction pattern as the ladder
+        // check above: the witness signs the player roots BY COLOR into its
+        // wend, so a mirrored start/rematchStart naming different roots (or a
+        // different color assignment) than init means it is not observing the
+        // game it thinks it is — poison, never countersign.
+        if (msg.players !== undefined) {
+          if (msg.players.w !== this.g.players.w.root || msg.players.b !== this.g.players.b.root)
+            return this.poison('start players contradict the witness binding')
+        }
+        // A5 J5 (A4-12): a RATED session must be pairing-anchored — both
+        // players' witnessed 'pairing' events, consistent with everything
+        // this witness is about to sign. Absent or contradicting anchors ⇒
+        // poison (same 2c pattern as the ladder/players checks above).
+        // Unrated games skip this entirely (legacy flow byte-identical).
+        if (this.g.kind !== undefined || this.g.tc !== undefined) {
+          const pErr = this.pairingGateError()
+          if (pErr !== null) return this.poison(pErr)
+        }
         return { ok: true }
 
       case 'move': {
@@ -380,9 +476,45 @@ export class WitnessCore {
   }
 
   /**
+   * A5 J5 pairing-anchor consistency (rated games only — the caller gates on
+   * kind/tc). Returns the poison reason, or null when the anchors hold:
+   * each anchor names THIS game key, the ladder binding the witness will
+   * sign (kind/tc), and — cross-wise — the OTHER player's root as its opp
+   * (the white player's chain pairs against the black root and vice versa,
+   * which also pins each pairing to a distinct chain: two copies of one
+   * player's pairing can never satisfy both seats). 'embedder-verified'
+   * asserts the embedder already performed these checks against the real
+   * chain events (its authority, like init.players).
+   */
+  private pairingGateError(): string | null {
+    if (!this.g) return 'witness not initialized'
+    const pr = this.g.pairing
+    if (pr === undefined) return 'rated game has no pairing anchors'
+    if (pr === 'embedder-verified') return null
+    for (const color of ['w', 'b'] as const) {
+      const a = pr[color]
+      if (a.game !== this.g.gameKey) return `pairing anchor (${color}) names a different game key`
+      if (this.g.kind !== undefined && a.kind !== this.g.kind)
+        return `pairing anchor (${color}) contradicts the ladder kind`
+      if (
+        this.g.tc !== undefined &&
+        (a.tc.baseMs !== this.g.tc.baseMs || a.tc.incMs !== this.g.tc.incMs)
+      )
+        return `pairing anchor (${color}) contradicts the ladder tc`
+    }
+    if (pr.w.opp !== this.g.players.b.root || pr.b.opp !== this.g.players.w.root)
+      return 'pairing anchors do not name the opposing player roots'
+    return null
+  }
+
+  /**
    * A terminal wire message. Signature rules by result kind, both rooted in the
    * identity-blindness of witnessEndBytes (it covers only game/result/plies/
-   * transcript, never the signer), so any accepted key is a FULL authorization:
+   * transcript, never the signer), so any accepted key is a FULL authorization.
+   * Player esigs are verified over the LEGACY (ladder-less) end-bytes — that is
+   * what mpSession.signTerminal signs: the player's countersignature vouches
+   * for the RESULT + transcript; the ladder (kind/tc) is the WITNESS's own
+   * authority, covered only by its wend signature (A4 §6 binding).
    *
    *  - DECISIVE (1-0 / 0-1): only the LOSER's device key. Accepting either key
    *    (as the first version did) let a winner mint a witness-blessed loss for
@@ -443,7 +575,22 @@ export class WitnessCore {
     if (!this.g || !this.verifier) return { ok: false, error: 'witness not initialized' }
     const plies = this.verifier.plies
     const transcript = transcriptDigest(this.g.gameKey, this.verifier.moves, result, reason)
-    const { sig } = signWitnessEnd(this.wpriv, this.wkey, this.g.gameKey, result, plies, transcript)
+    // A4: the witness's OWN terminal signature covers the full rated binding
+    // — kind/tc (ladder authority), players by color and the adjudicated
+    // reason (A4-01/A4-08: verifySegmentEvent requires a rated-shaped
+    // segment's wstream sig to cover ALL of these values). The wire `wend`
+    // message shape is unchanged (v6 schema is frozen); receivers re-derive
+    // kind/tc from the session config and players/reason from the session
+    // identities + terminal they saw.
+    const { sig } = signWitnessEnd(
+      this.wpriv,
+      this.wkey,
+      this.g.gameKey,
+      result,
+      plies,
+      transcript,
+      this.binding(reason),
+    )
     this.terminal = { result, reason, transcript, plies, wts, wendSig: sig }
     return {
       ok: true,

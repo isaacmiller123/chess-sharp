@@ -190,12 +190,50 @@ eq(F.multiPv, params.PARAMS_A5.t1MultiPv, 'fit multiPv == PARAMS_A5.t1MultiPv')
 eq(F.hashMb, params.PARAMS_A5.hashMb, 'fit hashMb == PARAMS_A5.hashMb')
 eq(T.nodes, params.PARAMS_A5.t1Nodes, 'anchors nodes == PARAMS_A5.t1Nodes')
 eq(T.multiPv, params.PARAMS_A5.t1MultiPv, 'anchors multiPv == PARAMS_A5.t1MultiPv')
-eq(
-  anchors.JUDGE_ANCHORS_PARAMS_DIGEST,
-  params.PARAMS_A5_DIGEST,
-  'fitted params digest == CURRENT PARAMS_A5_DIGEST (params drift ⇒ re-fit J3)'
+// Digest-drift rule (lead decision, J7 aftermath): JUDGE_ANCHORS_PARAMS_DIGEST
+// is the FIT-TIME pin — a historical fact about the corpus's provenance, never
+// rewritten. A PARAMS_A5 digest drift alone (e.g. an aggregation-rule row like
+// lifetimeScheme) does NOT invalidate the fit: the invariant that keeps
+// anchors valid is ENGINE-CONFIG IDENTITY (nodes/multiPv/hashMb/wasm hash) —
+// nodes/multiPv/hashMb asserted field-by-field above, wasm hash via the
+// fit-time golden freeze below (A5-10). A drift that touches any of
+// those fields fails those assertions ⇒ re-fit J3. Drift stays visible:
+if (anchors.JUDGE_ANCHORS_PARAMS_DIGEST !== params.PARAMS_A5_DIGEST)
+  console.log(
+    `  · note: PARAMS_A5 digest drifted since fit (${anchors.JUDGE_ANCHORS_PARAMS_DIGEST} → ${params.PARAMS_A5_DIGEST}); engine-config identity asserted instead`
+  )
+// ── Judge-engine identity: the J3 fit's wasm, asserted still-live (A5-10) ────
+// The corpus was judged under the pinned judge WASM, whose sha256 is folded into
+// the fit-time JUDGE_ANCHORS_PARAMS_DIGEST (kkHG…); the fit artifact persists NO
+// standalone wasmSha256 field, and adding one is an anchors.ts/judge-elo-fit.json
+// re-fit surface outside this suite. So this suite FREEZES the fit-time wasm as
+// an independent golden literal (as test-judge-node freezes GOLDEN_WASM_SHA256)
+// and asserts the LIVE PARAMS_A5.judgeWasmSha256 still equals it — the drift
+// rule's engine-identity leg, now genuinely binding. A judge-engine re-pin (new
+// build → new judgeWasmSha256 → PARAMS_A5_DIGEST drift) moves the live pin off
+// this freeze and FAILS here, forcing a J3 re-fit; pre-fix (A5-10) the leg read
+// the wasm from live PARAMS_A5 on BOTH sides (F.wasmSha256 undefined ⇒ the ??
+// fallback made it X===X), so any wasm passed and a swap slipped past under the
+// benign-drift note. Unlike test-judge-node's blob freeze (re-frozen on ANY
+// re-pin), THIS provenance freeze re-freezes ONLY with a J3 corpus re-fit, so a
+// re-pin-without-re-fit trips it. [A5-CALIBRATED] re-freeze only with a J3 re-fit.
+const FIT_WASM_SHA256 = 'a8fbc05ec6920b56d7485826dcb02c5ffd2826bcbf751cf973046f237a9096f1'
+const wasmMatchesFit = (liveSha) => liveSha === FIT_WASM_SHA256
+ok(
+  wasmMatchesFit(params.PARAMS_A5.judgeWasmSha256),
+  `live PARAMS_A5.judgeWasmSha256 == J3 fit-time wasm freeze (engine identity — a re-pin without a J3 re-fit fails here; got ${params.PARAMS_A5.judgeWasmSha256})`
 )
-eq([...uniq((r) => r.judgeParams)][0], anchors.JUDGE_ANCHORS_PARAMS_DIGEST, 'corpus judgeParams == anchors digest')
+// A5-10 non-vacuity regression: the SAME comparator must REJECT a re-pinned
+// engine's sha256 — pre-fix this leg compared PARAMS_A5 to itself (always green).
+ok(
+  !wasmMatchesFit('deadbeef'.repeat(8)),
+  'A5-10 regression: a re-pinned judge wasm sha256 is REJECTED by the engine-identity guard (non-vacuous)'
+)
+// Forward-compat: once a J3 re-fit persists a wasmSha256 field on the artifact,
+// cross-check it too (must equal the live pin, which equals the freeze above).
+if (F.wasmSha256 !== undefined)
+  eq(F.wasmSha256, params.PARAMS_A5.judgeWasmSha256, 'persisted fit wasmSha256 == PARAMS_A5.judgeWasmSha256 (config identity)')
+eq([...uniq((r) => r.judgeParams)][0], anchors.JUDGE_ANCHORS_PARAMS_DIGEST, 'corpus judgeParams == anchors fit-time pin')
 eq([...uniq((r) => r.judgeNodes)][0], F.nodes, 'corpus judgeNodes == fit nodes')
 eq([...uniq((r) => r.judgeMultiPv)][0], F.multiPv, 'corpus judgeMultiPv == fit multiPv')
 

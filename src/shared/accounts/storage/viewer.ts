@@ -317,11 +317,21 @@ export function selectCheckpoint(working: Chain, opts: CkptAuditOpts = {}): Ckpt
       if (!verifyEventSig(ev)) continue
       const surface = ckptCosigSurface(ev, id, opts)
       if (surface.cosigners < 1) continue // never attested ⇒ pins nothing
-      if (!verifyCheckpointIncremental(working, ev)) continue
       const payload = ev.body.payload as CheckpointPayload
+      // A4 review fix (A4-15): a fold-id transition (basic-v1 → a4-v1) is NOT
+      // one-step-verifiable by design — checkpoint.ts's incremental verifier
+      // returns false there. Take the promised deep-verify fallback instead of
+      // skipping, so an account's FIRST a4-v1 checkpoint (its ladders/rep/
+      // trust surface) is never displaced by the stale basic-v1 one.
+      let deepFallback = false
+      if (!verifyCheckpointIncremental(working, ev)) {
+        if (!coversFromGenesis(working, payload.through)) continue
+        if (!verifyCheckpointDeep(working, ev)) continue // fraud — skip, never surface
+        deepFallback = true
+      }
       const spotWanted = drawn || surface.diversityLacking
-      let spotChecked = false
-      if (spotWanted && coversFromGenesis(working, payload.through)) {
+      let spotChecked = deepFallback
+      if (!deepFallback && spotWanted && coversFromGenesis(working, payload.through)) {
         if (!verifyCheckpointDeep(working, ev)) continue // fraud — skip, never surface
         spotChecked = true
       }
@@ -330,7 +340,7 @@ export function selectCheckpoint(working: Chain, opts: CkptAuditOpts = {}): Ckpt
         id,
         through: payload.through,
         state: payload.state as CanonicalObject,
-        verified: spotChecked ? 'deep' : 'incremental',
+        verified: spotChecked || deepFallback ? 'deep' : 'incremental',
         spotWanted,
         spotChecked,
         cosigners: surface.cosigners,

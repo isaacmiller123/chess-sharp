@@ -32,6 +32,12 @@
 //                   '1' = always, '0' = never (plain-http LAN/localhost hosting)
 //   MAX_ACCOUNTS    signup ceiling (default 500; each account is a per-user
 //                   on-disk DB)
+//   ACCOUNTS_DECENTRALIZED  A-final switch (server/afinal.ts, spec §14):
+//                   1 = decentralized accounts — interim /api/auth/* answers
+//                   410 superseded; 0 = interim system fully intact (the
+//                   emergency fallback). Unset: shipped builds default ON
+//                   (build-server.mjs injects the default); ad-hoc bundles
+//                   without the define default OFF (pre-A-final test rigs).
 //   AUTH_RATE_LOGIN   login attempts per IP per minute      (default 10)
 //   AUTH_RATE_SIGNUP  signup attempts per IP per hour       (default 5)
 //   MAX_OPEN_USER_DBS open per-user SQLite handles kept warm (default 32)
@@ -45,6 +51,7 @@ import fastifyRateLimit from '@fastify/rate-limit'
 import { createApi, registerIpcRoutes } from './bridge'
 import { AuthStore, registerAuthRoutes } from './auth'
 import { registerReviewRoutes } from './review'
+import { accountsDecentralized, registerInterimAuthGate } from './afinal'
 
 // __dirname works because the bundle is CommonJS (build-server.mjs).
 const bundleDir = __dirname
@@ -158,6 +165,24 @@ async function main(): Promise<void> {
   // run build:server (not build:ipc-bridge) still serves the SPA, and the
   // whole /api namespace stays 503 coming-online below.
   await app.register(fastifyCookie)
+
+  // A-final switch (spec §14, server/afinal.ts): when the decentralized
+  // accounts are live, the interim /api/auth namespace answers 410 superseded
+  // — registered regardless of bridge presence (superseded, not
+  // coming-online). The content plane (/api/ipc, /api/review, statics) is
+  // untouched either way, and existing interim session cookies still resolve
+  // there (only the account-lifecycle endpoints are refused — reversible OFF
+  // via ACCOUNTS_DECENTRALIZED=0).
+  const accountsFlag = accountsDecentralized()
+  app.log.info(
+    `accounts: ${
+      accountsFlag.on
+        ? 'decentralized (interim /api/auth endpoints disabled, 410)'
+        : 'interim server accounts live'
+    } [${accountsFlag.source}]`
+  )
+  if (accountsFlag.on) registerInterimAuthGate(app)
+
   if (fs.existsSync(BRIDGE_PATH)) {
     const api = createApi({
       dataDir: DATA_DIR,
@@ -166,7 +191,11 @@ async function main(): Promise<void> {
       bridgePath: BRIDGE_PATH
     })
     const auth = new AuthStore(DATA_DIR)
-    registerAuthRoutes(app, auth)
+    // Flag ON: the interim auth endpoints are 410-gated above and their
+    // routes are simply not registered. AuthStore itself stays constructed —
+    // ipc/review still resolve EXISTING session cookies (per-user data stays
+    // reachable; no new session can be minted with login/signup refused).
+    if (!accountsFlag.on) registerAuthRoutes(app, auth)
     registerIpcRoutes(app, api, auth)
     registerReviewRoutes(app, api, auth)
     if (!api.puzzlesInstalled()) {

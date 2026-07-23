@@ -93,6 +93,10 @@ async function run(outdir) {
       `export * as chain from '${SRC}/chain.ts'`,
       `export * as ckpt from '${SRC}/checkpoint.ts'`,
       `export * as fraud from '${SRC}/fraud.ts'`,
+      `export * as a4 from '${SRC}/ratings/fold.ts'`,
+      `export * as seg from '${SRC}/segment.ts'`,
+      `export * as attest from '${SRC}/witness/attest.ts'`,
+      `export * as viewer from '${SRC}/storage/viewer.ts'`,
     ].join('\n'),
   )
   const outfile = resolve(outdir, 'accounts.mjs')
@@ -109,7 +113,7 @@ async function run(outdir) {
     logLevel: 'warning',
   })
   const M = await import(pathToFileURL(outfile).href)
-  const { codec, hash, params, events, certs, chain, ckpt, fraud } = M
+  const { codec, hash, params, events, certs, chain, ckpt, fraud, a4, seg, attest, viewer } = M
 
   // ---- fixed raw keypairs -----------------------------------------------------
   const seed = (b) => Uint8Array.from({ length: 32 }, (_, i) => (b + i) & 0xff)
@@ -628,6 +632,120 @@ async function run(outdir) {
       ok(v.errors.some((e) => e.code === 'bad-checkpoint' && e.detail === 'stateDigest does not match the embedded state'),
         "detail: 'stateDigest does not match the embedded state'")
     }
+  }
+  console.log('\n· checkpoints: a4-v1 fold in-chain (alt-fold audit) …')
+  {
+    // verifyChain must audit an in-chain checkpoint under the fold its state
+    // names (foldIdOfState → registry), not blindly recompute basic-v1.
+    let c = chain.createAccountChain({ rootPriv: root.priv, rootPub: root.pub, displayName: 'Isaac', ts: 1000 })
+    c = chain.appendWitnessed(c, root.priv, rootB, 'revoke', { pub: fakeId('a4-r1') }, 2000)
+    const ckBasic = ckpt.makeCheckpointEvent(c, root.priv, rootB, 2100) // basic-v1
+    c = chain.appendEvent(c, ckBasic)
+    c = chain.appendWitnessed(c, root.priv, rootB, 'revoke', { pub: fakeId('a4-r2') }, 2200)
+    const ckA4 = ckpt.makeCheckpointEvent(c, root.priv, rootB, 2300, a4.a4Fold)
+    const cA4 = chain.appendEvent(c, ckA4)
+    eq(ckA4.body.payload.state.f, 'a4-v1', 'a4 checkpoint state carries f=a4-v1')
+    eq(chain.verifyChain(cA4).ok, true, 'chain with a basic-v1 AND an a4-v1 in-chain checkpoint verifies ok')
+    ok(ckpt.verifyCheckpointDeep(cA4, ckA4), 'a4 checkpoint verifies deeply')
+    ok(!ckpt.verifyCheckpointIncremental(cA4, ckA4), 'basic→a4 fold transition is NOT one-step-verifiable (deep only, by design)')
+    // pure-a4 chain: incremental works a4→a4
+    let p = chain.createAccountChain({ rootPriv: root.priv, rootPub: root.pub, displayName: 'Isaac', ts: 1000 })
+    p = chain.appendWitnessed(p, root.priv, rootB, 'revoke', { pub: fakeId('a4-p1') }, 2000)
+    const pk1 = ckpt.makeCheckpointEvent(p, root.priv, rootB, 2100, a4.a4Fold)
+    p = chain.appendEvent(p, pk1)
+    p = chain.appendWitnessed(p, root.priv, rootB, 'revoke', { pub: fakeId('a4-p2') }, 2200)
+    const pk2 = ckpt.makeCheckpointEvent(p, root.priv, rootB, 2300, a4.a4Fold)
+    p = chain.appendEvent(p, pk2)
+    eq(chain.verifyChain(p).ok, true, 'pure-a4 two-checkpoint chain verifies ok')
+    ok(ckpt.verifyCheckpointIncremental(p, pk2), 'a4→a4 checkpoint verifies incrementally')
+    // tampered a4 state under a self-consistent digest → recomputation catches it
+    const forged = clone(ckA4)
+    const st = clone(forged.body.payload.state)
+    st.n = st.n + 1
+    forged.body.payload.state = st
+    forged.body.payload.stateDigest = hash.toB64u(codec.canonicalHash(st))
+    forged.sig = hash.toB64u(hash.ed25519.sign(codec.canonicalBytes(forged.body), root.priv))
+    const cForged = chain.appendEvent(c, forged)
+    ok(chain.verifyChain(cForged).errors.some((e) => e.code === 'bad-checkpoint' && e.detail === 'state recomputation mismatch'),
+      'tampered a4 state in-chain → bad-checkpoint (state recomputation mismatch)')
+  }
+  console.log('\n· checkpoints: unknown / malformed fold ids fail closed …')
+  {
+    let c = chain.createAccountChain({ rootPriv: root.priv, rootPub: root.pub, displayName: 'Isaac', ts: 1000 })
+    c = chain.appendWitnessed(c, root.priv, rootB, 'revoke', { pub: fakeId('u-r1') }, 2000)
+    const headId = chain.verifyChain(c).witnessedHead
+    const mkFoldCkpt = (state) => {
+      const payload = { through: 1, state, stateDigest: hash.toB64u(codec.canonicalHash(state)) }
+      const body = { v: 1, lane: 'w', type: 'ckpt', root: rootB, key: rootB, height: 2, prev: headId, ts: 3000, payload }
+      return chain.appendEvent(clone(c), events.signBody(body, root.priv))
+    }
+    const vUnknown = chain.verifyChain(mkFoldCkpt({ f: 'nope-v9', n: 1 }))
+    ok(vUnknown.errors.some((e) => e.code === 'bad-checkpoint' && e.detail === "unknown fold id 'nope-v9'"),
+      'unregistered fold id in-chain → bad-checkpoint (unknown fold id)')
+    const vMalformed = chain.verifyChain(mkFoldCkpt({ f: 7, n: 1 }))
+    ok(vMalformed.errors.some((e) => e.code === 'bad-checkpoint' && e.detail === 'malformed fold id in checkpoint state'),
+      'non-string fold id in-chain → bad-checkpoint (malformed fold id)')
+    ok(!ckpt.verifyCheckpointDeep(mkFoldCkpt({ f: 'nope-v9', n: 1 }), mkFoldCkpt({ f: 'nope-v9', n: 1 }).events.at(-1)),
+      'unknown fold id → deep verify false (fail closed) in checkpoint.ts too')
+  }
+  console.log('\n· segments in verifyChain: binding, dup-game, rated⇒a4 (A4 review F4) …')
+  {
+    const opp = kp(200)
+    const wit = kp(160)
+    const tc = { baseMs: 180000, incMs: 2000 }
+    const mkRatedSeg = (n, color, opts = {}) => {
+      const g = opts.game ?? hash.toB64u(hash.sha256(hash.utf8('f4-game' + n)))
+      const tr = seg.transcriptDigest(g, [], '1-0', 'resign')
+      const players = { w: color === 'w' ? rootB : opp.pubB, b: color === 'w' ? opp.pubB : rootB }
+      const binding = { kind: 'chess', tc, players: opts.players ?? players, reason: 'resign' }
+      const ws = seg.signWitnessEnd(wit.priv, wit.pubB, g, '1-0', 0, tr, binding)
+      return seg.makeSegmentPayload({
+        game: g, opp: opp.pubB, color, result: '1-0', reason: 'resign', moves: [],
+        heads: { w: { head: g, height: n }, b: { head: g, height: n } },
+        wstream: ws, oppProfile: { name: 'Opp' }, kind: 'chess', tc,
+      })
+    }
+    let c = chain.createAccountChain({ rootPriv: root.priv, rootPub: root.pub, displayName: 'Isaac', ts: 1000 })
+    c = chain.appendWitnessed(c, root.priv, rootB, 'segment', mkRatedSeg(1, 'w'), 2000)
+    const auto = ckpt.makeCheckpointEvent(c, root.priv, rootB, 2100) // no fold arg
+    eq(auto.body.payload.state.f, 'a4-v1', 'makeCheckpointEvent auto-selects a4-v1 on a rated chain (A4-10 builder side)')
+    const cOk = chain.appendEvent(c, auto)
+    eq(chain.verifyChain(cOk).ok, true, 'valid fully-bound rated segment chain verifies ok')
+    // dup-game: SAME game key re-appended later (valid binding, new event)
+    const gameKey1 = c.events.find((e) => e.body.type === 'segment').body.payload.game
+    const cDup = chain.appendWitnessed(chain.clone ? chain.clone(cOk) : clone(cOk), root.priv, rootB, 'segment', mkRatedSeg(2, 'w', { game: gameKey1 }), 3000)
+    hasCode(chain.verifyChain(cDup), 'dup-game', 'replayed game key in one chain → dup-game (A4-09)')
+    // bad-segment: color flipped vs the witness-signed players
+    const cFlip = chain.appendWitnessed(clone(cOk), root.priv, rootB, 'segment', { ...mkRatedSeg(3, 'w'), color: 'b' }, 3000)
+    hasCode(chain.verifyChain(cFlip), 'bad-segment', 'color flipped against witness-signed players → bad-segment (A4-01)')
+    // rated ⇒ a4: an explicit basic-v1 checkpoint over rated play is fraud
+    const cBasic = chain.appendEvent(c, ckpt.makeCheckpointEvent(c, root.priv, rootB, 2100, ckpt.basicFold))
+    const vBasic = chain.verifyChain(cBasic)
+    ok(vBasic.errors.some((e) => e.code === 'bad-checkpoint' && e.detail === 'chain has rated segments — checkpoint must embed the a4-v1 fold'),
+      'basic-v1 checkpoint covering rated segments → bad-checkpoint (A4-10)')
+    ok(!ckpt.verifyCheckpointDeep(cBasic, cBasic.events[cBasic.events.length - 1]),
+      'standalone deep verify also refuses the basic-v1-over-rated checkpoint')
+  }
+  console.log('\n· fold-transition checkpoints: deep fallback (A4-15) …')
+  {
+    // basic-v1 ckpt (unrated chain) → later a4-v1 ckpt = a fold transition:
+    // incremental is false by design; cosignCheckpoint and selectCheckpoint
+    // must take the deep fallback instead of skipping/refusing.
+    let c = chain.createAccountChain({ rootPriv: root.priv, rootPub: root.pub, displayName: 'Isaac', ts: 1000 })
+    c = chain.appendWitnessed(c, root.priv, rootB, 'revoke', { pub: fakeId('t-r1') }, 2000)
+    c = chain.appendEvent(c, ckpt.makeCheckpointEvent(c, root.priv, rootB, 2100)) // basic (unrated)
+    c = chain.appendWitnessed(c, root.priv, rootB, 'revoke', { pub: fakeId('t-r2') }, 2200)
+    const trans = ckpt.makeCheckpointEvent(c, root.priv, rootB, 2300, a4.a4Fold)
+    ok(!ckpt.verifyCheckpointIncremental(chain.appendEvent(c, trans), trans), 'transition ckpt: incremental false (by design)')
+    const wit2 = kp(210)
+    const att = attest.cosignCheckpoint(trans, chain.appendEvent(c, trans), wit2.pubB, wit2.priv, 2400)
+    ok(att !== null, 'cosignCheckpoint takes the deep fallback on a fold transition (A4-15)')
+    const withWit = clone(trans)
+    withWit.wit = [att]
+    const working = chain.appendEvent(c, withWit)
+    const surf = viewer.selectCheckpoint(working)
+    ok(surf !== null && surf.id === events.eventId(trans.body), 'selectCheckpoint surfaces the transition ckpt via deep fallback (A4-15)')
+    eq(surf?.verified, 'deep', 'transition ckpt surfaced as deep-verified')
   }
   console.log('\n· checkpoints: N_CKPT cadence helper …')
   {

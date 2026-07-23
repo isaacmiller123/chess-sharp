@@ -159,6 +159,19 @@ export interface SegmentPayload {
   oppCkpt?: EmbeddedCheckpoint
   /** Opponent's profile snapshot at game time (§5 reconstruction snapshot). */
   oppProfile: ProfileSnapshot
+  /** A4 ladder binding (§6), dimension 1: game-kind registry id ('chess',
+   * 'chess960', …). Absent on pre-A4 segments ⇒ the rating fold skips them. */
+  kind?: string
+  /** A4 ladder binding (§6), dimension 2: the clock. TimeCategory is derived
+   * in EXACT INTEGER math (ratings/, estMs = baseMs + 40·incMs vs fixed
+   * thresholds — same semantics as the renderer's timeControlCategory without
+   * its float division). baseMs === 0 ⇒ Unlimited ⇒ unrated. Absent ⇒ the
+   * rating fold skips the segment. */
+  tc?: { baseMs: number; incMs: number }
+  /** A4 review fix (A4-02): cert events proving oppCkpt.body.key belongs to
+   * `opp` when the embedded checkpoint is device-signed (absent when
+   * root-signed). Verified inline, no recursion into the opponent's chain. */
+  oppCerts?: SignedEvent[]
 }
 
 // ---------------------------------------------------------------------------

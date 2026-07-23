@@ -220,12 +220,16 @@ async function run(outdir) {
       `export * as wire from '${SRC}/shared/mp/wire.ts'`,
       `export * as seg from '${SRC}/shared/accounts/segment.ts'`,
       `export * as chain from '${SRC}/shared/accounts/chain.ts'`,
-      `export * as hash from '${SRC}/shared/accounts/hash.ts'`
+      `export * as hash from '${SRC}/shared/accounts/hash.ts'`,
+      `export * as codec from '${SRC}/shared/accounts/codec.ts'`,
+      `export * as evts from '${SRC}/shared/accounts/events.ts'`,
+      `export * as certs from '${SRC}/shared/accounts/certs.ts'`,
+      `export * as wparams from '${SRC}/shared/accounts/witness/params.ts'`
     ].join('\n')
   )
   const accOut = resolve(outdir, 'acc.mjs')
   await bundle(entry, accOut, { platform: 'node' })
-  const { wire, seg, chain, hash } = await import(pathToFileURL(accOut).href)
+  const { wire, seg, chain, hash, codec, evts, certs, wparams } = await import(pathToFileURL(accOut).href)
   eq(wire.PROTOCOL_VERSION, 6, 'PROTOCOL_VERSION is 6 (signed play wire)')
 
   // Shrink watchdogs exactly like the v5 gate does.
@@ -943,6 +947,471 @@ async function run(outdir) {
     try { res = seg.verifySegmentEvent(ev) } catch (e) { threw = e }
     ok(threw === null, 'verifySegmentEvent does NOT throw on a 20k-deep oppCkpt (fail-closed)')
     eq(res, 'bad-payload', 'it returns a typed bad-payload instead of a RangeError')
+  }
+
+  // ==========================================================================
+  // 8. A4 ladder binding (§6): the witness end-signature covers kind/tc.
+  // ==========================================================================
+  console.log('\n· A4 ladder binding: canonical end-bytes (legacy shape frozen) …')
+  {
+    const g = seg.gameKey({ v: 1, t: 'game-key', w: HOST_I.root, b: GUEST_I.root, nonce: hash.toB64u(seedBytes(41)), ts: 7 })
+    const T = 'T'.repeat(43)
+    const TC = { baseMs: 180_000, incMs: 2_000 }
+    const dec = (b) => new TextDecoder().decode(b)
+    // Absent kind/tc ⇒ the EXACT pre-A4 bytes (existing sigs/suites stay valid).
+    eq(
+      dec(seg.witnessEndBytes(g, '1-0', 4, T)),
+      `{"g":"${g}","plies":4,"result":"1-0","t":"wend","transcript":"${T}","v":1}`,
+      'witnessEndBytes without kind/tc produces the EXACT legacy byte shape'
+    )
+    eq(
+      dec(seg.witnessEndBytes(g, '1-0', 4, T, {})),
+      dec(seg.witnessEndBytes(g, '1-0', 4, T)),
+      'an empty ladder binding is byte-identical to the legacy shape'
+    )
+    // Present kind/tc ⇒ they are inside the signed bytes (sorted cjson-v1 keys).
+    eq(
+      dec(seg.witnessEndBytes(g, '1-0', 4, T, { kind: 'chess', tc: TC })),
+      `{"g":"${g}","kind":"chess","plies":4,"result":"1-0","t":"wend","tc":{"baseMs":180000,"incMs":2000},"transcript":"${T}","v":1}`,
+      'witnessEndBytes with kind/tc folds both into the canonical end-bytes'
+    )
+    // A4 review (A4-01/A4-08): the FULL rated binding — players + reason join
+    // kind/tc inside the signed bytes (cjson-v1 sorted keys).
+    const PLAYERS = { w: HOST_I.root, b: GUEST_I.root }
+    eq(
+      dec(seg.witnessEndBytes(g, '1-0', 4, T, { kind: 'chess', tc: TC, players: PLAYERS, reason: 'resign' })),
+      `{"g":"${g}","kind":"chess","players":{"b":"${GUEST_I.root}","w":"${HOST_I.root}"},"plies":4,"reason":"resign","result":"1-0","t":"wend","tc":{"baseMs":180000,"incMs":2000},"transcript":"${T}","v":1}`,
+      'witnessEndBytes with the FULL rated binding folds kind/tc/players/reason into the canonical end-bytes'
+    )
+    eq(
+      dec(seg.witnessEndBytes(g, '1-0', 4, T, { reason: 'resign' })),
+      `{"g":"${g}","plies":4,"reason":"resign","result":"1-0","t":"wend","transcript":"${T}","v":1}`,
+      'each binding field is covered independently (reason alone appears alone)'
+    )
+    // Sign/verify: a bound sig verifies ONLY over the same kind/tc.
+    const bound = seg.signWitnessEnd(WIT_I.priv, WIT_I.key, g, '1-0', 4, T, { kind: 'chess', tc: TC })
+    ok(seg.verifyWitnessEnd(bound, g, '1-0', 4, T, { kind: 'chess', tc: TC }), 'ladder-bound end-sig verifies over the same kind/tc')
+    ok(!seg.verifyWitnessEnd(bound, g, '1-0', 4, T), 'ladder-bound end-sig does NOT verify over legacy bytes')
+    ok(!seg.verifyWitnessEnd(bound, g, '1-0', 4, T, { kind: 'chess', tc: { baseMs: 60_000, incMs: 0 } }), 'a tampered tc fails end-sig verification')
+    ok(!seg.verifyWitnessEnd(bound, g, '1-0', 4, T, { kind: 'chess960', tc: TC }), 'a tampered kind fails end-sig verification')
+    const legacy = seg.signWitnessEnd(WIT_I.priv, WIT_I.key, g, '1-0', 4, T)
+    ok(seg.verifyWitnessEnd(legacy, g, '1-0', 4, T), 'a legacy end-sig still verifies with no ladder argument')
+    ok(!seg.verifyWitnessEnd(legacy, g, '1-0', 4, T, { kind: 'chess', tc: TC }), 'a legacy end-sig does NOT verify as ladder-bound')
+    // Sign/verify over the full binding: every covered field is tamper-fatal.
+    const FULL = { kind: 'chess', tc: TC, players: PLAYERS, reason: 'resign' }
+    const fullSig = seg.signWitnessEnd(WIT_I.priv, WIT_I.key, g, '1-0', 4, T, FULL)
+    ok(seg.verifyWitnessEnd(fullSig, g, '1-0', 4, T, FULL), 'fully-bound end-sig verifies over the same kind/tc/players/reason')
+    ok(
+      !seg.verifyWitnessEnd(fullSig, g, '1-0', 4, T, { ...FULL, players: { w: GUEST_I.root, b: HOST_I.root } }),
+      'color-swapped players fail full end-sig verification'
+    )
+    ok(!seg.verifyWitnessEnd(fullSig, g, '1-0', 4, T, { ...FULL, reason: 'abandon' }), 'a tampered reason fails full end-sig verification')
+    ok(!seg.verifyWitnessEnd(fullSig, g, '1-0', 4, T, { kind: 'chess', tc: TC }), 'a fully-bound end-sig does NOT verify over a partial (kind/tc-only) binding')
+    ok(!seg.verifyWitnessEnd(bound, g, '1-0', 4, T, FULL), 'a kind/tc-only end-sig does NOT verify as fully bound')
+  }
+
+  console.log('\n· A4 ladder binding: live trio — witness signs the config’s kind/tc …')
+  {
+    const { host, guest, he, ge, hw, gw, witness } = await connectSignedTrio(CFG(180_000, 2_000, 'white'))
+    const startMsg = wire.parseWireMsg(witness.received.find((r) => wire.parseWireMsg(r.text)?.t === 'start').text)
+    const ladder = wc.ladderFromConfig(startMsg.config)
+    eq(ladder.kind, 'chess', 'ladderFromConfig: absent game selector ⇒ chess')
+    eq(`${ladder.tc.baseMs},${ladder.tc.incMs}`, '180000,2000', 'ladderFromConfig maps initialMs/incrementMs → baseMs/incMs')
+    const wclock = { t: 9_000_000 }
+    // J5: the pairing anchors both players appended before the first move —
+    // each names the OTHER root as opp (the anchoring contract).
+    const anchorsOf = (gameKey, k, tc) => ({
+      w: { game: gameKey, opp: GUEST_I.root, kind: k, tc, atWts: 8_999_000 },
+      b: { game: gameKey, opp: HOST_I.root, kind: k, tc, atWts: 8_999_000 }
+    })
+    const ANCHORS = anchorsOf(startMsg.gameKey, ladder.kind, ladder.tc)
+    const wcore = new wc.WitnessCore({ wpriv: WIT_I.priv, wkey: WIT_I.key, wroot: WIT_I.root, now: () => wclock.t })
+    wcore.init({
+      gameId: startMsg.gameId,
+      gameKey: startMsg.gameKey,
+      players: { w: { root: HOST_I.root, key: HOST_I.key }, b: { root: GUEST_I.root, key: GUEST_I.key } },
+      firstMover: 'w',
+      kind: ladder.kind,
+      tc: ladder.tc,
+      pairing: ANCHORS
+    })
+    // A second core initialized with a CONTRADICTING binding poisons on start.
+    const wcoreBad = new wc.WitnessCore({ wpriv: WIT_I.priv, wkey: WIT_I.key, wroot: WIT_I.root, now: () => wclock.t })
+    wcoreBad.init({
+      gameId: startMsg.gameId,
+      gameKey: startMsg.gameKey,
+      players: { w: { root: HOST_I.root, key: HOST_I.key }, b: { root: GUEST_I.root, key: GUEST_I.key } },
+      kind: ladder.kind,
+      tc: { baseMs: 1_000, incMs: 0 }
+    })
+    const badRes = wcoreBad.feed(startMsg, wclock.t)
+    ok(!badRes.ok && /ladder/.test(badRes.error), 'a start config contradicting the initialized ladder binding poisons the witness')
+    // A4-01: a mirrored start whose players contradict init poisons too (the
+    // witness signs players-by-color into its wend — same 2c pattern).
+    const wcoreBadPlayers = new wc.WitnessCore({ wpriv: WIT_I.priv, wkey: WIT_I.key, wroot: WIT_I.root, now: () => wclock.t })
+    wcoreBadPlayers.init({
+      gameId: startMsg.gameId,
+      gameKey: startMsg.gameKey,
+      players: { w: { root: HOST_I.root, key: HOST_I.key }, b: { root: GUEST_I.root, key: GUEST_I.key } },
+      kind: ladder.kind,
+      tc: ladder.tc
+    })
+    const badPlayersRes = wcoreBadPlayers.feed({ ...startMsg, players: { w: GUEST_I.root, b: HOST_I.root } }, wclock.t)
+    ok(!badPlayersRes.ok && /players/.test(badPlayersRes.error), 'a start with color-swapped players contradicting init poisons the witness')
+    pump(witness, wcore, wclock) // consume start (consistency check passes)
+
+    // Two plies, then the guest resigns — mpSession's esig is LEGACY-shaped and
+    // the ladder-bound witness must still accept it (result authority is the
+    // player's; ladder authority is the witness's).
+    for (const [who, uci, other] of [[host, 'e2e4', ge], [guest, 'e7e5', he]]) {
+      wclock.t += 1_000
+      await who.sendMove(uci)
+      await waitEvent(other, (e) => e.type === 'move' && e.uci === uci, { label: `${uci} relayed (bound game)` })
+    }
+    wclock.t += 1_000
+    await guest.resign()
+    await waitEvent(he, (e) => e.type === 'resign' && e.by === 'black', { label: 'host resign event (bound game)' })
+    await sleep(20)
+    const endEmits = pump(witness, wcore, wclock)
+    const wend = endEmits.find((m) => m.t === 'wend')
+    ok(wend, 'ladder-bound witness finalizes on the legacy player esig (wend emitted)')
+    const wstream = wcore.wstream()
+    // A4 review (A4-01/A4-08): the live wend now covers the FULL rated
+    // binding — kind/tc + players-by-color + the adjudicated reason.
+    const FULL_BINDING = {
+      kind: ladder.kind,
+      tc: ladder.tc,
+      players: { w: HOST_I.root, b: GUEST_I.root },
+      reason: 'resign'
+    }
+    ok(
+      seg.verifyWitnessEnd(wstream, startMsg.gameKey, '1-0', 2, wend.transcript, FULL_BINDING),
+      'live wend sig verifies over the FULL rated binding (kind+tc+players+reason)'
+    )
+    ok(!seg.verifyWitnessEnd(wstream, startMsg.gameKey, '1-0', 2, wend.transcript), 'live wend sig does NOT verify over legacy end-bytes')
+    ok(
+      !seg.verifyWitnessEnd(wstream, startMsg.gameKey, '1-0', 2, wend.transcript, ladder),
+      'live wend sig does NOT verify over a kind/tc-only (partial) binding'
+    )
+    ok(
+      !seg.verifyWitnessEnd(wstream, startMsg.gameKey, '1-0', 2, wend.transcript, { ...FULL_BINDING, tc: { baseMs: 60_000, incMs: 0 } }),
+      'live wend sig fails over a tampered tc'
+    )
+    ok(
+      !seg.verifyWitnessEnd(wstream, startMsg.gameKey, '1-0', 2, wend.transcript, { ...FULL_BINDING, players: { w: GUEST_I.root, b: HOST_I.root } }),
+      'live wend sig fails over color-swapped players'
+    )
+    ok(
+      !seg.verifyWitnessEnd(wstream, startMsg.gameKey, '1-0', 2, wend.transcript, { ...FULL_BINDING, reason: 'abandon' }),
+      'live wend sig fails over a relabeled reason'
+    )
+    // The (uneditable, legacy-verifying) mpSession ignores the ladder-bound
+    // wend — the documented A6 seam: the witness stream is advisory to the
+    // live session, and A6 teaches mpSession to verify with its own
+    // config-derived binding.
+    await assertNoEvent(hw, (m) => m.t === 'wend', 60, 'host surfacing the ladder-bound wend (A6 mpSession seam)')
+    await assertNoEvent(gw, (m) => m.t === 'wend', 60, 'guest surfacing the ladder-bound wend (A6 mpSession seam)')
+
+    // Witnessed result record carries the binding, witness-signed.
+    const rec = wcore.buildWitnessedResult()
+    ok(seg.verifyWitnessedResult(rec), 'ladder-bound witnessed result verifies (zWitnessedResultBody admits kind/tc)')
+    eq(rec.body.kind, 'chess', 'witnessed result body carries kind')
+    eq(`${rec.body.tc.baseMs},${rec.body.tc.incMs}`, '180000,2000', 'witnessed result body carries tc')
+    ok(
+      !seg.verifyWitnessedResult({ ...rec, body: { ...rec.body, tc: { baseMs: 60_000, incMs: 0 } } }),
+      'a witnessed result with a tampered tc fails verification'
+    )
+    ok(
+      !seg.verifyWitnessedResult({ ...rec, body: { ...rec.body, kind: 'chess960' } }),
+      'a witnessed result with a tampered kind fails verification'
+    )
+
+    // Segment + wstream ladder-binding match rule (verifySegmentEvent).
+    const mkChain = (i, name) =>
+      chain.createAccountChain({ rootPriv: i.priv, rootPub: hash.ed25519.getPublicKey(i.priv), displayName: name, ts: 1_000 })
+    const segEventWith = (extra) => {
+      let c = mkChain(HOST_I, 'Hosty')
+      const v = chain.verifyChain(c)
+      const heads = { w: { head: v.witnessedHead, height: v.witnessedHeight }, b: { head: v.witnessedHead, height: v.witnessedHeight } }
+      let payload = seg.makeSegmentPayload({
+        game: startMsg.gameKey,
+        opp: extra.opp ?? GUEST_I.root,
+        color: extra.color ?? 'w',
+        result: '1-0',
+        reason: extra.reason ?? 'resign',
+        moves: wcore.moves,
+        heads,
+        wstream: extra.wstream ?? wstream,
+        oppProfile: { name: 'Guesty' },
+        ...(extra.kind !== undefined ? { kind: extra.kind } : {}),
+        ...(extra.tc !== undefined ? { tc: extra.tc } : {})
+      })
+      if (extra.patch) payload = { ...payload, ...extra.patch }
+      c = chain.appendWitnessed(c, HOST_I.priv, HOST_I.root, 'segment', payload, 2_000)
+      return c.events[c.events.length - 1]
+    }
+    const legacyWstream = seg.signWitnessEnd(WIT_I.priv, WIT_I.key, startMsg.gameKey, '1-0', 2, wend.transcript)
+    eq(seg.verifySegmentEvent(segEventWith({ kind: ladder.kind, tc: ladder.tc })), null, 'segment kind/tc matching the bound wstream verifies (null)')
+    eq(
+      seg.verifySegmentEvent(segEventWith({ kind: ladder.kind, tc: { baseMs: 60_000, incMs: 0 } })),
+      'bad-ladder-binding',
+      'segment claiming a DIFFERENT tc than the witness signed → bad-ladder-binding (ladder farming closed)'
+    )
+    eq(
+      seg.verifySegmentEvent(segEventWith({ kind: 'chess960', tc: ladder.tc })),
+      'bad-ladder-binding',
+      'segment claiming a DIFFERENT kind than the witness signed → bad-ladder-binding'
+    )
+    eq(
+      seg.verifySegmentEvent(segEventWith({ kind: ladder.kind, tc: ladder.tc, wstream: legacyWstream })),
+      'bad-ladder-binding',
+      'a kind/tc-less (legacy) wstream sig on a kind/tc-bearing segment → bad-ladder-binding'
+    )
+    eq(
+      seg.verifySegmentEvent(segEventWith({ kind: ladder.kind })),
+      'bad-ladder-binding',
+      'a half binding (kind without tc) fails closed → bad-ladder-binding'
+    )
+    eq(
+      seg.verifySegmentEvent(segEventWith({ wstream })),
+      'bad-wstream',
+      'stripping kind/tc OFF a segment whose wstream signed them → bad-wstream (legacy taxonomy preserved)'
+    )
+    eq(
+      seg.verifySegmentEvent(segEventWith({ wstream: legacyWstream })),
+      null,
+      'a fully legacy segment (no kind/tc, legacy wstream) still verifies — pre-A4 flow untouched'
+    )
+
+    // A4-01: COLOR-FLIP attack — the witness signed players {w:HOST, b:GUEST};
+    // the (losing) author relabels its color. The derived players map flips,
+    // so the witness signature no longer covers the payload's claim.
+    eq(
+      seg.verifySegmentEvent(segEventWith({ kind: ladder.kind, tc: ladder.tc, color: 'b' })),
+      'bad-ladder-binding',
+      'color-flip attack (witness signed players, payload color flipped) → bad-ladder-binding'
+    )
+    // A4-01: OPP-SWAP attack — same game, opp relabeled to a different root.
+    eq(
+      seg.verifySegmentEvent(segEventWith({ kind: ladder.kind, tc: ladder.tc, opp: WIT2_I.root })),
+      'bad-ladder-binding',
+      'opp-swap attack (payload names a root the witness never signed) → bad-ladder-binding'
+    )
+    // A4-08: REASON-SWAP attack — the payload keeps the ORIGINAL transcript
+    // digest (opaque to the verifier — exactly the A4-08 hole) but relabels
+    // the reason. The witness signed reason into the end-bytes, so it fails.
+    eq(
+      seg.verifySegmentEvent(
+        segEventWith({ kind: ladder.kind, tc: ladder.tc, reason: 'abandon', patch: { transcript: wend.transcript } })
+      ),
+      'bad-ladder-binding',
+      'reason-swap attack (witness signed resign, payload claims abandon) → bad-ladder-binding'
+    )
+    // ... and the A4-08 canonical direction: witness adjudicated 'abandon',
+    // the rage-quitter's payload claims a clean 'resign'.
+    const abandonWstream = seg.signWitnessEnd(
+      WIT_I.priv, WIT_I.key, startMsg.gameKey, '1-0', 2, wend.transcript,
+      { ...FULL_BINDING, reason: 'abandon' }
+    )
+    eq(
+      seg.verifySegmentEvent(
+        segEventWith({ kind: ladder.kind, tc: ladder.tc, wstream: abandonWstream, patch: { transcript: wend.transcript } })
+      ),
+      'bad-ladder-binding',
+      'reason-swap attack (witness signed abandon, payload claims resign) → bad-ladder-binding'
+    )
+
+    witness.leave()
+    host.leave()
+    guest.leave()
+  }
+
+  // ==========================================================================
+  // 8b. A5 J5 (A4-12): the witness pairing gate — a rated game is served only
+  // when both players' pairing anchors are present and consistent.
+  // ==========================================================================
+  console.log('\n· J5 pairing gate: unanchored rated game poisoned; anchored proceeds …')
+  {
+    const g = seg.gameKey({ v: 1, t: 'game-key', w: HOST_I.root, b: GUEST_I.root, nonce: hash.toB64u(seedBytes(51)), ts: 7 })
+    const TC = { baseMs: 300_000, incMs: 0 }
+    const START = {
+      t: 'start', gameId: 1, yourColor: 'black',
+      config: { tc: { initialMs: 300_000, incrementMs: 0 }, hostColor: 'white' },
+      gameKey: g, players: { w: HOST_I.root, b: GUEST_I.root }
+    }
+    const PLAYERS = { w: { root: HOST_I.root, key: HOST_I.key }, b: { root: GUEST_I.root, key: GUEST_I.key } }
+    const ANCH = {
+      w: { game: g, opp: GUEST_I.root, kind: 'chess', tc: TC, atWts: 1_000 },
+      b: { game: g, opp: HOST_I.root, kind: 'chess', tc: TC, atWts: 1_000 }
+    }
+    const mkCore = (init) => {
+      const c = new wc.WitnessCore({ wpriv: WIT_I.priv, wkey: WIT_I.key, wroot: WIT_I.root, now: () => 0 })
+      c.init({ gameId: 1, gameKey: g, players: PLAYERS, firstMover: 'w', kind: 'chess', tc: TC, ...init })
+      return c
+    }
+    // (a) UNANCHORED rated game: refused + poisoned sticky.
+    const bare = mkCore({})
+    const bareRes = bare.feed(START, 10)
+    ok(!bareRes.ok && /pairing/.test(bareRes.error), 'a rated start with NO pairing anchors poisons the witness')
+    const m0 = seg.signMove(HOST_I.priv, g, 0, 'e2e4', { w: 300_000, b: 300_000 })
+    const after = bare.feed({ t: 'move', gameId: 1, ply: 0, uci: 'e2e4', clockMs: { white: 300_000, black: 300_000 }, sig: m0.sig }, 20)
+    ok(!after.ok && /pairing/.test(after.error), 'the pairing poison is sticky (no later countersigning)')
+    ok(bare.buildWitnessedResult() === null, 'an unanchored rated game can never mint a witnessed result')
+    // (b) ANCHORED rated game proceeds: start passes, moves verify, wend signs.
+    const good = mkCore({ pairing: ANCH })
+    ok(good.feed(START, 10).ok, 'the same start with both consistent anchors passes the gate')
+    ok(good.feed({ t: 'move', gameId: 1, ply: 0, uci: 'e2e4', clockMs: { white: 300_000, black: 300_000 }, sig: m0.sig }, 20).ok,
+      'the anchored game proceeds (moves countersigned)')
+    const tEnd = seg.transcriptDigest(g, good.moves, '0-1', wc.REASON_RESIGN)
+    const esig = seg.signWitnessEnd(HOST_I.priv, HOST_I.key, g, '0-1', 1, tEnd).sig
+    const fin = good.feed({ t: 'resign', gameId: 1, by: 'white', esig }, 30)
+    ok(fin.ok && (fin.emit ?? []).some((m) => m.t === 'wend'), 'the anchored rated game finalizes normally')
+    // (c) the embedder-verified flag is accepted in place of inline anchors.
+    const flagged = mkCore({ pairing: 'embedder-verified' })
+    ok(flagged.feed(START, 10).ok, "pairing: 'embedder-verified' (embedder checked the chain events) passes the gate")
+    // (d) contradiction matrix — each inconsistency poisons (2c pattern).
+    const poisonOn = (pairing, label, re) => {
+      const c = mkCore({ pairing })
+      const r = c.feed(START, 10)
+      ok(!r.ok && re.test(r.error), label)
+    }
+    const otherKey = seg.gameKey({ v: 1, t: 'game-key', w: HOST_I.root, b: GUEST_I.root, nonce: hash.toB64u(seedBytes(52)), ts: 7 })
+    poisonOn({ ...ANCH, b: { ...ANCH.b, game: otherKey } },
+      'an anchor naming a DIFFERENT game key poisons', /game key/)
+    poisonOn({ ...ANCH, w: { ...ANCH.w, kind: 'chess960' } },
+      'an anchor contradicting the ladder kind poisons', /kind/)
+    poisonOn({ ...ANCH, w: { ...ANCH.w, tc: { baseMs: 60_000, incMs: 0 } } },
+      'an anchor contradicting the ladder tc poisons', /tc/)
+    poisonOn({ w: ANCH.w, b: { ...ANCH.b, opp: GUEST_I.root } },
+      'anchors that do not name the OPPOSING roots poison (two copies of one pairing cannot fill both seats)', /opposing/)
+    poisonOn({ w: ANCH.b, b: ANCH.w },
+      'color-swapped anchors poison (each chain pairs against the other root)', /opposing/)
+    // (e) legacy/unrated: no kind/tc ⇒ the gate never runs — byte-identical flow.
+    const unrated = new wc.WitnessCore({ wpriv: WIT_I.priv, wkey: WIT_I.key, wroot: WIT_I.root, now: () => 0 })
+    unrated.init({ gameId: 1, gameKey: g, players: PLAYERS, firstMover: 'w' })
+    ok(unrated.feed(START, 10).ok, 'an UNRATED session needs no anchors (legacy flow untouched)')
+    ok(unrated.feed({ t: 'move', gameId: 1, ply: 0, uci: 'e2e4', clockMs: { white: 300_000, black: 300_000 }, sig: m0.sig }, 20).ok,
+      'the unrated game proceeds exactly as before')
+  }
+
+  // ==========================================================================
+  // 9. A4-02: verifyEmbeddedOppCkpt — embedded-checkpoint authenticity.
+  // ==========================================================================
+  console.log('\n· A4-02: verifyEmbeddedOppCkpt forged-checkpoint matrix …')
+  {
+    const M = wparams.PARAMS_A2.ckptM
+    eq(M, 4, 'PARAMS_A2.ckptM is 4 (the M-of-N cosigner floor)')
+    const OPP = ident(60) // opponent root
+    const OPPDEV = ident(61) // opponent device key
+    const OWNER = ident(62) // the embedding segment's owner root
+    const OTHER = ident(63) // an unrelated real root (borrowed-checkpoint case)
+    const COS = [ident(70), ident(71), ident(72), ident(73)] // cosigners
+    ok(new Set(COS.map((c) => c.key.slice(0, 2))).size >= 3, 'fixture sanity: cosigner keys span ≥3 distinct 2-char prefixes')
+
+    /** Hand-built shape-valid witnessed ckpt event of `root`, signed by key. */
+    const mkCkpt = (signer, root, { through = 6, height = 6, key } = {}) => {
+      const body = {
+        v: 1, lane: 'w', type: 'ckpt', root, key: key ?? signer.key, height,
+        prev: 'p'.repeat(43), ts: 5_000,
+        payload: { through, state: { f: 'a4-v1' }, stateDigest: 'd'.repeat(43) }
+      }
+      return { body, sig: hash.toB64u(hash.ed25519.sign(codec.canonicalBytes(body), signer.priv)) }
+    }
+    /** A cosigner attestation over {e, epoch, w, wts} — the attest.ts bytes. */
+    const attest = (ckpt, cosigner, wts = 1_000) => ({
+      w: cosigner.key,
+      wts,
+      epoch: 0,
+      sig: hash.toB64u(hash.ed25519.sign(codec.canonicalBytes({ e: evts.eventId(ckpt.body), epoch: 0, w: cosigner.key, wts }), cosigner.priv))
+    })
+    const cosign = (ckpt, cosigners) => ({ ...ckpt, wit: cosigners.map((c) => attest(ckpt, c)) })
+    const P = (oppCkpt, oppCerts) => ({ opp: OPP.root, oppCkpt, ...(oppCerts !== undefined ? { oppCerts } : {}) })
+    const V = (p) => seg.verifyEmbeddedOppCkpt(p, OWNER.root)
+
+    // Honest baseline: root-signed ckpt of OPP + M valid, diverse cosigners.
+    const good = cosign(mkCkpt(OPP, OPP.root), COS)
+    eq(V(P(good)), true, 'root-signed oppCkpt + M valid diverse cosigners → true')
+
+    // Device-signed: false without certs, true with the opp's root-signed cert.
+    const devCkpt = cosign(mkCkpt(OPPDEV, OPP.root), COS)
+    eq(V(P(devCkpt)), false, 'device-signed oppCkpt WITHOUT oppCerts → false')
+    const oppChain = chain.createAccountChain({ rootPriv: OPP.priv, rootPub: hash.ed25519.getPublicKey(OPP.priv), displayName: 'Oppy', ts: 1_000 })
+    const devCert = certs.makeCertEvent(OPP.priv, OPP.root, oppChain, { childPub: OPPDEV.key, purpose: 0, index: 0, ts: 1_500 })
+    eq(V(P(devCkpt, [devCert])), true, 'device-signed oppCkpt + valid oppCerts (root-signed cert of opp) → true')
+    const wrongCert = certs.makeCertEvent(OPP.priv, OPP.root, oppChain, { childPub: OWNER.key, purpose: 0, index: 1, ts: 1_600 })
+    eq(V(P(devCkpt, [wrongCert])), false, 'a cert for a DIFFERENT key does not authorize the signing key → false')
+    const foreignChain = chain.createAccountChain({ rootPriv: OTHER.priv, rootPub: hash.ed25519.getPublicKey(OTHER.priv), displayName: 'Other', ts: 1_000 })
+    const foreignCert = certs.makeCertEvent(OTHER.priv, OTHER.root, foreignChain, { childPub: OPPDEV.key, purpose: 0, index: 0, ts: 1_500 })
+    eq(V(P(devCkpt, [foreignCert])), false, 'a cert signed by a DIFFERENT root than opp → false')
+
+    // Forgery matrix.
+    eq(V(P({ ...good, sig: 'A'.repeat(86) })), false, 'garbage event signature → false')
+    eq(V(P(cosign(mkCkpt(OTHER, OTHER.root), COS))), false, 'a genuine cosigned checkpoint of ANOTHER root (borrowed, A4-06) → false')
+    eq(V(P(mkCkpt(OPP, OPP.root))), false, 'zero cosigners (wit absent) → false')
+    eq(V(P({ ...good, wit: [] })), false, 'zero cosigners (wit empty) → false')
+    eq(V(P(cosign(mkCkpt(OPP, OPP.root), COS.slice(0, M - 1)))), false, 'M-1 cosigners → false')
+    eq(V(P(cosign(mkCkpt(OPP, OPP.root), [COS[0], COS[1], COS[2], COS[0]]))), false, 'duplicate cosigner keys → false')
+    const badSigWit = { ...good, wit: [...good.wit.slice(0, 3), { ...good.wit[3], sig: 'A'.repeat(86) }] }
+    eq(V(P(badSigWit)), false, 'one invalid attestation signature among M → false')
+    const crossWit = { ...good, wit: [...good.wit.slice(0, 3), attest(devCkpt, COS[3])] }
+    eq(V(P(crossWit)), false, 'an attestation bound to a DIFFERENT event id → false')
+    eq(V(P(cosign(mkCkpt(OPP, OPP.root), [COS[0], COS[1], COS[2], OPP]))), false, 'the opponent cosigning its own checkpoint → false')
+    eq(V(P(cosign(mkCkpt(OPP, OPP.root), [COS[0], COS[1], COS[2], OWNER]))), false, 'the segment OWNER cosigning its own fold input → false')
+    // canonicalBytes itself refuses unsafe ints, so the forgery is a post-sign
+    // payload mutation — the verifier must fail closed on it, never throw.
+    const unsafeThrough = { ...good, body: { ...good.body, payload: { ...good.body.payload, through: 2 ** 53 } } }
+    eq(V(P(unsafeThrough)), false, 'unsafe-integer `through` → false')
+    eq(V(P(cosign(mkCkpt(OPP, OPP.root, { height: -1 }), COS))), false, 'negative height (shape) → false')
+    eq(V({ opp: OPP.root }), false, 'absent oppCkpt → false (fail closed)')
+    let garbageRes = null
+    let threw = null
+    try { garbageRes = V(P({ garbage: true })) } catch (e) { threw = e }
+    ok(threw === null && garbageRes === false, 'a garbage oppCkpt returns false and never throws (fail closed)')
+
+    // /16 diversity bound: M valid DISTINCT cosigners all ground into ONE
+    // 2-char key prefix (the sybil-farm shape) must fail; ≥3 prefixes pass.
+    const target = COS[0].key.slice(0, 2)
+    const ground = [COS[0]]
+    let seedByte = 5_000
+    while (ground.length < M) {
+      const priv = Uint8Array.from({ length: 32 }, (_, i) => ((seedByte * 131 + i * 7) ^ (seedByte >> 6)) & 0xff)
+      seedByte++
+      const key = hash.toB64u(hash.ed25519.getPublicKey(priv))
+      if (key.slice(0, 2) === target && !ground.some((c) => c.key === key)) ground.push({ priv, key, root: key })
+    }
+    eq(V(P(cosign(mkCkpt(OPP, OPP.root), ground))), false, 'M valid distinct cosigners in ONE /16 prefix bucket → false (diversity bound)')
+
+    // Integration: verifySegmentEvent fails the WHOLE segment on a present-
+    // but-unverifiable oppCkpt ('bad-opp-ckpt'), and passes a compliant one.
+    const mkOwnerSegment = (oppCkpt, oppCerts) => {
+      let c = chain.createAccountChain({ rootPriv: OWNER.priv, rootPub: hash.ed25519.getPublicKey(OWNER.priv), displayName: 'Owner', ts: 1_000 })
+      const v = chain.verifyChain(c)
+      const heads = { w: { head: v.witnessedHead, height: v.witnessedHeight }, b: { head: v.witnessedHead, height: v.witnessedHeight } }
+      const game = seg.gameKey({ v: 1, t: 'game-key', w: OWNER.root, b: OPP.root, nonce: hash.toB64u(seedBytes(55)), ts: 7 })
+      const transcript = seg.transcriptDigest(game, [], '1-0', 'resign')
+      const payload = seg.makeSegmentPayload({
+        game, opp: OPP.root, color: 'w', result: '1-0', reason: 'resign', moves: [],
+        heads,
+        wstream: seg.signWitnessEnd(WIT_I.priv, WIT_I.key, game, '1-0', 0, transcript),
+        oppCkpt,
+        ...(oppCerts !== undefined ? { oppCerts } : {}),
+        oppProfile: { name: 'Oppy' }
+      })
+      c = chain.appendWitnessed(c, OWNER.priv, OWNER.root, 'segment', payload, 2_000)
+      return c.events[c.events.length - 1]
+    }
+    eq(seg.verifySegmentEvent(mkOwnerSegment(good)), null, 'segment embedding a fully-verified oppCkpt → null')
+    eq(seg.verifySegmentEvent(mkOwnerSegment(devCkpt, [devCert])), null, 'segment embedding a device-signed oppCkpt + oppCerts → null')
+    eq(
+      seg.verifySegmentEvent(mkOwnerSegment(mkCkpt(OPP, OPP.root))),
+      'bad-opp-ckpt',
+      'a present-but-uncosigned oppCkpt fails the SEGMENT (bad-opp-ckpt) — no silent downgrade to seeds'
+    )
+    eq(
+      seg.verifySegmentEvent(mkOwnerSegment(devCkpt)),
+      'bad-opp-ckpt',
+      'a device-signed oppCkpt without certs fails the SEGMENT (bad-opp-ckpt)'
+    )
   }
 
   // NB: finding D (a stray mid-game hello nulling peerRoot/peerKey → a later

@@ -4,7 +4,7 @@
 // network, no clock — the witness's clock is passed as `wts`. Platform-neutral.
 
 import { canonicalBytes } from '../codec'
-import { verifyCheckpointIncremental } from '../checkpoint'
+import { verifyCheckpointDeep, verifyCheckpointIncremental } from '../checkpoint'
 import { eventId, verifyEventSig } from '../events'
 import { ed25519, toB64u, verifySigB64u } from '../hash'
 import type { B64u, Chain, EventId, SignedEvent, WitnessAttestation } from '../types'
@@ -180,7 +180,11 @@ export function cosignCheckpoint(
   wts: number,
   epoch = 0,
 ): WitnessAttestation | null {
-  if (!verifyCheckpointIncremental(chain, ckptEvent)) return null
+  // A4 review fix (A4-15): a fold-id transition checkpoint (basic-v1 → a4-v1)
+  // is deep-only by design — fall back to the full recompute rather than
+  // refusing, so first a4-v1 checkpoints can gather their M-of-N cosigners.
+  if (!verifyCheckpointIncremental(chain, ckptEvent) && !verifyCheckpointDeep(chain, ckptEvent))
+    return null
   return makeAttestation(eventId(ckptEvent.body), epoch, witnessKey, witnessPriv, wts)
 }
 

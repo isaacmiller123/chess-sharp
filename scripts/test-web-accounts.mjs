@@ -157,6 +157,18 @@ async function run(outdir) {
     eq(rNode.unicodeChainFileSha256, GOLDENS.unicodeChainFileSha256, 'unicode chain file sha256 matches its golden')
   }
 
+  console.log('\n· A3/A4 parity fixture (detmath, RS, routing, a4 fold) …')
+  {
+    eq(rNode.detmathDigest, GOLDENS.detmathDigest, 'detmath float64 bit-grid digest matches its golden')
+    eq(rNode.rsRoundtripOk, true, 'RS 12-of-40 reconstruct is byte-identical to the source blob')
+    eq(rNode.rsDigest, GOLDENS.rsDigest, 'RS shard+reconstruct digest matches its golden')
+    eq(rNode.routingDigest, GOLDENS.routingDigest, 'overlay k-bucket routing digest matches its golden')
+    eq(rNode.a4ParamsDigest, GOLDENS.a4ParamsDigest, 'PARAMS_A4 digest matches its golden')
+    eq(rNode.a4VerifyOk, true, 'rated a4 fixture chain verifies ok')
+    eq(rNode.a4CkptDeepOk, true, 'a4-v1 checkpoint verifies deeply')
+    eq(rNode.a4StateHash, GOLDENS.a4StateHash, 'a4-v1 fold state hash matches its golden')
+  }
+
   // ==========================================================================
   // 3. keyring: stores + persistence rules
   // ==========================================================================
