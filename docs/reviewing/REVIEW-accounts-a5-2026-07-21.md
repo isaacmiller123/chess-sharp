@@ -3,8 +3,9 @@
 **Status:** ADJUDICATED 2026-07-22 — all 33 confirmed findings resolved: **30 FIXED** (incl.
 A5-21, decided + re-anchored on the 5σ conviction per the owner directive "honest players are
 never banned") and **3 DEFERRED, ratified** (A5-14 / A5-17 / A5-36 — each deferral is the
-false-positive-safe choice; see the entries for the revisit events). A5 remains uncommitted
-phase work. **Review date:** 2026-07-21; fix phase 2026-07-21→22.
+false-positive-safe choice; see the entries for the revisit events). A5 was committed at
+`d81594a` on 2026-07-22 (the A4–A6 checkpoint commit). **Review date:** 2026-07-21; fix phase
+2026-07-21→22.
 
 **Method.** Fable-pinned multi-agent Workflow, owner-specified group progression: (1) **search+verify**
 — 7 agents, one per A5 dimension (judge core, Tier-1, Tier-2, anchors/estElo, bans+fold, proof/test

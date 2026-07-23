@@ -83,7 +83,8 @@ jobs:
                    test-accounts-trust-mm test-accounts-ratings \
                    test-accounts-tier1 test-accounts-tier2 \
                    test-accounts-social test-accounts-mailbox \
-                   test-accounts-embed test-web-accounts-wiring \
+                   test-accounts-social-transport test-accounts-verdict-transport \
+                   test-accounts-embed test-a4-ui test-web-accounts-wiring \
                    test-afinal-flag \
                    test-judge-fit test-judge-node; do
             echo "== $t =="; node scripts/$t.mjs

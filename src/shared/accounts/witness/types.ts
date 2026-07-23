@@ -356,6 +356,11 @@ export type FabricRequestKind =
   | 'overlay-find-value'
   | 'overlay-store'
   | 'overlay-fetch' // viewer → holder: summary / event pages / shard bodies
+  // A7 social transport (spec §3/§10; social/transport.ts payload contracts).
+  // Mailbox is a dedicated RPC pair (admission is stateful, drain must be
+  // authenticated AND clearing — semantics find-value/store cannot honor).
+  | 'social-mail-send' // sender → relay: offer an envelope for a recipient box
+  | 'social-mail-drain' // recipient → relay: recipient-root-signed drain+clear
 
 // ---------------------------------------------------------------------------
 // Witness-side cache (C-1 gossip memory — reconstructible, unauthoritative)

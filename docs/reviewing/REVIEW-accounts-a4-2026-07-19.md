@@ -58,9 +58,17 @@ Gates at closure (verified on the live tree): ratings 340 · reputation 290 · t
   every value it could be freshness-compared against is subject-asserted, not witness-signed — a
   self-contained rule would be forgeable-by-construction. **A5 hook:** the serving witness attests
   the opponent's current head height; `verifyEmbeddedOppCkpt` bounds `oppCkpt.through` against it.
-- **A4-21 commend revocation → A6.** A stolen-then-revoked certified child key of a commender still
-  mints valid commends; consulting the commender's chain in-fold would break §5/§6 bounded
-  verification or checkpoint determinism (the A4-04 class). **A6 hook:** the viewer discounts
-  commends whose signing key is revoked in the commender's chain at read time. Bounded: needs a
-  stolen certified child key, yields only 1/20-floor merit unless the pair was established, §6b ratio
-  cap still applies.
+- **A4-21 commend revocation → A6. CLOSED (A7 small-closures, 2026-07-23).** A stolen-then-revoked
+  certified child key of a commender still mints valid commends; consulting the commender's chain
+  in-fold would break §5/§6 bounded verification or checkpoint determinism (the A4-04 class) — that
+  part is permanent design, and `verifyCommend`/the fold still accept such a commend (both pins kept
+  in the suite). The closure landed at the designated hook: `repEvidenceOf` now takes an optional
+  `CommendRevocationView` ((opp root, key) → revocation wts, built from reconstructed counterparty
+  chains) and discounts a counted commend at READ TIME unless its witnessed time provably precedes
+  the revocation wts (equal/malformed times discount — §0 no-forgery; a key rotated AFTER signing
+  keeps full credit, so honest device rotation costs nothing). Discount = no est-tier bonus + the
+  folded floor twentieths flagged in `RepEvidence.commendTwRevoked`, which `repScore` subtracts
+  clamped at 0. Fold/checkpoint bytes are untouched (digest-pinned). Pinned both ways in
+  `scripts/test-accounts-reputation.mjs` (§"A4-21 CLOSED"). Residual, deliberately bounded:
+  `verifyRematchAccept` stays revocation-blind (no read-time evidence path exists for rematch
+  merit; exposure needs a stolen certified child key and yields only the capped rematch ramp).

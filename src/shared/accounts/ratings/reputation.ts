@@ -245,6 +245,18 @@
 //             under EVERY verifier — eligibility-blind or not — while real
 //             established goodwill earns full weight from any verifier that
 //             can vouch for the cosigners (exact math below).
+//             A4-21 (CLOSED — A7): the same walk consumes an optional
+//             CommendRevocationView ((opp root, key) → revocation wts |
+//             undefined, built by the caller from reconstructed counterparty
+//             chains — §4 witnessed time). A counted commend whose signing
+//             key the view reports revoked is DISCOUNTED at read time unless
+//             the commend's witnessed time provably precedes the revocation
+//             wts: it earns no est-tier bonus AND its folded floor twentieths
+//             accumulate in RepEvidence.commendTwRevoked, which repScore
+//             subtracts (clamped ≥ 0) from the embedded commendTw. Read-time
+//             ONLY — repStep and the checkpoint-embedded RepState are
+//             byte-identical with or without any view (digest-pinned in
+//             scripts/test-accounts-reputation.mjs).
 //
 // SCORE FORMULA (repScore — exact, integer): six sub-scores, each an integer
 // in [0,100], combined with the PARAMS_A4 micro-unit weights (which sum to
@@ -302,7 +314,7 @@ import type { CanonicalObject } from '../codec'
 import { zCommendPayload, zConductPayload, zPairingPayload } from '../events'
 import { OPP_CKPT_PREFIX_DIVERSITY_MIN, verifySegmentEvent } from '../segment'
 import type { SegmentPayload } from '../storage/types'
-import type { Chain, SignedEvent, WitnessAttestation, WitnessEligibility } from '../types'
+import type { B64u, Chain, SignedEvent, WitnessAttestation, WitnessEligibility } from '../types'
 import { PARAMS_A2 } from '../witness/params'
 import { verifyCommend, verifyRematchAccept } from './conduct'
 import { PARAMS_A4 } from './params'
@@ -732,7 +744,28 @@ export interface RepEvidence {
    * pairs: Σ over counted est-eligible commends of floor(FULL/k) −
    * floor(FLOOR/k). Always ≥ 0; 0 without an eligibility predicate. */
   commendTwBonus: number
+  /** A4-21 (CLOSED — A7): folded floor TWENTIETHS to SUBTRACT at read time —
+   * Σ over counted commends whose signing key the caller's revocation view
+   * reports revoked (and not provably revoked AFTER the commend's witnessed
+   * time) of the exact floor(FLOOR/k) the fold credited. Always ≥ 0; 0
+   * without a revocation view. repScore applies it clamped: the embedded
+   * commendTw never goes negative. */
+  commendTwRevoked: number
 }
+
+/**
+ * A4-21 (CLOSED — A7, the conduct.ts hook): the read-time revocation view.
+ * (oppRoot, key) → the WITNESSED time (§4) at which `key` was revoked in the
+ * commender's (oppRoot's) own chain, or undefined when the caller's
+ * reconstructed view of that chain shows no revocation of `key`. Built from
+ * reconstructed counterparty chains (A6 viewer material) — NEVER from
+ * anything embedded in the subject's chain, which is exactly why this is a
+ * read-time parameter and can never reach the fold (A4-04 determinism).
+ * Consulted for every counted commend, root-signed or child-signed — a view
+ * that cannot vouch either way returns undefined (no discount: absence of
+ * evidence is not a revocation; the §0 no-false-fraud side of the boundary).
+ */
+export type CommendRevocationView = (oppRoot: B64u, key: B64u) => number | undefined
 
 /**
  * Compute the read-time commend evidence for a chain (A4-14): walk the
@@ -749,12 +782,31 @@ export interface RepEvidence {
  * floor = floor(REP_COMMEND_FULL_TW / k) for an est-eligible commend. Pure
  * and total (never throws); without a predicate the bonus is 0 — the est
  * tier, like trust's age and diversity, is EARNED through witnesses the
- * verifier can vouch for. A4-21 note: this walk is also the designated A6
- * revocation seam (see ratings/conduct.ts) — A6 adds a commender-chain
- * revocation check here, discounting commends whose signing key was revoked
- * before the commend's witnessed time.
+ * verifier can vouch for.
+ *
+ * A4-21 (CLOSED — A7; the seam designated in ratings/conduct.ts): `revoked`
+ * is the caller's commender-chain revocation view. For every COUNTED commend
+ * the view is consulted with (opp root, signing key); when it reports a
+ * revocation, the commend KEEPS its credit only if it provably predates the
+ * revocation — Number.isSafeInteger on BOTH witnessed times AND commend wts
+ * strictly < revocation wts (a device rotated AFTER signing keeps its honest
+ * goodwill — the conduct.ts rationale). Every other view hit is DISCOUNTED,
+ * failing toward no-forgery (§0) on the spec-silent edges: equal witnessed
+ * times (ordering unprovable) and malformed times both discount. A
+ * discounted commend earns no est bonus and its exact folded floor
+ * floor(FLOOR/k) accumulates in commendTwRevoked for repScore to subtract.
+ * Read-time ONLY: the fold walk itself takes no view — repStep and the
+ * checkpoint-embedded state are byte-identical regardless (suite-pinned).
+ * Conservative by construction: the revoked commend's `com` decay slot k is
+ * NOT re-run (that would rewrite fold arithmetic), so later live commends
+ * from the same opp keep their fold-position credit — under-crediting, never
+ * over-crediting.
  */
-export function repEvidenceOf(chain: Chain, eligible?: WitnessEligibility): RepEvidence {
+export function repEvidenceOf(
+  chain: Chain,
+  eligible?: WitnessEligibility,
+  revoked?: CommendRevocationView,
+): RepEvidence {
   const w = chain.events
     .filter((e) => e.body.lane === 'w')
     .sort((a, b) => a.body.height - b.body.height)
@@ -763,6 +815,7 @@ export function repEvidenceOf(chain: Chain, eligible?: WitnessEligibility): RepE
    * BOUND segments — windowed exactly like the fold's pair map. */
   const est: { [key: string]: { h: number; e: number } } = {}
   let bonus = 0
+  let revokedTw = 0
   for (const ev of w) {
     const s2 = repStep(s, ev)
     const b = ev.body
@@ -790,27 +843,46 @@ export function repEvidenceOf(chain: Chain, eligible?: WitnessEligibility): RepE
       const res = zCommendPayload.safeParse(b.payload)
       if (res.success) {
         const p = res.data
-        const entry = est[pairKey(p.game, p.opp)]
-        const minH = b.height - PARAMS_A4.repPairWindow
         const kCnt = Object.prototype.hasOwnProperty.call(s2.com, p.opp) ? s2.com[p.opp].k : 0
-        if (entry !== undefined && entry.h >= minH && entry.e === 1 && kCnt >= 1)
-          bonus += Math.max(
-            0,
-            idiv(REP_COMMEND_FULL_TW, kCnt) - idiv(REP_COMMEND_FLOOR_TW, kCnt),
-          )
+        // A4-21 (CLOSED — A7): consult the revocation view for this commend's
+        // signing key in the COMMENDER's chain. Credit survives only when the
+        // commend PROVABLY predates the revocation (both witnessed times
+        // well-formed AND commend wts strictly before revocation wts); a view
+        // hit with equal or malformed times discounts — fail toward
+        // no-forgery (§0) on the unprovable-ordering edges (fn doc).
+        const rw = revoked !== undefined ? revoked(p.opp, p.key) : undefined
+        const isRevoked =
+          rw !== undefined &&
+          !(Number.isSafeInteger(rw) && Number.isSafeInteger(b.ts) && b.ts < rw)
+        if (isRevoked) {
+          // Take back exactly what the fold credited: floor(FLOOR/k) at this
+          // commend's own decay slot (the amount stepCommend added).
+          if (kCnt >= 1) revokedTw += idiv(REP_COMMEND_FLOOR_TW, kCnt)
+        } else {
+          const entry = est[pairKey(p.game, p.opp)]
+          const minH = b.height - PARAMS_A4.repPairWindow
+          if (entry !== undefined && entry.h >= minH && entry.e === 1 && kCnt >= 1)
+            bonus += Math.max(
+              0,
+              idiv(REP_COMMEND_FULL_TW, kCnt) - idiv(REP_COMMEND_FLOOR_TW, kCnt),
+            )
+        }
       }
     }
     s = s2
   }
-  return { commendTwBonus: bonus }
+  return { commendTwBonus: bonus, commendTwRevoked: revokedTw }
 }
 
 /**
  * The §6b conduct score: integer in [0, 100] per the documented formula.
- * `evidence` is the verifier's OWN repEvidenceOf(chain, eligible) output
- * (A4-14): it can only ADD the eligibility-verified established-tier commend
- * credit — absent evidence, commends score at the in-fold decayed floor,
- * which no farm can saturate (header math).
+ * `evidence` is the verifier's OWN repEvidenceOf(chain, eligible, revoked)
+ * output (A4-14): it ADDS the eligibility-verified established-tier commend
+ * credit and SUBTRACTS (clamped at 0 — A4-21) the folded floor of commends
+ * whose signing key the verifier's revocation view reports revoked — absent
+ * evidence, commends score at the in-fold decayed floor, which no farm can
+ * saturate (header math). Both evidence fields are guarded (safe-integer,
+ * non-negative), so a hand-built evidence object cannot corrupt the score.
  */
 export function repScore(s: RepState, evidence?: RepEvidence): number {
   const P = PARAMS_A4
@@ -828,9 +900,17 @@ export function repScore(s: RepState, evidence?: RepEvidence): number {
   const rematchSub = Math.min(100, REP_REMATCH_STEP * s.rematch)
   // A4-14: tw = in-fold decayed floor credit + read-time est bonus, in
   // twentieths of a full-weight commend — the denominator carries
-  // REP_COMMEND_FULL_TW (header formula).
+  // REP_COMMEND_FULL_TW (header formula). A4-21: the read-time revocation
+  // discount subtracts the flagged floor twentieths from the EMBEDDED credit
+  // first (clamped ≥ 0 — repEvidenceOf can only flag what the fold credited,
+  // but a hand-built evidence object must not underflow), and the bonus —
+  // granted only to non-discounted commends — is added after.
+  const revokedTw =
+    evidence !== undefined && Number.isSafeInteger(evidence.commendTwRevoked)
+      ? Math.max(0, evidence.commendTwRevoked)
+      : 0
   const tw =
-    s.commendTw +
+    Math.max(0, s.commendTw - revokedTw) +
     (evidence !== undefined && Number.isSafeInteger(evidence.commendTwBonus)
       ? Math.max(0, evidence.commendTwBonus)
       : 0)

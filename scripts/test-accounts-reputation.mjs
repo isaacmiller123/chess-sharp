@@ -760,9 +760,9 @@ async function run(outdir) {
     eq(fold(cEbad).commend, 0, '…one past the edge the fold ignores the commend')
     eq(rep.repEvidenceOf(cEbad, elig).commendTwBonus, 0, '…and evidence grants NOTHING (counted ⇔ earned — zero drift)')
   }
-  console.log('\n· A4-21 boundary (deferred → A6): revocation-blind child-key commends …')
+  console.log('\n· A4-21 CLOSED (A7): the read-time commend-revocation discount …')
   {
-    // The scenario the deferral covers: oppA certified a child key, the key
+    // The scenario the closure covers: oppA certified a child key, the key
     // was STOLEN, oppA revoked it in oppA's OWN chain — and the thief mints a
     // commend with the old cert inline. The revoke demonstrably exists …
     const revokeEv = events.signBody(
@@ -773,22 +773,53 @@ async function run(outdir) {
       oppA.priv,
     )
     ok(events.verifyEventSig(revokeEv), 'fixture sanity: the revoke event in the COMMENDER’s chain is real and root-signed')
-    // … but it lives in the commender's chain, which no consumer here may
-    // read (in-fold: §5/§6 recursion + A4-04 determinism; read-time: needs
-    // the A6 reconstructed-chain + witnessed-time view). PINNED so the
-    // boundary only ever moves deliberately: when the A6 repEvidenceOf
-    // revocation view lands, these two asserts flip.
+    // … and it lives in the commender's chain, which the FOLD may never read
+    // (§5/§6 recursion + A4-04 determinism) and inline payload material
+    // cannot carry — so the two design pins below STAY true forever. The
+    // closure is exactly at the conduct.ts-designated seam: repEvidenceOf
+    // takes the caller's revocation view and discounts at READ TIME.
     const childCommend = conduct.makeCommendPayload({
       game: G1, opp: oppA.pubB, key: oppAChild.pubB,
       sig: conduct.makeCommendSig(oppAChild.priv, { game: G1, from: oppA.pubB, to: meB }),
       certs: [oppAChildCert],
     })
     ok(conduct.verifyCommend(childCommend, meB),
-      'A4-21 PIN (documented boundary): a certified-then-revoked child key still verifies — inline material cannot carry the revoke')
-    let c = addSeg(mkChain(), G1, oppA)
+      'A4-21 PIN (permanent design boundary): a certified-then-revoked child key still verifies — inline material cannot carry the revoke')
+    let c = addSeg(mkChain(), G1, oppA, { est: true })
     c = addCommend(c, childCommend)
-    eq(fold(c).commend, 1,
-      'A4-21 PIN: …and the fold counts it; exposure = decayed floor tier unless the verifier’s roster vouches the pair est')
+    const s = fold(c)
+    eq(s.commend, 1,
+      'A4-21 PIN (permanent design boundary): …and the deterministic fold counts it — the discount lives at read time only')
+    eq(s.commendTw, 1, 'fold floor credit for the commend is 1 twentieth (k = 1)')
+    const foldDigestBefore = stateHash(s)
+    const commendTs = c.events.find((e) => e.body.type === 'commend').body.ts
+    const viewAt = (wts) => (root, key) =>
+      root === oppA.pubB && key === oppAChild.pubB ? wts : undefined
+    // ── revoked BEFORE the commend (the stolen-key case) ⇒ DISCOUNTED ──
+    const evRev = rep.repEvidenceOf(c, elig, viewAt(commendTs - 1))
+    eq(evRev.commendTwRevoked, 1, 'A4-21 CLOSED: revoked-before-signing key ⇒ the folded floor twentieth is flagged for subtraction')
+    eq(evRev.commendTwBonus, 0, 'A4-21 CLOSED: …and the est-tier bonus is denied')
+    eq(rep.repScore(s, evRev), 80, 'A4-21 CLOSED: with the view, the stolen-key commend contributes ZERO (score = fresh-with-one-game 80)')
+    const cNone = addSeg(mkChain(), G1, oppA, { est: true })
+    eq(rep.repScore(s, evRev), rep.repScore(fold(cNone), rep.repEvidenceOf(cNone, elig)),
+      'A4-21 CLOSED: read-time total equals the same chain with NO commend at all')
+    // ── equal witnessed times (ordering unprovable) ⇒ DISCOUNTED (§0 no-forgery) ──
+    eq(rep.repEvidenceOf(c, elig, viewAt(commendTs)).commendTwRevoked, 1,
+      'A4-21 tie-break: revocation wts == commend wts ⇒ discounted (unprovable order fails toward no-forgery)')
+    // ── revoked AFTER the commend (honest device rotation) ⇒ COUNTED IN FULL ──
+    const evLive = rep.repEvidenceOf(c, elig, viewAt(commendTs + 1))
+    eq(evLive.commendTwRevoked, 0, 'A4-21 honest rotation: key revoked AFTER signing ⇒ no discount')
+    eq(evLive.commendTwBonus, 19, '…and the est-tier bonus is granted as before')
+    eq(rep.repScore(s, evLive), 95, '…full commend credit (score 95) — rotation never costs earned goodwill')
+    // ── no view / view that cannot vouch ⇒ unchanged pre-closure behavior ──
+    const evNoView = rep.repEvidenceOf(c, elig)
+    eq(evNoView.commendTwRevoked, 0, 'no revocation view ⇒ nothing is flagged (absence of evidence is not a revocation)')
+    eq(evNoView.commendTwBonus, 19, 'no view: est bonus unchanged')
+    eq(rep.repEvidenceOf(c, elig, () => undefined).commendTwRevoked, 0,
+      'a view with no revocation for the key flags nothing')
+    // ── read-time ONLY: fold/checkpoint bytes are byte-identical ──
+    eq(stateHash(fold(c)), foldDigestBefore,
+      'A4-21 DIGEST PIN: the fold state digest is unchanged — no revocation view ever reaches checkpoint-embedded bytes')
   }
   console.log('\n· rematch + segment rate limits …')
   {

@@ -20,30 +20,36 @@
 // malformation. Rate limits (≤1 per (opp, game), segment-in-chain) are fold
 // rules, not payload rules.
 //
-// ── A4-21 [DEFERRED → A6 viewer, rationale evaluated + upheld 2026-07-22] ──
-// verifyCommend/verifyRematchAccept are REVOCATION-BLIND for the counter-
-// party's certified child keys: a revoke of `key` lives in the COMMENDER's
-// chain, and no consumer here may read it —
+// ── A4-21 [CLOSED — A7 small-closures, 2026-07-23] ──
+// verifyCommend/verifyRematchAccept remain REVOCATION-BLIND BY DESIGN for
+// the counterparty's certified child keys: a revoke of `key` lives in the
+// COMMENDER's chain, and no consumer here may read it —
 //  · in-FOLD is structurally impossible: consulting the commender's chain
 //    recurses into other chains (breaking §5/§6 bounded verification), and
 //    folding any datum from outside the subject's chain breaks checkpoint
 //    determinism (the A4-04 slashable-divergence class);
-//  · an A4 read-time hack ("revoked at ANY time ⇒ discount") is WRONG on
+//  · a naive read-time hack ("revoked at ANY time ⇒ discount") is WRONG on
 //    honest data: device rotation revokes keys routinely, and commends
 //    signed while the key was valid must keep counting — correctness needs
 //    the revocation's witnessed time COMPARED across chains (§4 witnessed-
-//    time layer) plus the commender's reconstructed chain, both A6 viewer
-//    material.
-// THE A6 HOOK, precisely: ratings/reputation.ts repEvidenceOf is the seam —
-// it already re-walks every counted commend at read time; A6 passes it a
-// revocation view (opp root, key) → revocation wts | undefined built from
-// reconstructed counterparty chains, and the walk discounts a commend iff
-// its signing key's revocation wts precedes the commend's witnessed time.
-// Until then the exposure is bounded: it takes a STOLEN certified child key,
-// and yields only decayed floor-tier merit (1/20, then 0) unless the pair is
-// eligibility-verified established — the §6b ratio cap still applies. The
-// boundary behavior (a revoked-but-certified key still verifies) is PINNED
-// in scripts/test-accounts-reputation.mjs so any change is deliberate.
+//    time layer) plus the commender's reconstructed chain.
+// THE CLOSURE, exactly at the hook designated here: ratings/reputation.ts
+// repEvidenceOf (the seam that already re-walks every counted commend at
+// read time) now takes an optional CommendRevocationView ((opp root, key) →
+// revocation wts | undefined, built by the caller from reconstructed
+// counterparty chains) and DISCOUNTS a commend unless its witnessed time
+// provably precedes the revocation wts (equal/malformed times discount —
+// fail toward no-forgery, §0): no est-tier bonus, and the folded floor
+// twentieths are flagged in RepEvidence.commendTwRevoked for repScore to
+// subtract (clamped ≥ 0). Read-time ONLY — repStep and the checkpoint-
+// embedded RepState stay byte-identical (digest-pinned in the suite), and
+// verifyCommend HERE still passes on a revoked-but-certified key (inline
+// material cannot carry the revoke; that boundary is also still PINNED in
+// scripts/test-accounts-reputation.mjs). Residual, deliberately bounded:
+// rematch-accepts have no read-time evidence path, so verifyRematchAccept's
+// revocation blindness stands — exposure needs a STOLEN certified child key
+// and yields only the capped rematch ramp, and any future closure should
+// mirror this same read-time-view pattern, never the fold.
 //
 // Trust model of a rematch-accept (A4 review fix A4-13) is the SAME pattern:
 // the conduct event lives in the SUBJECT's chain, so the sportsmanship claim
@@ -283,8 +289,9 @@ export function makePairingPayload(o: MakePairingOpts): PairingPayload {
  *     `opp` for exactly `key` (certs.ts isRootSignedCert: full body schema,
  *     root-signed, valid event signature). Inline material cannot carry a
  *     revocation, so the key is unrevoked as far as this payload can show —
- *     a key revoked in the COMMENDER's chain still passes here (A4-21,
- *     deferred → the A6 repEvidenceOf revocation view; module header);
+ *     a key revoked in the COMMENDER's chain still passes here BY DESIGN
+ *     (A4-21, CLOSED in A7: the read-time repEvidenceOf revocation view is
+ *     where such commends are discounted; module header);
  *  4. `sig` verifies under `key` over commendBytes({game, from: opp, to}).
  *
  * Never throws; any malformation (including values that would crash the
