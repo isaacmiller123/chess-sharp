@@ -319,7 +319,7 @@ export function deriveOwnAccount(
     ladders: deriveLadders(d, atWts),
     reputation: deriveReputation(d.fold),
     standing: deriveStanding(d.fold, atWts),
-    profile: { bio: profile.bio, country: profile.country, flair: profile.flair },
+    profile: { bio: profile.bio, country: profile.country, flair: profile.flair, avatar: profile.avatar },
     chainHeight: witnessedHeadOf(chain.events)?.height ?? 0,
     chainEvents: chain.events.length,
   }

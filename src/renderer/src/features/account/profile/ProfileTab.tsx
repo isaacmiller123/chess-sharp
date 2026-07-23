@@ -14,6 +14,7 @@ import {
   Signature,
   UserRound
 } from 'lucide-react'
+import { AVATAR_B64_MAX_CHARS } from '@shared/accounts/events'
 import { DEV_FIXTURE, OWN_ACCOUNT } from '../mock/fixtures'
 import { FixturePreviewBadge } from '../mock/FixturePreviewBadge'
 import { accountsUiStore, useAccountsUi } from '../mock/store'
@@ -26,6 +27,7 @@ import './profile.css'
 const FLAIRS = ['♔', '♕', '♖', '♗', '♘', '♙', '♚', '♛', '♜', '♝', '♞', '♟']
 
 const MAX_AVATAR_BYTES = 32 * 1024
+const AVATAR_MIMES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
 
 export function ProfileTab(): JSX.Element {
   const ui = useAccountsUi()
@@ -48,6 +50,20 @@ export function ProfileTab(): JSX.Element {
   const [avatarNote, setAvatarNote] = useState<string | null>(null)
   const [avatarError, setAvatarError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // A7 avatar convention: the chain field is `${mime};${base64}` (documented
+  // at zProfileFields.avatar). Render whatever the verified chain carries;
+  // a fresh local pick previews via object URL until the chain write lands.
+  const chainAvatar = ((): string | null => {
+    const v = account.profile.avatar
+    if (typeof v !== 'string' || v.length === 0) return null
+    const cut = v.indexOf(';')
+    if (cut <= 0) return null
+    const mime = v.slice(0, cut)
+    if (!AVATAR_MIMES.has(mime)) return null
+    return `data:${mime};base64,${v.slice(cut + 1)}`
+  })()
+  const avatarSrc = avatarUrl ?? chainAvatar
 
   // Revoke replaced / unmounted avatar object URLs.
   useEffect(() => {
@@ -83,11 +99,37 @@ export function ProfileTab(): JSX.Element {
       setAvatarNote(null)
       return
     }
+    if (!AVATAR_MIMES.has(file.type)) {
+      setAvatarError(`${file.name}: use a PNG, JPEG, WebP, or GIF image.`)
+      setAvatarNote(null)
+      return
+    }
     setAvatarError(null)
     setAvatarUrl(URL.createObjectURL(file))
-    // DEV_FIXTURE: avatar records are not yet written to the chain — the
-    // preview is local-only and says so (no silent pretend-persistence).
-    setAvatarNote(`${file.name} · ${kb} KB — local preview only (avatar records land with sync)`)
+    if (!ui.signedIn) {
+      setAvatarNote(`${file.name} · ${kb} KB — local preview only (sign in to write it to your chain)`)
+      return
+    }
+    // A7: the avatar is a REAL chain field now — `mime;base64` in the signed
+    // personal-lane 'profile' record (schema cap AVATAR_B64_MAX_CHARS; the
+    // chain is the only store, so every device derives the same avatar).
+    void (async () => {
+      const bytes = new Uint8Array(await file.arrayBuffer())
+      let bin = ''
+      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i])
+      const value = `${file.type};${btoa(bin)}`
+      if (value.length > AVATAR_B64_MAX_CHARS) {
+        setAvatarError(`${file.name} encodes over the chain cap — use a slightly smaller image.`)
+        setAvatarNote(null)
+        return
+      }
+      const okWrite = await accountsUiStore.updateProfile({ avatar: value })
+      setAvatarNote(
+        okWrite
+          ? `${file.name} · ${kb} KB — written to your chain (signed profile record)`
+          : `${file.name} · ${kb} KB — chain write failed; showing local preview`
+      )
+    })()
   }
 
   return (
@@ -109,8 +151,8 @@ export function ProfileTab(): JSX.Element {
         </header>
         <div className="aprof-card-body">
           <div className="aprof-identity">
-            {avatarUrl ? (
-              <img className="aprof-avatar is-img" src={avatarUrl} alt="Your avatar" />
+            {avatarSrc ? (
+              <img className="aprof-avatar is-img" src={avatarSrc} alt="Your avatar" />
             ) : (
               <span className="aprof-avatar" aria-hidden>
                 <span className="aprof-avatar-glyph">{flair}</span>

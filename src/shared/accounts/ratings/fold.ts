@@ -62,16 +62,17 @@
 // this very fold and pins the oppCkpt's embedded (clamped) numbers ONLY for
 // segments whose serving witness AND ≥M oppCkpt cosigners the verifier's
 // own WitnessEligibility predicate accepts — never embedded in any state.
-// A5 HOOK (fidelity deferral, the A4-10 precedent): a vouched read pins the
-// opponent's embedded FLOOR ladder — the only number bounded verification
-// can reach — which under-states an established opponent's strength. No
-// deterministic A4 rule can grant an opponent-ASSERTED number without
-// reopening the ratchet (any in-chain anchor terminates in keys a sybil can
-// mint). A5's pairing record makes the roster-aware SERVING WITNESS attest
-// the opponent's current vouched rating at match time (witness-signed, so
-// chain-authoritative); ratingEvidenceOf then upgrades the vouched pin from
-// the floor to that witness-attested number. Until then the floor is the
-// honest, sound representation.
+// A4-02 fidelity CLOSED (A7): the pairing record's roster-aware SERVING
+// WITNESS attests the opponent's current vouched rating + §4 head height at
+// match time (PairingPayload.witAttest, witness/attest.ts helpers —
+// witness-signed, so chain-authoritative); ratingEvidenceOf collects
+// sig-valid attests from ELIGIBLE witnesses during the walk and upgrades the
+// vouched pin from the embedded floor to the attested number — UPGRADE ONLY
+// (the floor stays the sound lower bound), capped at OPP_RATING_CAP_MICRO.
+// The same attest's headHeight closes A4-10: verifyEmbeddedOppCkpt bounds
+// oppCkpt.through against it (stale/fabricated-past-head ⇒ vouched read
+// refused ⇒ seeds). Attest absent (legacy chains) ⇒ the floor remains the
+// honest, sound representation. Read-time only — no fold input, no drift.
 //
 // DUPLICATE-SEGMENT DEDUP (lead-approved, reputation.ts's windowed-pair-map
 // discipline): a segment whose game key already appeared in a RATED segment
@@ -109,9 +110,10 @@
 // Math.exp/log/pow (glicko.ts → detmath).
 
 import type { CanonicalObject } from '../codec'
-import { eventId, zSegmentPayload, zSelfBanPayload } from '../events'
+import { eventId, zPairingPayload, zSegmentPayload, zSelfBanPayload } from '../events'
 import { trustInputsInit, trustInputsStep, type TrustInputs } from '../mm/trust'
-import { OPP_CKPT_PREFIX_DIVERSITY_MIN, verifySegmentEvent } from '../segment'
+import { OPP_CKPT_PREFIX_DIVERSITY_MIN, verifyEmbeddedOppCkpt, verifySegmentEvent } from '../segment'
+import { verifyPairingAttest, type PairingWitAttest } from '../witness/pairattest'
 import type { SegmentPayload } from '../storage/types'
 import { PARAMS_A2 } from '../witness/params'
 import type {
@@ -503,10 +505,25 @@ function vouchedOpponent(
   p: SegmentPayload,
   lid: string,
   eligible: WitnessEligibility | undefined,
+  owner: B64u,
+  attest?: PairingWitAttest,
 ): PinnedOpponent {
   if (eligible === undefined) return seedsOpponent()
   const c = p.oppCkpt as SignedEvent | undefined
-  if (c === undefined) return seedsOpponent() // young opponent — seeds in every layer
+  if (c === undefined) {
+    // Young opponent — seeds, UNLESS the serving witness attested a rating at
+    // match time (A4-02 closure): witness-signed ⇒ chain-authoritative, and
+    // an attested number can only UPGRADE (seeds are the floor here).
+    if (attest === undefined) return seedsOpponent()
+    const seeds = seedsOpponent()
+    return {
+      ...seeds,
+      ratingMicro: Math.min(
+        Math.max(attest.ratingMicro, seeds.ratingMicro),
+        OPP_RATING_CAP_MICRO,
+      ),
+    }
+  }
   if (!eligible(p.wstream.wkey)) return seedsOpponent()
   const wit = (c as { wit?: WitnessAttestation[] }).wit
   if (!Array.isArray(wit)) return seedsOpponent()
@@ -515,7 +532,21 @@ function vouchedOpponent(
   for (const a of elig) prefixes.add(a.w.slice(0, 2))
   if (elig.length < PARAMS_A2.ckptM || prefixes.size < OPP_CKPT_PREFIX_DIVERSITY_MIN)
     return seedsOpponent()
-  return vouchedOpponentRead(c, lid)
+  // A4-10 closure (A7): with a witness-attested head height, a checkpoint
+  // claiming to fold past the attested head is stale-or-fabricated — refuse
+  // the vouched read entirely (seeds, the sound floor).
+  if (attest !== undefined && !verifyEmbeddedOppCkpt(p, owner, attest.headHeight))
+    return seedsOpponent()
+  const floor = vouchedOpponentRead(c, lid)
+  if (attest === undefined) return floor
+  // A4-02 closure (A7): upgrade the vouched pin from the embedded floor to
+  // the witness-attested number — upgrade ONLY (the floor stays the sound
+  // lower bound; an attest below it never downgrades), capped like every
+  // opponent input.
+  return {
+    ...floor,
+    ratingMicro: Math.min(Math.max(attest.ratingMicro, floor.ratingMicro), OPP_RATING_CAP_MICRO),
+  }
 }
 
 /**
@@ -544,9 +575,33 @@ export function ratingEvidenceOf(chain: Chain, eligible?: WitnessEligibility): R
     .sort((a, b) => a.body.height - b.body.height)
   let s = a4Fold.init(chain.root)
   let ladders: { [id: string]: LadderState } = {}
+  // A7: per-game verified pairing attests (A4-02/A4-10). Collected from
+  // 'pairing' events earlier in the walk (§7: the pairing is witnessed into
+  // the chain BEFORE the game); only sig-valid attests from ELIGIBLE
+  // witnesses enter — read-time roster judgment, exactly the vouched-pin
+  // discipline. One game key ⇒ one pairing (chain-wide dup rules); first wins.
+  const attests: { [game: string]: PairingWitAttest } = {}
   for (const ev of w) {
     const s2 = a4Fold.step(s, ev)
     try {
+      if (ev.body.type === 'pairing' && eligible !== undefined) {
+        const res = zPairingPayload.safeParse(ev.body.payload)
+        if (res.success) {
+          const pp = ev.body.payload as unknown as {
+            game: B64u
+            opp: B64u
+            witAttest?: PairingWitAttest
+          }
+          const att = pp.witAttest
+          if (
+            att !== undefined &&
+            !Object.prototype.hasOwnProperty.call(attests, pp.game) &&
+            eligible(att.w) &&
+            verifyPairingAttest(att, pp.game, pp.opp)
+          )
+            attests[pp.game] = att
+        }
+      }
       if (ev.body.type === 'segment') {
         // safeParse is the SHAPE gate only; read the RAW payload (the
         // trust.ts stepSegment discipline) — zod re-encoding must never drop
@@ -567,7 +622,13 @@ export function ratingEvidenceOf(chain: Chain, eligible?: WitnessEligibility): R
             const own = Object.prototype.hasOwnProperty.call(ladders, lid)
               ? ladders[lid]
               : ladderInit()
-            const opp = vouchedOpponent(p, lid, eligible)
+            const opp = vouchedOpponent(
+              p,
+              lid,
+              eligible,
+              chain.root,
+              Object.prototype.hasOwnProperty.call(attests, p.game) ? attests[p.game] : undefined,
+            )
             const up = glickoUpdateMicro(
               { ratingMicro: own.r, rdMicro: own.rd, volMicro: own.vol },
               [

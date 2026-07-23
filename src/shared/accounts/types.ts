@@ -264,6 +264,20 @@ export interface PairingPayload extends CanonicalObject {
   tc: { baseMs: number; incMs: number }
   /** Witnessed match time (the pairing-legality atWts, §7). */
   atWts: number
+  /**
+   * A7 (closes A4-02 + A4-10): the serving witness's attest over the
+   * counterparty's vouched rating + §4 head height at match time. OPTIONAL —
+   * legacy pairing records stay byte-valid; absent ⇒ read-time evidence keeps
+   * the embedded floor pin (the sound A4 representation). Shape + helpers:
+   * witness/attest.ts PairingWitAttest. Read-time material only; no fold input.
+   */
+  witAttest?: {
+    ratingMicro: number
+    headHeight: number
+    w: B64u
+    wts: number
+    sig: B64u
+  }
 }
 
 /**

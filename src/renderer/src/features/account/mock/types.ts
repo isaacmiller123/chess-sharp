@@ -268,7 +268,7 @@ export interface UiOwnAccount {
   ladders: UiLadder[]
   reputation: UiReputation
   standing: UiStanding
-  profile: { bio: string; country: string; flair: string }
+  profile: { bio: string; country: string; flair: string; avatar: string }
   chainHeight: number
   chainEvents: number
 }

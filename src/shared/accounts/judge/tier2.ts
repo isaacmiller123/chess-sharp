@@ -351,7 +351,9 @@ const zSaltGrant = z.strictObject({
   sig: zB64u64,
 })
 
-const zSaltReveal = z.strictObject({
+/** Exported for the A7 canonical-reveal publication slot (judge/transport.ts
+ * saltRevealKey gate) — the schema stays the single shape authority. */
+export const zSaltReveal = z.strictObject({
   v: z.literal(1),
   scheme: z.literal(PARAMS_A5.saltScheme),
   root: zB64u32,

@@ -113,6 +113,7 @@ async function bundle(outdir, name) {
       `export * as chain from '${SRC}/chain.ts'`,
       `export * as ckpt from '${SRC}/checkpoint.ts'`,
       `export * as seg from '${SRC}/segment.ts'`,
+      `export * as watt from '${SRC}/witness/attest.ts'`,
       `export * as a4 from '${SRC}/ratings/params.ts'`,
       `export * as ladders from '${SRC}/ratings/ladders.ts'`,
       `export * as glicko from '${SRC}/ratings/glicko.ts'`,
@@ -144,7 +145,7 @@ async function bundle(outdir, name) {
 async function run(outdir) {
   console.log('· bundling src/shared/accounts (ratings + checkpoint + mm) …')
   const M = await bundle(outdir, 'entry')
-  const { codec, hash, events, chain, ckpt, seg, a4, ladders, glicko, fold, display, rep, trust, mm, refGlicko } = M
+  const { codec, hash, events, chain, ckpt, seg, watt, a4, ladders, glicko, fold, display, rep, trust, mm, refGlicko } = M
   const P = a4.PARAMS_A4
 
   // ---- fixed raw keypairs -----------------------------------------------------
@@ -1052,6 +1053,62 @@ async function run(outdir) {
     const tEv = trust.trustEvidenceOf(cSybil, honest)
     eq(tEv.oppEligProxy[oppB.pubB] ?? 0, trust.TRUST_OPP_PROXY_FLOOR_MICRO,
       'cross-check: trustEvidenceOf grants the sybil-backed opponent only the young-opponent FLOOR (no est tier)')
+  }
+
+  // ============================================================================
+  // A7 — A4-02 fidelity + A4-10 freshness CLOSED via the pairing witAttest
+  // (placed LAST: consumes ts++, and the golden hashes above must not move)
+  // ============================================================================
+  console.log('\n· A7: pairing witAttest — fidelity upgrade (A4-02) + freshness bound (A4-10) …')
+  {
+    const oppLadder = { r: 1_600_000_000, rd: 80_000_000, vol: 60_000, n: 150, placed: 1 }
+    const honest = roster(wit, ...cosigners)
+    const game = G('a7p1')
+    const mkAttested = (att) => {
+      let c = mkChain()
+      c = chain.appendWitnessed(c, me.priv, meB, 'pairing',
+        { game, opp: oppB.pubB, kind: 'chess', tc: BLITZ_TC, atWts: 9000, ...(att !== undefined ? { witAttest: att } : {}) }, ts++)
+      return addSeg(c, game, oppB.pubB, {
+        kind: 'chess', tc: BLITZ_TC, result: '1-0', color: 'w',
+        oppCkpt: mkOppCkpt(oppB, a4OppState({ 'chess:Blitz': oppLadder })),
+      })
+    }
+    // helpers: the serving witness attests 1800 (above the 1600 floor), head 6 (fresh)
+    const att1800 = watt.makePairingAttest(game, oppB.pubB, 1_800_000_000, 6, wit.pubB, wit.priv, 9100)
+    ok(watt.verifyPairingAttest(att1800, game, oppB.pubB), 'makePairingAttest → verifyPairingAttest round-trips')
+    ok(!watt.verifyPairingAttest(att1800, G('other'), oppB.pubB), 'attest is game-bound (foreign game refused)')
+    ok(!watt.verifyPairingAttest({ ...att1800, ratingMicro: 1_900_000_000 }, game, oppB.pubB), 'tampered rating breaks the sig')
+    // (1) fidelity upgrade: vouched read now reads the ATTESTED 1800, floor rd
+    const cUp = mkAttested(att1800)
+    eq(chain.verifyChain(cUp).ok, true, 'the pairing+witAttest chain verifies ok end-to-end (additive schema)')
+    const expected1800 = glicko.glickoUpdateMicro(seedMicro, [{ ratingMicro: 1_800_000_000, rdMicro: 80_000_000, score: 1 }])
+    eq(fold.ratingEvidenceOf(cUp, honest).ladders['chess:Blitz'].r, expected1800.ratingMicro,
+      'A4-02 CLOSED: the vouched read upgrades the pin from the 1600 floor to the witness-attested 1800')
+    // (2) upgrade ONLY: an attest BELOW the floor keeps the floor
+    const attLow = watt.makePairingAttest(game, oppB.pubB, 1_000_000_000, 6, wit.pubB, wit.priv, 9100)
+    const expected1600 = glicko.glickoUpdateMicro(seedMicro, [{ ratingMicro: 1_600_000_000, rdMicro: 80_000_000, score: 1 }])
+    eq(fold.ratingEvidenceOf(mkAttested(attLow), honest).ladders['chess:Blitz'].r, expected1600.ratingMicro,
+      'upgrade-only: an attest below the embedded floor never downgrades the pin')
+    // (3) forged attest ⇒ floor (sig broken by the payload tamper above)
+    eq(fold.ratingEvidenceOf(mkAttested({ ...att1800, ratingMicro: 1_900_000_000 }), honest).ladders['chess:Blitz'].r,
+      expected1600.ratingMicro, 'a forged witAttest is ignored — the sound floor pin remains')
+    // (4) attest from an INELIGIBLE key ⇒ floor (roster judgment at read time)
+    const attSybil = watt.makePairingAttest(game, oppB.pubB, 1_800_000_000, 6, oppB.pubB, oppB.priv, 9100)
+    eq(fold.ratingEvidenceOf(mkAttested(attSybil), honest).ladders['chess:Blitz'].r, expected1600.ratingMicro,
+      'an attest signed by a non-roster key earns nothing (eligibility is the read-time gate)')
+    // (5) A4-10 CLOSED: attested head 5 < oppCkpt.through 6 ⇒ stale ⇒ SEEDS
+    const attStale = watt.makePairingAttest(game, oppB.pubB, 1_800_000_000, 5, wit.pubB, wit.priv, 9100)
+    const expectedSeed = glicko.glickoUpdateMicro(seedMicro, [{ ratingMicro: P.seedRating * M6, rdMicro: P.seedRd * M6, score: 1 }])
+    eq(fold.ratingEvidenceOf(mkAttested(attStale), honest).ladders['chess:Blitz'].r, expectedSeed.ratingMicro,
+      'A4-10 CLOSED: an oppCkpt folding PAST the witness-attested head is refused — vouched read falls to seeds')
+    // (6) direct bound: verifyEmbeddedOppCkpt(p, owner, attestedHeadHeight)
+    const p = cUp.events.filter((e) => e.body.type === 'segment').at(-1).body.payload
+    ok(seg.verifyEmbeddedOppCkpt(p, meB, 6), 'verifyEmbeddedOppCkpt passes at attested head = through')
+    ok(!seg.verifyEmbeddedOppCkpt(p, meB, 5), 'verifyEmbeddedOppCkpt refuses through > attested head (A4-10 bound)')
+    // (7) zero-drift: the attested chain's EMBEDDED fold is byte-identical to
+    // the unattested one (read-time only — no fold input, ever)
+    eq(stateHash(foldChain(cUp).ladders), stateHash(foldChain(mkAttested(undefined)).ladders),
+      'witAttest never reaches the embedded fold (attested ≡ unattested fold bytes)')
   }
 }
 

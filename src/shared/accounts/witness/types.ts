@@ -338,6 +338,7 @@ export type FabricRequestKind =
   | 'lease-grant' // client → witness: request a LeaseGrant for a LeaseBody
   | 'lease-renew'
   | 'attest' // client → witness: countersign an event under a lease
+  | 'salt-grant' // client → witness: A5-17 (A7) anchored salt grant, signing-time disciplined
   | 'cosign-ckpt' // client → witness: checkpoint cosignature (recompute first)
   | 'pin-provision' // client → member: deliver a share (encrypted)
   | 'pin-eval' // client → member: blind evaluation request → partial + nonce

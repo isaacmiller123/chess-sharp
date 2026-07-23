@@ -135,7 +135,8 @@ export const OWN_ACCOUNT: UiOwnAccount = {
   profile: {
     bio: 'Blitz addict. London System apologist. Will accept any rematch.',
     country: 'US',
-    flair: '♞'
+    flair: '♞',
+    avatar: ''
   },
   chainHeight: 1408,
   chainEvents: 1734

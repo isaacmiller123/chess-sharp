@@ -123,6 +123,9 @@ import {
   tier2VerdictKey,
   WINDOW_ENTRIES_MAX,
   WINDOW_Z_CAP_MICRO,
+  windowSalt,
+  zSaltReveal,
+  type SaltReveal,
   type Tier2VerdictRecord,
   type WindowEntry,
 } from './tier2'
@@ -581,6 +584,119 @@ export function makeVerdictStoreValidator(opts: VerdictStoreOpts = {}): VerdictS
       ...(opts.baseMerge !== undefined ? { base: opts.baseMerge } : {}),
     }),
   }
+}
+
+// ---------------------------------------------------------------------------
+// A5-18 canonical-reveal publication slot (A7): ONE authoritative SaltReveal
+// per (root, ladder, window) in storage. The salt VALUE is already pinned by
+// consensusSaltOpts (any valid reveal ⇒ the same salt when the witnessSet is
+// supplied), so this slot's whole job is CONVERGENT PUBLICATION: every peer
+// deterministically keeps the same single reveal. Canonical pick = the valid,
+// key-bound reveal with the lexicographic-least canonical hash — pure
+// function of the record set, no arrival-order dependence. Anchorless
+// reveals are refused at the gate (the consensus-path duty; a reveal that
+// commits to no post-game entropy has no business in the slot).
+// ---------------------------------------------------------------------------
+
+const SALT_REVEAL_KEY_TAG = 'cs:a7:saltreveal:v1'
+/** Generous ceiling: 64 grants ≈ 64·~200 canonical bytes + header. */
+export const SALT_REVEAL_MAX_BYTES = 32 * 1024
+
+/** The slot key for (root, ladder, window). Domain-separated from every
+ * other key family (nodeId/pointer/presence/mailbox/verdict). */
+export function saltRevealKey(root: B64u, ladder: string, windowIndex: number): B64u {
+  return toB64u(canonicalHash({ t: SALT_REVEAL_KEY_TAG, root, ladder, window: windowIndex }))
+}
+
+/** Cheap shape probe (zSaltReveal is the real authority in the gate). */
+export function isSaltRevealShaped(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const v = value as { v?: unknown; scheme?: unknown; grants?: unknown }
+  return v.v === 1 && typeof v.scheme === 'string' && Array.isArray(v.grants)
+}
+
+/** Full context-free validity for the slot: schema, key binding, byte cap,
+ * anchor present, and the canonical verifier computes a salt from it
+ * (windowSalt re-verifies every grant signature over the anchored body).
+ * Never throws. */
+function saltRevealOk(value: unknown, target: B64u): value is SaltReveal {
+  try {
+    if (!zSaltReveal.safeParse(value).success) return false
+    const r = value as SaltReveal
+    if (r.anchor === undefined) return false
+    if (saltRevealKey(r.root, r.ladder, r.window) !== target) return false
+    if (canonicalBytes(r as unknown as CanonicalObject).length > SALT_REVEAL_MAX_BYTES) return false
+    windowSalt(r, { requireAnchor: true })
+    return true
+  } catch {
+    return false
+  }
+}
+
+export interface SaltRevealGateOpts {
+  base?: StoreValidator
+  baseMerge?: MergeFn
+}
+
+/** The reveal slot's store gate + merge, composable via base hooks exactly
+ * like the verdict layer (install order between the two is irrelevant —
+ * their key families are disjoint and both delegate non-owned values). */
+export function makeSaltRevealGate(opts: SaltRevealGateOpts = {}): VerdictStoreGate {
+  const base: StoreValidator = opts.base ?? ((_f, _t, kind, _v) => kind === 'record')
+  const baseMerge: MergeFn = opts.baseMerge ?? ((prev, next) => (prev === null ? next : prev))
+  const validator: StoreValidator = (from, target, kind, value) => {
+    try {
+      if (kind !== 'record' || !isSaltRevealShaped(value)) return base(from, target, kind, value)
+      return saltRevealOk(value, target)
+    } catch {
+      return false
+    }
+  }
+  const merge: MergeFn = (prev, next, kind, target) => {
+    if (kind !== 'record') return baseMerge(prev, next, kind, target)
+    try {
+      const candidates: { r: SaltReveal; h: B64u }[] = []
+      for (const value of [prev, next]) {
+        if (value === null || !isSaltRevealShaped(value)) continue
+        if (!saltRevealOk(value, target)) continue
+        const r = value as unknown as SaltReveal
+        candidates.push({ r, h: toB64u(canonicalHash(r as unknown as CanonicalObject)) })
+      }
+      // Nothing binds ⇒ not a reveal slot in THIS fold — delegate, never
+      // manufacture (the verdict merge's composition discipline, verbatim).
+      if (candidates.length === 0) return baseMerge(prev, next, kind, target)
+      candidates.sort((a, b) => compareKeys(a.h, b.h))
+      return asValue(candidates[0].r as unknown as CanonicalObject)
+    } catch {
+      return prev ?? baseMerge(prev, next, kind, target)
+    }
+  }
+  return { validator, merge }
+}
+
+/** Publish a reveal into its slot (replicateK carriers re-gate it). */
+export function publishSaltReveal(node: OverlayNode, reveal: SaltReveal): Promise<number> {
+  if (!saltRevealOk(reveal, saltRevealKey(reveal.root, reveal.ladder, reveal.window)))
+    throw new Error('publishSaltReveal: not a valid anchored reveal')
+  return node.put(
+    saltRevealKey(reveal.root, reveal.ladder, reveal.window),
+    'record',
+    asValue(reveal as unknown as CanonicalObject),
+  )
+}
+
+/** Fetch the canonical reveal for (root, ladder, window); null when absent
+ * or invalid. getMerged-first so all carriers' slots fold to the one pick. */
+export async function fetchSaltReveal(
+  node: VerdictReadNode,
+  root: B64u,
+  ladder: string,
+  windowIndex: number,
+): Promise<SaltReveal | null> {
+  const key = saltRevealKey(root, ladder, windowIndex)
+  const raw = node.getMerged ? await node.getMerged(key, 'record') : await node.get(key, 'record')
+  if (raw === null || !isSaltRevealShaped(raw)) return null
+  return saltRevealOk(raw, key) ? (raw as unknown as SaltReveal) : null
 }
 
 // ---------------------------------------------------------------------------

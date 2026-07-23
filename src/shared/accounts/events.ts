@@ -246,13 +246,24 @@ export const zFriendPayload = z
     path: ['certs'],
   })
 
-/** A5 pairing record — see types.ts PairingPayload. */
+/** A5 pairing record — see types.ts PairingPayload. A7 adds the OPTIONAL
+ * serving-witness attest (A4-02/A4-10 closure) — additive: legacy records
+ * without it still parse, and the strict shapes refuse any other extension. */
 export const zPairingPayload = z.strictObject({
   game: zB64u32,
   opp: zB64u32,
   kind: z.string().min(1).max(32),
   tc: z.strictObject({ baseMs: z.int().min(0).max(86_400_000), incMs: z.int().min(0).max(3_600_000) }),
   atWts: zTs,
+  witAttest: z
+    .strictObject({
+      ratingMicro: z.int().min(0).max(4_000_000_000),
+      headHeight: z.int().min(0),
+      w: zB64u32,
+      wts: zTs,
+      sig: z.string().min(1),
+    })
+    .optional(),
 })
 
 /** A5 anticheat self-ban — see types.ts SelfBanPayload. */

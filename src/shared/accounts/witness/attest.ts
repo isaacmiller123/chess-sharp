@@ -60,6 +60,15 @@ export function verifyAttestation(att: WitnessAttestation, eventId: EventId): bo
   return verifySigB64u(att.sig, msg, att.w)
 }
 
+// A7 pairing attest (A4-02 fidelity + A4-10 freshness) lives in the leaf
+// module witness/pairattest.ts — kept dependency-free to avoid a
+// fold↔checkpoint import cycle. Re-exported here for the fabric surface.
+export {
+  makePairingAttest,
+  verifyPairingAttest,
+  type PairingWitAttest,
+} from './pairattest'
+
 // ---------------------------------------------------------------------------
 // Witness admission (the ordered checks from types.ts WitnessAttestation doc)
 // ---------------------------------------------------------------------------

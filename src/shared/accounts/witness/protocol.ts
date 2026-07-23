@@ -14,6 +14,8 @@ import { appendEvent } from '../chain'
 import { eventId, signBody, witnessedHeadOf } from '../events'
 import { ed25519, fromB64u, sha256, toB64u, verifySigB64u } from '../hash'
 import type { B64u, Chain, EventBody, EventId, EventType, SignedEvent, WitnessAttestation } from '../types'
+import { signSaltGrant } from '../judge/tier2'
+import { PARAMS_A5 } from '../judge/params'
 import { admitEvent, cosignCheckpoint, verifyAttestation, type HeadRef } from './attest'
 import { updateHeadFromEvent } from './cache'
 import { canonicalWitnessSet, type ChainSummary } from './eligibility'
@@ -73,6 +75,7 @@ import type {
   FuseRecord,
   Lease,
   LeaseBody,
+  LeaseGrant,
   NodeId,
   PinAttemptReport,
   PinSession,
@@ -187,6 +190,12 @@ export interface WitnessDeps {
    * behavior remains and the response is LABELED path:'attributed' — never a
    * silent blind-sign upgrade. */
   ownershipOf?: (root: B64u) => DeviceOwnership | null | Promise<DeviceOwnership | null>
+  /** A5-17 (A7) — the witness's view of the subject's highest RATED-game
+   * ordinal on a ladder (from its A3-replicated chain), used by the
+   * salt-grant signing-time discipline. Absent ⇒ the witness refuses to
+   * serve salt grants at all (fail closed — the same deliberate-thinness
+   * class as verifyLease/ownershipOf: the embedder wires the chain view). */
+  ratedOrdinalOf?: (root: B64u, ladder: string) => number | null | Promise<number | null>
 }
 
 export interface WitnessServeHandle {
@@ -235,6 +244,43 @@ export function witnessServe(
   }
   onSafe(fabric, 'lease-grant', serveGrant)
   onSafe(fabric, 'lease-renew', serveGrant)
+
+  // A5-17 CLOSED at the witness (A7) — salt-grant SIGNING-TIME DISCIPLINE.
+  // A witness signs window w's salt grant ONLY when: (a) it has a chain view
+  // (deps.ratedOrdinalOf wired — else refuse everything, fail closed); (b) its
+  // view shows the subject's rated ordinal on that ladder at ≥ w·K−1, i.e. the
+  // window-CLOSING game is already on-chain (§7b: the salt is uncomputable
+  // before the games it perturbs); (c) the request carries the post-game
+  // anchor (A5-18 consensus-path duty — anchorless grants are refused, so a
+  // pre-signing witness has nothing valid to pre-sign); (d) no active fuse.
+  // The grant's wts is the WITNESS's own clock at signing — window-close
+  // witnessed time, never the requester's claim.
+  onSafe(fabric, 'salt-grant', async (_from, payload) => {
+    const { root, ladder, window: windowIndex, anchor } = fromMsg<{
+      root: B64u
+      ladder: string
+      window: number
+      anchor?: B64u
+    }>(payload)
+    if (typeof root !== 'string' || root.length !== 43) return asMsg({ error: 'bad-root' })
+    if (typeof ladder !== 'string' || ladder.length === 0 || ladder.length > 64)
+      return asMsg({ error: 'bad-ladder' })
+    if (!Number.isSafeInteger(windowIndex) || windowIndex < 0)
+      return asMsg({ error: 'bad-window' })
+    if (typeof anchor !== 'string' || anchor.length !== 43)
+      return asMsg({ error: 'anchor-required' })
+    const wts = deps.wts()
+    const fuse = fuseOf(root)
+    if (fuse && isFuseActive(fuse, wts)) return asMsg({ error: 'fuse-active' })
+    if (deps.ratedOrdinalOf === undefined) return asMsg({ error: 'no-chain-view' })
+    const ord = await deps.ratedOrdinalOf(root, ladder)
+    if (ord === null) return asMsg({ error: 'no-chain-view' })
+    const windowClose = windowIndex * PARAMS_A5.reganK + (PARAMS_A5.reganK - 1)
+    if (!Number.isSafeInteger(ord) || ord < windowClose) return asMsg({ error: 'window-open' })
+    return asMsg({
+      grant: signSaltGrant(root, ladder, windowIndex, id.nodeId, id.key, id.priv, wts, anchor),
+    })
+  })
 
   // Attests for one root are SERIALIZED (a per-root promise chain): read-head →
   // admit → advance-head spans awaits, so two concurrent attests must not both
@@ -798,6 +844,21 @@ export type RequestLeaseResult =
  * returns {ok:false, reason:'insufficient-witnesses'} — never a dead grant that
  * would fail verifyLease (the 2-user rated-play boundary, spec §4/C-10).
  */
+/** A7 (A5-17): request an anchored salt grant from one witness. The witness
+ * enforces the signing-time discipline server-side (anchor required, rated
+ * ordinal ≥ w·K−1, its own wts); the caller collects T_lease grants and
+ * assembles the SaltReveal for the canonical publication slot. */
+export async function clientRequestSaltGrant(
+  fabric: FabricEndpoint,
+  witness: NodeId,
+  root: B64u,
+  ladder: string,
+  windowIndex: number,
+  anchor: B64u,
+): Promise<{ grant?: LeaseGrant; error?: string }> {
+  return req(fabric, witness, 'salt-grant', { root, ladder, window: windowIndex, anchor })
+}
+
 export async function clientRequestLease(opts: RequestLeaseOpts): Promise<RequestLeaseResult> {
   const directory = opts.fabric.directory()
   const witnessSet = canonicalWitnessSet(opts.subject, directory, opts.summaries, opts.params, opts.nowMs)

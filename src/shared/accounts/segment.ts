@@ -453,20 +453,22 @@ function attestationSigOk(att: WitnessAttestation, id: EventId): boolean {
  *      history is genuinely unrated is represented honestly by OMITTING
  *      oppCkpt (the §6 young-opponent seeds path). Unbound (legacy/casual)
  *      segments are out of §6 scope and keep accepting any state shape.
- *      RESIDUAL, stated honestly (deferred → A5 with the review's knowledge):
- *      a STALE a4-v1 checkpoint (old ladder numbers, or from before the
- *      opponent's career on this ladder) still passes — no self-contained
- *      freshness rule exists because every height/time the payload could be
- *      compared against (heads, ts) is subject-asserted, not witness-signed.
- *      The A5 hook: the pairing record's serving witness attests the
- *      opponent's current head height (its §4 head cache), and this check
- *      then bounds oppCkpt.payload.through against that witness-signed
- *      height. Until then the §2/§6 one-level audit is the stale-state
- *      backstop.
+ *      A4-10 CLOSED (A7): when the caller supplies `attestedHeadHeight` — the
+ *      pairing record's serving-witness attest of the opponent's current §4
+ *      head height (witness/attest.ts PairingWitAttest, verified by the
+ *      caller) — this check bounds oppCkpt.payload.through against that
+ *      witness-signed height: a checkpoint claiming to fold PAST the
+ *      attested head is stale-or-fabricated and is refused. Without the
+ *      param (legacy callers, no pairing attest) behavior is unchanged and
+ *      the §2/§6 one-level audit remains the stale-state backstop.
  *
  * Returns false on ANY malformation — never throws.
  */
-export function verifyEmbeddedOppCkpt(p: SegmentPayload, owner?: B64u): boolean {
+export function verifyEmbeddedOppCkpt(
+  p: SegmentPayload,
+  owner?: B64u,
+  attestedHeadHeight?: number,
+): boolean {
   try {
     const c = p.oppCkpt
     if (c === undefined) return false
@@ -485,6 +487,13 @@ export function verifyEmbeddedOppCkpt(p: SegmentPayload, owner?: B64u): boolean 
     const through = (c.body.payload as { through: number }).through
     if (!Number.isSafeInteger(through) || through < 0) return false
     if (!Number.isSafeInteger(c.body.height) || c.body.height < 0) return false
+    // (f) A4-10 freshness bound (A7): a witness-attested head height, when
+    // supplied, caps how far the embedded checkpoint may claim to have
+    // folded. Malformed bound ⇒ fail closed (refuse), never ignore.
+    if (attestedHeadHeight !== undefined) {
+      if (!Number.isSafeInteger(attestedHeadHeight) || attestedHeadHeight < 0) return false
+      if (through > attestedHeadHeight) return false
+    }
     // (b) event signature + signing-key authorization.
     if (!verifyEventSig(c)) return false
     if (c.body.key !== p.opp) {
