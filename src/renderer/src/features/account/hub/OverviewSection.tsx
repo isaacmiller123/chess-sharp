@@ -17,9 +17,9 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import type { AccountTab } from '../AccountView'
 import type { LadderKey, UiLadder, UiReputation, UiStanding } from '../mock/types'
-import { DEV_FIXTURE, MOCK_NOW, OWN_ACCOUNT, shortB64u } from '../mock/fixtures'
-import { FixturePreviewBadge } from '../mock/FixturePreviewBadge'
+import { shortB64u } from '../mock/fixtures'
 import { accountsUiStore, useAccountsUi } from '../mock/store'
+import { NetStatusPill } from './NetStatusPill'
 import './hub.css'
 
 /**
@@ -27,15 +27,16 @@ import './hub.css'
  * §9). Everything shown is a claim the protocol can actually make: identity is
  * self-derived (§1), ladder states follow the §6 rendering rule (never a
  * number while hidden), reputation is a public fold (§6b), and standing is
- * derived from the chain, not asserted (§0/§9). WIRED: renders the REAL
- * derived account when signed in; the DEV_FIXTURE sample account only backs
- * the signed-out fallback (labeled).
+ * derived from the chain, not asserted (§0/§9). A6 M4: renders the REAL derived
+ * account (this tab only mounts signed-in), and the identity card carries the
+ * LIVE overlay-presence pill (net/accountNetStatus) — no fixture, no dead
+ * button; the theoretical null-account case degrades honestly.
  */
 
 const DAY = 86_400_000
 
-/** Whole days between ts and the caller's clock (real surfaces pass
- * Date.now(); the fixture fallback passes MOCK_NOW — complete-3). */
+/** Whole days between ts and the caller's clock (Date.now() at the renderer
+ * glue layer, where wall-clock time is allowed). */
 function daysAgo(ts: number, nowMs: number): number {
   return Math.max(0, Math.round((nowMs - ts) / DAY))
 }
@@ -227,13 +228,19 @@ export function OverviewSection({
     return () => window.clearTimeout(t)
   }, [copied])
 
-  // The shell only mounts this tab signed-in; fall back to the fixture so the
-  // signature stays JSX.Element (never null).
-  const account = ui.account ?? OWN_ACCOUNT
   // REAL keyring rows (this device's stored accounts) — empty until loaded.
   const keyringRows = ui.keyringAccounts ?? []
-  // Real account ⇒ real clock; fixture fallback stays on its frozen clock.
-  const created = daysAgo(account.createdWts, ui.account !== null ? Date.now() : MOCK_NOW)
+  // The shell only mounts this tab signed-in, so ui.account is set here. Guard
+  // the theoretical null honestly (never a fixture) after the hooks above.
+  const account = ui.account
+  if (!account) {
+    return (
+      <div className="ahub-overview">
+        <p className="muted small">Deriving your account from your signed chain…</p>
+      </div>
+    )
+  }
+  const created = daysAgo(account.createdWts, Date.now())
   const rep = account.reputation
 
   const copyHandle = (): void => {
@@ -243,11 +250,6 @@ export function OverviewSection({
 
   return (
     <div className="ahub-overview">
-      {/* Signed out, this section falls back to the sample account — say so
-          (signed in, everything here is derived from the real chain). */}
-      {ui.account === null && DEV_FIXTURE && (
-        <FixturePreviewBadge label="Sample account — sign in to derive your real chain" />
-      )}
       {/* ---- Identity (§1): self-derived, verified — never registered ---- */}
       <section className="card ahub-identity" aria-labelledby="ahub-id-title">
         <div className="ahub-identity-main">
@@ -276,6 +278,10 @@ export function OverviewSection({
                   Handle copied to clipboard
                 </span>
               )}
+              {/* LIVE overlay presence (§4): is this client actually on the
+                  fabric right now, and can it reach a third machine. Honest
+                  offline/connecting/online — never a fabricated status. */}
+              <NetStatusPill style={{ marginLeft: 'var(--space-2)' }} />
             </div>
             <p className="ahub-identity-sub">
               Root key <code>{shortB64u(account.rootPub)}</code>

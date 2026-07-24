@@ -388,6 +388,49 @@ export function sessionInfo(): { rootPub: string; devicePub: string; deviceIndex
   return { rootPub: account.rootPub, devicePub: account.device.pub, deviceIndex: account.device.index }
 }
 
+/**
+ * A6 (Lane C) — the signed-in device's ed25519 signing material for v6 signed
+ * online play (spec §3). Derives the device child key EXACTLY as updateProfile
+ * signs (`deriveChild(seed, KEY_PURPOSE.device, device.index)`), so a per-move /
+ * segment signature made with `priv` verifies against `key` (= account.device.pub),
+ * and `root` binds into the game key. Returns null when signed out (⇒ casual /
+ * unsigned play, byte-identical v5). Fail-closed: a device-key mismatch (a
+ * tampered record) returns null rather than a key that would never verify.
+ *
+ * The returned shape is a structural `MpSigningConfig` (minus the optional,
+ * per-game `oppRoot` the matchmaker pins) — mpClient's `mpSigningKey` hands it
+ * straight to `mp.configureSigning`. NEVER logged/persisted; `priv` stays in-mem. */
+export function deviceSigningKey(): { priv: Uint8Array; key: string; root: string } | null {
+  if (!session) return null
+  const { identity, account } = session
+  const device = deriveChild(identity.seed, KEY_PURPOSE.device, account.device.index)
+  if (toB64u(device.pub) !== account.device.pub) return null
+  return { priv: device.priv, key: account.device.pub, root: account.rootPub }
+}
+
+/**
+ * A6 (M4 lead hook) — the signed-in account's ROOT signing material for the
+ * records spec §1/§3/§10 bind to the ROOT itself: the standalone PIN record
+ * (pinClient) and social presence / mailbox envelopes / friend halves
+ * (socialClient). Mirrors {@link deviceSigningKey} but returns the ROOT child,
+ * the SHAPE both `setPinRootSignerProvider` and `setSocialRootSignerProvider`
+ * expect (`PinRootSigner` === `SocialRootSigner` === `{ root, rootPriv }`).
+ * Returns null when signed out (⇒ the singletons report an honest
+ * signer-unavailable state, never a fabricated committee/surface). Fail-closed:
+ * a derived root that does not match the stored account root returns null rather
+ * than a key that would never verify.
+ *
+ * Unlike deviceSigningKey it is DELIBERATELY not on the window dev surface — the
+ * root private key never rides the global console object; the two providers
+ * import it directly. `rootPriv` stays in-memory, NEVER logged/persisted.
+ */
+export function rootSigningKey(): { root: string; rootPriv: Uint8Array } | null {
+  if (!session) return null
+  const { identity, account } = session
+  if (toB64u(identity.rootPub) !== account.rootPub) return null
+  return { root: account.rootPub, rootPriv: identity.rootPriv }
+}
+
 /** Load the signed-in account's stored chain (read-only; throws signed out). */
 export async function loadOwnChain(): Promise<Chain> {
   const { account } = requireSession()
@@ -447,6 +490,7 @@ const surface = {
   resumeSession,
   forgetRememberedSeed,
   sessionInfo,
+  deviceSigningKey,
   updateProfile,
 }
 

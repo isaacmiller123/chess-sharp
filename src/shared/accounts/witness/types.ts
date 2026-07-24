@@ -362,6 +362,13 @@ export type FabricRequestKind =
   // authenticated AND clearing — semantics find-value/store cannot honor).
   | 'social-mail-send' // sender → relay: offer an envelope for a recipient box
   | 'social-mail-drain' // recipient → relay: recipient-root-signed drain+clear
+  // A6 live rated play (spec §3): before move 1 each player exchanges a SIGNED
+  // pre-game snapshot ({head, height, profileSnapshot, latestCheckpoint?}) with
+  // the opponent so each side can build its own countersigned segment (heads /
+  // oppProfile / oppCkpt). Transport-only here; the signed payload contract +
+  // sign/verify live in the A6 net layer (M1 Lane E preGame.ts). Precursor to
+  // the M2 'pairing' record.
+  | 'pregame-snapshot' // player ↔ opponent: exchange the signed pre-game snapshot
 
 // ---------------------------------------------------------------------------
 // Witness-side cache (C-1 gossip memory — reconstructible, unauthoritative)

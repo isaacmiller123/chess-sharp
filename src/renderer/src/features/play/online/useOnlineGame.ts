@@ -17,9 +17,17 @@ import { useEffect, useSyncExternalStore } from 'react'
 import { getSoundManager } from '../../../sound/SoundManager'
 import { useSettings } from '../../../state/settings'
 import { onlineStore, type OnlineState } from './onlineStore'
+// A6 M1 — LEAD INTEGRATION side-effect: wire the live account net (signing-key
+// provider + segment publisher + per-client account peer on sign-in + the dev/ops
+// witness surface). It registers on the store and starts the peer ONLY when
+// signed in — casual/signed-out play is a byte-identical no-op. Renderer-only, so
+// the bare-node store test (which mocks `mp`) never loads it. See the module head.
+import '../../account/net/accountNetBoot'
 
 // One-time sound-sink registration (app lifetime, like the store's mp.onEvent
 // subscription). play() itself gates on the manager's enabled/volume settings.
+// The A6 account-net registrations (signing-key provider, segment publisher, the
+// account peer, the witness surface) ride the side-effect import above.
 onlineStore.setSoundSink((name) => getSoundManager().play(name))
 
 // Debug/preview handle: the renderer-preview harness (browser, no electron —

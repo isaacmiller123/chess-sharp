@@ -15,8 +15,6 @@ import {
   UserRound
 } from 'lucide-react'
 import { AVATAR_B64_MAX_CHARS } from '@shared/accounts/events'
-import { DEV_FIXTURE, OWN_ACCOUNT } from '../mock/fixtures'
-import { FixturePreviewBadge } from '../mock/FixturePreviewBadge'
 import { accountsUiStore, useAccountsUi } from '../mock/store'
 import { RatingLadders } from './RatingLadders'
 import { ReputationPanel } from './ReputationPanel'
@@ -31,21 +29,23 @@ const AVATAR_MIMES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gi
 
 export function ProfileTab(): JSX.Element {
   const ui = useAccountsUi()
-  const account = ui.account ?? OWN_ACCOUNT
+  // This tab only mounts signed-in, so ui.account is set here; the null-guard
+  // below is the honest fallback (never a fixture). Hook initializers read it
+  // through optional chaining so all hooks stay above the guard (hooks-first).
+  const account = ui.account
 
   /**
    * §10 staleness (complete-1): the REAL derived value — the newest VERIFIED
    * witness-attested time from the canonical shared fold (store →
-   * derive.ts deriveProfile), or null = no witnessed activity on record.
-   * The signed-out fixture fallback also renders null: this surface never
-   * asserts a fabricated freshness claim.
+   * derive.ts deriveProfile), or null = no witnessed activity on record. This
+   * surface never asserts a fabricated freshness claim.
    */
   const lastWitnessedWts = ui.signedIn ? ui.lastWitnessedActivityWts : null
 
   // Personal-lane fields: controlled, applied instantly (house style — no save).
-  const [bio, setBio] = useState(account.profile.bio)
-  const [country, setCountry] = useState(account.profile.country)
-  const [flair, setFlair] = useState(account.profile.flair)
+  const [bio, setBio] = useState(account?.profile.bio ?? '')
+  const [country, setCountry] = useState(account?.profile.country ?? '')
+  const [flair, setFlair] = useState(account?.profile.flair ?? '♟')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [avatarNote, setAvatarNote] = useState<string | null>(null)
   const [avatarError, setAvatarError] = useState<string | null>(null)
@@ -55,7 +55,7 @@ export function ProfileTab(): JSX.Element {
   // at zProfileFields.avatar). Render whatever the verified chain carries;
   // a fresh local pick previews via object URL until the chain write lands.
   const chainAvatar = ((): string | null => {
-    const v = account.profile.avatar
+    const v = account?.profile.avatar
     if (typeof v !== 'string' || v.length === 0) return null
     const cut = v.indexOf(';')
     if (cut <= 0) return null
@@ -70,6 +70,14 @@ export function ProfileTab(): JSX.Element {
     if (!avatarUrl) return
     return () => URL.revokeObjectURL(avatarUrl)
   }, [avatarUrl])
+
+  if (!account) {
+    return (
+      <div className="aprof-tab">
+        <p className="muted small">Deriving your profile from your signed chain…</p>
+      </div>
+    )
+  }
 
   const region = regionName(country)
   const regionLabel = country.length === 2 ? region : '—'
@@ -140,10 +148,6 @@ export function ProfileTab(): JSX.Element {
           <span className="aprof-eyebrow">
             <Eye size={14} aria-hidden /> As others see you
           </span>
-          {/* Signed out this tab falls back to the sample account — say so. */}
-          {!ui.signedIn && DEV_FIXTURE && (
-            <FixturePreviewBadge label="Sample account — sign in to derive your real chain" />
-          )}
           <p className="aprof-card-sub muted small">
             Rendered from your public chain the way any client derives it — nothing here is
             asserted.

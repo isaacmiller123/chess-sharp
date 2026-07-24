@@ -1,57 +1,78 @@
-import { useCallback, useEffect, useState, type FormEvent, type JSX } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  type FormEvent,
+  type JSX
+} from 'react'
 import {
   AlertTriangle,
   Check,
-  ChevronRight,
-  Handshake,
   Loader2,
   Mail,
+  RefreshCw,
   Search,
   Signature,
-  Swords,
   UserPlus,
   Users,
   X
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
-import type { UiFriend, UiMailItem, UiProfile } from '../mock/types'
-import { DEV_FIXTURE, FRIENDS, MAILBOX, MOCK_NOW, PROFILES } from '../mock/fixtures'
-import { FixturePreviewBadge } from '../mock/FixturePreviewBadge'
+import {
+  getSocialClientState,
+  runAcceptRequest,
+  runDeclineRequest,
+  runRemoveFriend,
+  runSendFriendRequest,
+  runSyncMailbox,
+  subscribeSocialClient,
+  type FriendPresence,
+  type MailPriority,
+  type SocialClientState,
+  type SocialFriendView,
+  type SocialRequestView
+} from '../net/socialClient'
+import { isAccountRoot } from '../net/viewerClient'
 import { ProfilePage } from '../profile/ProfilePage'
 import './social.css'
 
 /**
- * People tab — the A-UI social surface (docs/ACCOUNTS-SPEC.md §3, §10, §12 C-3).
+ * People tab — the LIVE social surface (docs/building/ACCOUNTS-SPEC.md §3, §10,
+ * C-3), un-fixtured onto the account net's socialClient (net/socialClient.ts):
  *
- * Three sections: find a player (anyone is viewable, §5 reconstruction is local
- * math), friends (witnessed countersigned edges — one verifiable list, §3), and
- * the mailbox (relayer anti-spam priorities, §10; the mailbox itself is
- * ephemeral coordination state, C-3). Friends and mailbox are local state so
- * accept/decline/remove behave. DEV_FIXTURE surface (labeled per panel):
- * friends, mailbox and searchable profiles are sample data gated on the flag —
- * friends transport, presence and the mailbox need the network.
+ *  - Find a player: look anyone up by account root/handle; ProfilePage
+ *    reconstructs from shard space (§5), owner online or not — no local index.
+ *  - Friends: the witnessed countersigned edges folded from THIS account's OWN
+ *    chain (§3, one verifiable list), with each friend's live ephemeral presence
+ *    overlaid (§10). Remove is a unilateral signed witnessed event.
+ *  - Mailbox: incoming friend requests that the relaying peers held for us until
+ *    we synced, in the §10 anti-spam priority order (established senders first,
+ *    a sybil flood can never evict them). Accept countersigns the edge into both
+ *    chains; decline drops it (ephemeral coordination state, C-3).
+ *
+ * Every list is live signed data or an honest empty state — NO fixtures, NO dead
+ * buttons. When the account peer is still coming up the surface says so.
  */
 
 const MIN = 60_000
 const HOUR = 3_600_000
 const DAY = 86_400_000
 
-/** Short relative time against MOCK_NOW; old timestamps fall back to a date. */
+/** Short relative time against the wall clock (renderer glue — real time is
+ * allowed here); old timestamps fall back to a date. */
 function ago(ts: number): string {
-  const d = MOCK_NOW - ts
+  const d = Date.now() - ts
+  if (d < MIN) return 'just now'
   if (d < HOUR) return `${Math.max(1, Math.round(d / MIN))} min ago`
   if (d < DAY) return `${Math.round(d / HOUR)} h ago`
   if (d < 30 * DAY) return `${Math.round(d / DAY)} d ago`
-  return new Date(ts).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  })
+  return new Date(ts).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-/** "Friends since/for …" phrasing relative to MOCK_NOW. */
-function friendLabel(since: number): string {
-  const days = Math.round((MOCK_NOW - since) / DAY)
+/** "Friends since/for …" phrasing relative to the wall clock. */
+function friendLabel(since: number | null): string | null {
+  if (since === null) return null
+  const days = Math.round((Date.now() - since) / DAY)
   if (days < 1) return 'Friends since today'
   if (days === 1) return 'Friends for a day'
   if (days < 60) return `Friends for ${days} days`
@@ -59,41 +80,33 @@ function friendLabel(since: number): string {
   return `Friends for ${Math.round(days / 365)} years`
 }
 
-const PRESENCE_LABEL: Record<UiFriend['presence'], string> = {
-  online: 'Online now',
-  away: 'Away',
-  offline: 'Offline'
+const PRESENCE_META: Record<FriendPresence, { dot: 'online' | 'away' | 'offline'; label: string }> = {
+  online: { dot: 'online', label: 'Online now' },
+  playing: { dot: 'online', label: 'Playing' },
+  away: { dot: 'away', label: 'Away' },
+  offline: { dot: 'offline', label: 'Offline' }
 }
 
-const KIND_META: Record<UiMailItem['kind'], { label: string; Icon: LucideIcon }> = {
-  'friend-request': { label: 'Friend request', Icon: UserPlus },
-  commendation: { label: 'Commendation', Icon: Handshake },
-  'rematch-invite': { label: 'Rematch invite', Icon: Swords }
-}
-
-/** §10 relayer priorities — why this item survived the queue. */
-const PRIORITY_META: Record<
-  UiMailItem['priority'],
-  { label: string; title: string; className: string }
-> = {
+/** §10 relayer priorities — why this request survived the queue. */
+const PRIORITY_META: Record<MailPriority, { label: string; title: string; className: string }> = {
   entangled: {
     label: 'Entangled',
-    title: 'Prioritized — an existing countersigned edge with this sender',
+    title: 'Prioritized — an existing countersigned edge (friendship or witnessed game) with this sender',
     className: 'is-entangled'
   },
   reputable: {
     label: 'Reputable',
-    title: 'Prioritized — established conduct record, no edge with you yet',
+    title: 'Prioritized — an established conduct/trust record, no edge with you yet',
     className: 'is-reputable'
   },
   new: {
     label: 'New sender',
-    title: 'No prior edge — rate-limited to a fair share of your mailbox',
+    title: 'No prior edge — rate-limited to a fair share of your mailbox (a sybil flood cannot evict established requests)',
     className: 'is-new'
   }
 }
 
-function PriorityChip({ priority }: { priority: UiMailItem['priority'] }): JSX.Element {
+function PriorityChip({ priority }: { priority: MailPriority }): JSX.Element {
   const meta = PRIORITY_META[priority]
   return (
     <span className={`asoc-prio ${meta.className}`} title={meta.title}>
@@ -102,42 +115,45 @@ function PriorityChip({ priority }: { priority: UiMailItem['priority'] }): JSX.E
   )
 }
 
+/** React bridge to the live social client (house useSyncExternalStore pattern —
+ * getSocialClientState returns a stable reference between real changes). */
+function useSocialClient(): SocialClientState {
+  return useSyncExternalStore(subscribeSocialClient, getSocialClientState, getSocialClientState)
+}
+
 /**
- * One friend row with the inline two-step remove (arm → confirm → mock the
- * sign-and-witness round, then the row disappears). §3: removal is unilateral.
+ * One friend row with the inline two-step remove (arm → confirm → sign the
+ * unilateral witnessed removal). §3: removal writes to YOUR chain and the peer
+ * cannot block it. The row leaves the list once the fold no longer asserts the
+ * edge (or shows an honest "writes when a witness is reachable" note).
  */
 function FriendRow({
   friend,
+  busy,
   onView,
   onRemove
 }: {
-  friend: UiFriend
-  onView: (handle: string) => void
-  onRemove: (handle: string) => void
+  friend: SocialFriendView
+  busy: boolean
+  onView: (root: string) => void
+  onRemove: (root: string) => void
 }): JSX.Element {
-  const [phase, setPhase] = useState<'idle' | 'armed' | 'removing'>('idle')
-
-  // Mock the signing round before the edge leaves the local list.
-  useEffect(() => {
-    if (phase !== 'removing') return
-    const t = window.setTimeout(() => onRemove(friend.handle), 800)
-    return () => window.clearTimeout(t)
-  }, [phase, onRemove, friend.handle])
-
-  const removing = phase === 'removing'
+  const [armed, setArmed] = useState(false)
+  const presence = PRESENCE_META[friend.presence]
+  const since = friendLabel(friend.since)
 
   return (
-    <li className={`asoc-friend${phase !== 'idle' ? ' is-armed' : ''}`}>
+    <li className={`asoc-friend${armed ? ' is-armed' : ''}`}>
       <div className="asoc-friend-row">
         <span
-          className={`asoc-presence is-${friend.presence}`}
+          className={`asoc-presence is-${presence.dot}`}
           role="img"
-          aria-label={PRESENCE_LABEL[friend.presence]}
-          title={PRESENCE_LABEL[friend.presence]}
+          aria-label={presence.label}
+          title={presence.label}
         />
         <div className="asoc-friend-id">
-          <span className="asoc-friend-name">{friend.displayName}</span>
-          <span className="account-handle-mono muted">{friend.handle}</span>
+          <span className="asoc-friend-name">{friend.name ?? friend.label}</span>
+          <span className="account-handle-mono muted">{friend.label}</span>
         </div>
         <div className="asoc-friend-meta">
           {friend.countersigned && (
@@ -148,46 +164,46 @@ function FriendRow({
               <Signature size={13} aria-hidden /> Countersigned ×2
             </span>
           )}
-          <span className="asoc-friend-since num">{friendLabel(friend.since)}</span>
+          {since && <span className="asoc-friend-since num">{since}</span>}
         </div>
         <div className="asoc-friend-actions">
-          <button type="button" className="btn ghost small" onClick={() => onView(friend.handle)}>
+          <button type="button" className="btn ghost small" onClick={() => onView(friend.root)}>
             View
           </button>
           <button
             type="button"
             className="btn danger small"
-            disabled={phase !== 'idle'}
-            onClick={() => setPhase('armed')}
+            disabled={armed || busy}
+            onClick={() => setArmed(true)}
           >
             Remove
           </button>
         </div>
       </div>
 
-      {phase !== 'idle' && (
+      {armed && (
         <div className="asoc-remove-confirm">
           <p className="asoc-remove-note">
             <AlertTriangle size={14} aria-hidden />
             Removal is a unilateral signed witnessed event — it writes to your chain.{' '}
-            {friend.displayName} is not asked and cannot block it.
+            {friend.name ?? friend.label} is not asked and cannot block it.
           </p>
           <div className="asoc-remove-actions">
             <button
               type="button"
               className="btn ghost small"
-              disabled={removing}
-              onClick={() => setPhase('idle')}
+              disabled={busy}
+              onClick={() => setArmed(false)}
             >
               Cancel
             </button>
             <button
               type="button"
               className="btn danger solid small"
-              disabled={removing}
-              onClick={() => setPhase('removing')}
+              disabled={busy}
+              onClick={() => onRemove(friend.root)}
             >
-              {removing ? 'Signing removal…' : 'Remove friend'}
+              {busy ? 'Signing removal…' : 'Remove friend'}
             </button>
           </div>
         </div>
@@ -196,78 +212,55 @@ function FriendRow({
   )
 }
 
-/** One mailbox item. Only friend requests carry actions; commendations are warm and read-only. */
-function MailRow({
+/** One incoming friend request — the only live mailbox item today (§3 add flow). */
+function RequestRow({
   item,
   accepting,
   acceptBusy,
   onAccept,
-  onDismiss
+  onDecline
 }: {
-  item: UiMailItem
-  /** This item is mid-countersign. */
+  item: SocialRequestView
   accepting: boolean
-  /** Some accept is in flight — hold other accepts meanwhile. */
   acceptBusy: boolean
   onAccept: (id: string) => void
-  onDismiss: (id: string) => void
+  onDecline: (id: string) => void
 }): JSX.Element {
-  const { label, Icon } = KIND_META[item.kind]
-
   return (
-    <li className={`asoc-mail is-${item.kind}`} aria-busy={accepting}>
+    <li className="asoc-mail is-friend-request" aria-busy={accepting}>
       <span className="asoc-mail-icon">
-        <Icon size={16} aria-hidden />
+        <UserPlus size={16} aria-hidden />
       </span>
       <div className="asoc-mail-body">
         <div className="asoc-mail-top">
-          <span className="account-handle-mono">{item.from}</span>
-          <span className="asoc-mail-kind">{label}</span>
+          <span className="account-handle-mono">{item.name ?? item.label}</span>
+          <span className="asoc-mail-kind">Friend request</span>
           <PriorityChip priority={item.priority} />
           <span className="asoc-mail-time num">{ago(item.ts)}</span>
         </div>
 
-        {item.note && <p className="asoc-mail-note">“{item.note}”</p>}
-
-        {item.kind === 'commendation' && (
-          <p className="asoc-mail-warm">
-            Commended you — good sportsmanship, recorded once per opponent per game and counted by
-            your reputation fold. Nothing to answer.
-          </p>
-        )}
-
-        {item.kind === 'friend-request' &&
-          (accepting ? (
-            <span className="asoc-mail-busy" role="status">
-              <Loader2 size={14} className="asoc-spin" aria-hidden />
-              Countersigning acceptance — writing the edge into both chains…
-            </span>
-          ) : (
-            <div className="asoc-mail-actions">
-              <button
-                type="button"
-                className="btn small"
-                disabled={acceptBusy}
-                onClick={() => onAccept(item.id)}
-              >
-                <Check size={14} aria-hidden /> Accept
-              </button>
-              <button
-                type="button"
-                className="btn ghost small"
-                disabled={acceptBusy}
-                onClick={() => onDismiss(item.id)}
-              >
-                <X size={14} aria-hidden /> Decline
-              </button>
-            </div>
-          ))}
-
-        {item.kind === 'rematch-invite' && (
+        {accepting ? (
+          <span className="asoc-mail-busy" role="status">
+            <Loader2 size={14} className="asoc-spin" aria-hidden />
+            Countersigning acceptance — writing the edge into both chains…
+          </span>
+        ) : (
           <div className="asoc-mail-actions">
-            <span className="asoc-mail-hint">Answer rematch invites from Rated play.</span>
-            <button type="button" className="btn ghost small" onClick={() => onDismiss(item.id)}>
-              Dismiss
+            <button
+              type="button"
+              className="btn small"
+              disabled={acceptBusy}
+              onClick={() => onAccept(item.id)}
+            >
+              <Check size={14} aria-hidden /> Accept
+            </button>
+            <button
+              type="button"
+              className="btn ghost small"
+              disabled={acceptBusy}
+              onClick={() => onDecline(item.id)}
+            >
+              <X size={14} aria-hidden /> Decline
             </button>
           </div>
         )}
@@ -277,92 +270,82 @@ function MailRow({
 }
 
 export function PeopleTab(): JSX.Element {
+  const social = useSocialClient()
   const [selectedHandle, setSelectedHandle] = useState<string | null>(null)
   const [query, setQuery] = useState('')
-  // Fixture data gated on DEV_FIXTURE: when the flag flips off with transport,
-  // these degrade to their honest empty states instead of sample rows.
-  const [friends, setFriends] = useState<UiFriend[]>(DEV_FIXTURE ? FRIENDS : [])
-  const [mail, setMail] = useState<UiMailItem[]>(DEV_FIXTURE ? MAILBOX : [])
   const [acceptingId, setAcceptingId] = useState<string | null>(null)
-  const [justAccepted, setJustAccepted] = useState<string | null>(null)
+  const [removingRoot, setRemovingRoot] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
-  const viewProfile = useCallback((handle: string) => {
-    setSelectedHandle(handle)
+  // Opening People pulls anything the relays held for us (a best-effort drain;
+  // the singleton's own poll keeps it fresh thereafter).
+  useEffect(() => {
+    void runSyncMailbox()
   }, [])
 
-  const removeFriend = useCallback((handle: string) => {
-    setFriends((fs) => fs.filter((f) => f.handle !== handle))
+  const viewProfile = useCallback((root: string) => {
+    setSelectedHandle(root)
   }, [])
 
-  const acceptMail = useCallback((id: string) => {
+  const onAccept = useCallback((id: string) => {
     setAcceptingId(id)
-  }, [])
-
-  const dismissMail = useCallback((id: string) => {
-    setMail((ms) => ms.filter((m) => m.id !== id))
-  }, [])
-
-  // Accept = countersign the pending request (§3): mock the witness round,
-  // then land the new edge in the local friends list.
-  useEffect(() => {
-    if (!acceptingId) return
-    const item = mail.find((m) => m.id === acceptingId)
-    if (!item) {
+    setNotice(null)
+    void runAcceptRequest(id).then((r) => {
       setAcceptingId(null)
-      return
-    }
-    const t = window.setTimeout(() => {
-      setFriends((fs) =>
-        fs.some((f) => f.handle === item.from)
-          ? fs
-          : [
-              {
-                handle: item.from,
-                displayName: item.from.split('#')[0] ?? item.from,
-                presence: 'online',
-                since: MOCK_NOW,
-                countersigned: true
-              },
-              ...fs
-            ]
+      if (!r.ok)
+        setNotice(
+          r.reason === 'edge-pending-witness'
+            ? 'Consent sent — the countersigned edge lands in your chain once a witness is reachable.'
+            : `Could not accept (${r.reason ?? 'unavailable'}).`
+        )
+    })
+  }, [])
+
+  const onDecline = useCallback((id: string) => {
+    runDeclineRequest(id)
+  }, [])
+
+  const onRemove = useCallback((root: string) => {
+    setRemovingRoot(root)
+    setNotice(null)
+    void runRemoveFriend(root).then((r) => {
+      setRemovingRoot(null)
+      if (!r.ok)
+        setNotice(
+          r.reason === 'edge-pending-witness'
+            ? 'Removal signed — it writes to your chain once a witness is reachable.'
+            : `Could not remove (${r.reason ?? 'unavailable'}).`
+        )
+    })
+  }, [])
+
+  const onAdd = useCallback((root: string) => {
+    setNotice(null)
+    void runSendFriendRequest(root).then((r) => {
+      setNotice(
+        r.ok
+          ? 'Friend request sent — it waits with the recipient’s relaying peers until they next sync.'
+          : r.reason === 'no-relay'
+            ? 'No relaying peers reachable yet — try again once the network is up.'
+            : `Could not send the request (${r.reason ?? 'unavailable'}).`
       )
-      setMail((ms) => ms.filter((m) => m.id !== item.id))
-      setJustAccepted(item.from)
-      setAcceptingId(null)
-    }, 900)
-    return () => window.clearTimeout(t)
-  }, [acceptingId, mail])
+    })
+  }, [])
 
-  // The countersigned confirmation lingers briefly, then clears.
-  useEffect(() => {
-    if (!justAccepted) return
-    const t = window.setTimeout(() => setJustAccepted(null), 6000)
-    return () => window.clearTimeout(t)
-  }, [justAccepted])
-
-  // Viewing a profile takes over the whole tab (hooks all live above this).
+  // Viewing a profile takes over the whole tab (all hooks live above this).
   if (selectedHandle) {
     return <ProfilePage handle={selectedHandle} onBack={() => setSelectedHandle(null)} />
   }
 
-  const q = query.trim().toLowerCase()
-  const matches: UiProfile[] = q
-    ? Object.keys(PROFILES)
-        .map((key) => PROFILES[key])
-        .filter((p): p is UiProfile => Boolean(p))
-        .filter(
-          (p) => p.displayName.toLowerCase().includes(q) || p.handle.toLowerCase().includes(q)
-        )
-    : []
+  const q = query.trim()
+  const queryIsRoot = isAccountRoot(q)
+  const connecting = social.phase !== 'live'
 
-  // Submitting navigates even for unknown handles — ProfilePage owns the
-  // honest empty state. A single local match resolves to its full handle.
+  // Submitting navigates even for unknown handles — ProfilePage owns the honest
+  // empty state for anything that is not a resolvable account root.
   const onSubmit = (e: FormEvent<HTMLFormElement>): void => {
     e.preventDefault()
-    const raw = query.trim()
-    if (!raw) return
-    const only = matches.length === 1 ? matches[0] : undefined
-    setSelectedHandle(only ? only.handle : raw)
+    if (q) setSelectedHandle(q)
   }
 
   return (
@@ -384,49 +367,38 @@ export function PeopleTab(): JSX.Element {
                 className="text-input asoc-search-input"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Name or handle — e.g. mira#T8FQ2"
-                aria-label="Find a player by name or handle"
+                placeholder="Account handle or root — paste a 43-char account id"
+                aria-label="Find a player by account handle or root"
                 autoComplete="off"
                 spellCheck={false}
               />
             </div>
-            <button type="submit" className="btn small" disabled={!query.trim()}>
+            <button type="submit" className="btn small" disabled={!q}>
               View
             </button>
+            {queryIsRoot && (
+              <button
+                type="button"
+                className="btn ghost small"
+                onClick={() => onAdd(q)}
+                title="Send a §3 friend request (rides the mailbox — survives them being offline)"
+              >
+                <UserPlus size={14} aria-hidden /> Add friend
+              </button>
+            )}
           </form>
 
-          {q && (
-            <ul className="asoc-suggest">
-              {matches.map((p) => (
-                <li key={p.handle}>
-                  <button
-                    type="button"
-                    className="asoc-suggest-row"
-                    onClick={() => viewProfile(p.handle)}
-                  >
-                    <span className="asoc-suggest-flair" aria-hidden>
-                      {p.flair}
-                    </span>
-                    <span className="asoc-suggest-name">{p.displayName}</span>
-                    <span className="account-handle-mono muted">{p.handle}</span>
-                    <span className="asoc-suggest-seen num">
-                      last witnessed {ago(p.lastWitnessedWts)}
-                    </span>
-                    <ChevronRight size={14} aria-hidden className="asoc-suggest-go" />
-                  </button>
-                </li>
-              ))}
-              {matches.length === 0 && (
-                <li className="asoc-suggest-none">
-                  No local match for “{query.trim()}” — submit to look it up on the network anyway.
-                </li>
-              )}
-            </ul>
+          {notice && (
+            <p className="asoc-accepted" role="status">
+              <Check size={14} aria-hidden />
+              {notice}
+            </p>
           )}
 
           <p className="asoc-caption">
             Anyone is viewable — including accounts offline for years. Your client gathers the
             pieces from whoever still holds them and checks the math locally; no server is asked.
+            There is no name directory: look someone up by their account id.
           </p>
         </div>
       </section>
@@ -439,26 +411,27 @@ export function PeopleTab(): JSX.Element {
               <Users size={15} aria-hidden />
             </span>
             <span className="panel-title">Friends</span>
-            {DEV_FIXTURE && <FixturePreviewBadge />}
-            <span className="muted small num">{friends.length}</span>
+            <span className="muted small num">{social.friends.length}</span>
           </div>
           <div className="asoc-panel-body">
-            {friends.length === 0 ? (
+            {social.friends.length === 0 ? (
               <div className="asoc-empty">
                 <Users size={22} aria-hidden />
                 <span>
-                  No friends yet. A friendship is a countersigned edge written into both chains —
-                  send a request from any profile.
+                  {connecting
+                    ? 'Connecting to the network — your friends and their presence appear once the account peer is up.'
+                    : 'No friends yet. A friendship is a countersigned edge written into both chains — look someone up above and send a request.'}
                 </span>
               </div>
             ) : (
               <ul className="asoc-friends">
-                {friends.map((f) => (
+                {social.friends.map((f) => (
                   <FriendRow
-                    key={f.handle}
+                    key={f.root}
                     friend={f}
+                    busy={removingRoot === f.root}
                     onView={viewProfile}
-                    onRemove={removeFriend}
+                    onRemove={onRemove}
                   />
                 ))}
               </ul>
@@ -473,33 +446,39 @@ export function PeopleTab(): JSX.Element {
               <Mail size={15} aria-hidden />
             </span>
             <span className="panel-title">Mailbox</span>
-            {DEV_FIXTURE && <FixturePreviewBadge />}
-            <span className="muted small num">{mail.length}</span>
+            <span className="muted small num">{social.requests.length}</span>
+            <button
+              type="button"
+              className="btn ghost small"
+              style={{ marginLeft: 'auto' }}
+              onClick={() => void runSyncMailbox()}
+              disabled={connecting || social.busy === 'syncing'}
+              title="Drain your relaying peers now"
+            >
+              <RefreshCw size={13} aria-hidden className={social.busy === 'syncing' ? 'asoc-spin' : ''} />
+              Sync
+            </button>
           </div>
           <div className="asoc-panel-body">
-            {justAccepted && (
-              <p className="asoc-accepted" role="status">
-                <Check size={14} aria-hidden />
-                Friendship with {justAccepted} countersigned — the edge is now written into both
-                chains.
-              </p>
-            )}
-
-            {mail.length === 0 ? (
+            {social.requests.length === 0 ? (
               <div className="asoc-empty">
                 <Mail size={22} aria-hidden />
-                <span>Mailbox clear. New requests queue with relaying peers until you next sync.</span>
+                <span>
+                  {connecting
+                    ? 'Connecting to the network — friend requests held for you arrive on the first sync.'
+                    : 'Mailbox clear. New friend requests queue with relaying peers until you next sync.'}
+                </span>
               </div>
             ) : (
               <ul className="asoc-mailbox">
-                {mail.map((m) => (
-                  <MailRow
+                {social.requests.map((m) => (
+                  <RequestRow
                     key={m.id}
                     item={m}
                     accepting={acceptingId === m.id}
                     acceptBusy={acceptingId !== null}
-                    onAccept={acceptMail}
-                    onDismiss={dismissMail}
+                    onAccept={onAccept}
+                    onDecline={onDecline}
                   />
                 ))}
               </ul>

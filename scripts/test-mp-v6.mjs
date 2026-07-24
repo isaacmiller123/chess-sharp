@@ -266,10 +266,25 @@ async function run(outdir) {
   // The witness dials in FIRST (host presence-bonds it; its witness hello
   // gives the opponent seat back), then the guest joins.
   // ==========================================================================
-  async function connectSignedTrio(cfg) {
+  async function connectSignedTrio(cfg, { viaConfigure = false } = {}) {
     const pair = makeMockPair()
-    const host = track(new MpNetSession(pair.hostFactory, { signing: signingOf(HOST_I) }))
-    const guest = track(new MpNetSession(pair.guestFactory, { signing: signingOf(GUEST_I) }))
+    // A6 Lane C: `viaConfigure` proves the additive configureSigning() method
+    // seats signed play IDENTICALLY to the constructor `signing` opt (same trio,
+    // same downstream asserts) — the signing config is applied BEFORE host()/join().
+    const host = track(
+      viaConfigure
+        ? new MpNetSession(pair.hostFactory)
+        : new MpNetSession(pair.hostFactory, { signing: signingOf(HOST_I) })
+    )
+    const guest = track(
+      viaConfigure
+        ? new MpNetSession(pair.guestFactory)
+        : new MpNetSession(pair.guestFactory, { signing: signingOf(GUEST_I) })
+    )
+    if (viaConfigure) {
+      host.configureSigning(signingOf(HOST_I))
+      guest.configureSigning(signingOf(GUEST_I))
+    }
     const he = tap(host)
     const ge = tap(guest)
     const hw = []
@@ -1105,12 +1120,16 @@ async function run(outdir) {
       !seg.verifyWitnessEnd(wstream, startMsg.gameKey, '1-0', 2, wend.transcript, { ...FULL_BINDING, reason: 'abandon' }),
       'live wend sig fails over a relabeled reason'
     )
-    // The (uneditable, legacy-verifying) mpSession ignores the ladder-bound
-    // wend — the documented A6 seam: the witness stream is advisory to the
-    // live session, and A6 teaches mpSession to verify with its own
-    // config-derived binding.
-    await assertNoEvent(hw, (m) => m.t === 'wend', 60, 'host surfacing the ladder-bound wend (A6 mpSession seam)')
-    await assertNoEvent(gw, (m) => m.t === 'wend', 60, 'guest surfacing the ladder-bound wend (A6 mpSession seam)')
+    // A6 (Lane C — the mpSession seam, now CLOSED): the live session re-derives
+    // the rated binding from its OWN config (ladderFromConfig) + this game's
+    // players + the wend's reason, so the ladder-bound wend now SURFACES to both
+    // players — exactly the wstream Lane E's segmentWriter embeds into each
+    // chain's rated segment. (Was assertNoEvent pre-A6: the witness stream was
+    // advisory-only because mpSession verified binding-less.)
+    const hSurfacedWend = await waitEvent(hw, (m) => m.t === 'wend', { label: 'host surfaces the ladder-bound wend (A6 seam)' })
+    const gSurfacedWend = await waitEvent(gw, (m) => m.t === 'wend', { label: 'guest surfaces the ladder-bound wend (A6 seam)' })
+    eq(hSurfacedWend.sig, wend.sig, 'host surfaced the EXACT ladder-bound wend the witness broadcast (segment wstream source)')
+    eq(gSurfacedWend.sig, wend.sig, 'guest surfaced the EXACT ladder-bound wend the witness broadcast (segment wstream source)')
 
     // Witnessed result record carries the binding, witness-signed.
     const rec = wcore.buildWitnessedResult()
@@ -1412,6 +1431,257 @@ async function run(outdir) {
       'bad-opp-ckpt',
       'a device-signed oppCkpt without certs fails the SEGMENT (bad-opp-ckpt)'
     )
+  }
+
+  // ==========================================================================
+  // 10. A6 Lane C: additive configureSigning() wiring into mp (players).
+  //   (a) a session built UNSIGNED + configureSigning(sig) before host()/join()
+  //       seats signed play IDENTICALLY to the constructor `signing` opt — full
+  //       trio to a witnessed terminal + verifiable per-chain segments;
+  //   (b) the identity is FROZEN mid-game (guard) so a live signed game's
+  //       key/players/chain can't change under it;
+  //   (c) configureSigning(null) is byte-for-byte v5 — no hello identity, no
+  //       move sig — so casual play stays untouched.
+  // ==========================================================================
+  console.log('\n· A6 Lane C: configureSigning() seats signed play like the constructor opt …')
+  {
+    const { pair, host, guest, he, ge, hw, gw, witness } = await connectSignedTrio(
+      CFG(60_000, 0, 'white'),
+      { viaConfigure: true }
+    )
+    const startMsg = wire.parseWireMsg(witness.received.find((r) => wire.parseWireMsg(r.text)?.t === 'start').text)
+    // The configured host offered identity in its hello ⇒ signed play is on: the
+    // host minted a gameKey + players, and both sessions expose a signed game.
+    ok(typeof startMsg.gameKey === 'string' && startMsg.gameKey.length === 43, 'configureSigning path minted a 43-char gameKey (mutual identity)')
+    eq(startMsg.players.w, HOST_I.root, 'configureSigning: start.players.w is the host root')
+    eq(startMsg.players.b, GUEST_I.root, 'configureSigning: start.players.b is the guest root')
+    ok(host.getSignedGame() && guest.getSignedGame(), 'both configureSigning sessions expose a signed game (getSignedGame ≠ null)')
+
+    // Boot the real witness core on the mirrored start.
+    const wclock = { t: 12_000_000 }
+    const wcore = new wc.WitnessCore({ wpriv: WIT_I.priv, wkey: WIT_I.key, wroot: WIT_I.root, now: () => wclock.t })
+    wcore.init({
+      gameId: startMsg.gameId,
+      gameKey: startMsg.gameKey,
+      players: { w: { root: HOST_I.root, key: HOST_I.key }, b: { root: GUEST_I.root, key: GUEST_I.key } },
+      firstMover: 'w'
+    })
+    pump(witness, wcore, wclock)
+
+    // Two plies, then the mid-game GUARD test.
+    for (const [who, uci, other] of [[host, 'e2e4', ge], [guest, 'e7e5', he]]) {
+      wclock.t += 1_000
+      await who.sendMove(uci)
+      await waitEvent(other, (e) => e.type === 'move' && e.uci === uci, { label: `${uci} relayed (configured)` })
+    }
+    // GUARD: a mid-game configureSigning() is a safe no-op — the live identity is
+    // frozen. If it TOOK EFFECT, the host's next move would sign with WIT2's key,
+    // fail its own chain (wrong key for white) → failSigned emits 'error' + tears
+    // the transport down, so g1f3 would never relay.
+    host.configureSigning(signingOf(WIT2_I))
+    guest.configureSigning(signingOf(WIT2_I))
+    eq(host.getSignedGame().players.w, HOST_I.root, 'mid-game configureSigning did NOT change the seated players (identity frozen)')
+    wclock.t += 1_000
+    const mid = await host.sendMove('g1f3')
+    eq(mid.ok, true, 'the host still moves after a refused mid-game configureSigning')
+    await waitEvent(ge, (e) => e.type === 'move' && e.uci === 'g1f3', { label: 'post-guard move relayed (proves no teardown)' })
+    await assertNoEvent(he, (e) => e.type === 'error', 40, 'host error after a guarded mid-game configureSigning')
+    await sleep(20)
+    pump(witness, wcore, wclock)
+    const hostView = host.getSignedGame()
+    eq(
+      seg.verifyMoveChain(hostView.gameKey, hostView.moves, { w: HOST_I.key, b: GUEST_I.key }),
+      -1,
+      'the chain still verifies under the ORIGINAL (frozen) host key after the guarded call'
+    )
+
+    // Terminal: guest resigns; witness ends the stream; both sessions verify the wend.
+    wclock.t += 1_000
+    await guest.resign()
+    await waitEvent(he, (e) => e.type === 'resign' && e.by === 'black', { label: 'host resign (configured)' })
+    await sleep(20)
+    const endEmits = pump(witness, wcore, wclock)
+    const wend = endEmits.find((m) => m.t === 'wend')
+    ok(wend && wend.result === '1-0' && wend.reason === 'resign', 'configureSigning trio: witness emits the resign wend (1-0)')
+    eq(wend.plies, 3, 'configureSigning trio: wend covers all 3 countersigned plies')
+    const wstream = wcore.wstream()
+    ok(
+      seg.verifyWitnessEnd(wstream, startMsg.gameKey, '1-0', wend.plies, wend.transcript),
+      'configureSigning trio: terminal witness signature verifies (verifyWitnessEnd)'
+    )
+    await waitEvent(hw, (m) => m.t === 'wend', { label: 'host onWitnessStream wend (configured)' })
+    await waitEvent(gw, (m) => m.t === 'wend', { label: 'guest onWitnessStream wend (configured)' })
+    eq(host.getWitnessIdentity()?.key, WIT_I.key, 'configureSigning host knows the seated witness key (segment build input)')
+
+    // getSignedGame() + the verified wstream build a segment BOTH chains accept —
+    // the exact inputs Lane C hands Lane E's buildAndPublishSegment.
+    const mkChain = (i, name) =>
+      chain.createAccountChain({ rootPriv: i.priv, rootPub: hash.ed25519.getPublicKey(i.priv), displayName: name, ts: 1_000 })
+    let hostChain = mkChain(HOST_I, 'Hosty')
+    let guestChain = mkChain(GUEST_I, 'Guesty')
+    const heads = {
+      w: { head: chain.verifyChain(hostChain).witnessedHead, height: chain.verifyChain(hostChain).witnessedHeight },
+      b: { head: chain.verifyChain(guestChain).witnessedHead, height: chain.verifyChain(guestChain).witnessedHeight }
+    }
+    const payloadFor = (color, view) =>
+      seg.makeSegmentPayload({
+        game: view.gameKey,
+        opp: color === 'w' ? GUEST_I.root : HOST_I.root,
+        color,
+        result: '1-0',
+        reason: 'resign',
+        moves: view.moves,
+        heads,
+        wstream,
+        oppProfile: { name: color === 'w' ? 'Guesty' : 'Hosty' }
+      })
+    hostChain = chain.appendWitnessed(hostChain, HOST_I.priv, HOST_I.root, 'segment', payloadFor('w', host.getSignedGame()), 2_000)
+    guestChain = chain.appendWitnessed(guestChain, GUEST_I.priv, GUEST_I.root, 'segment', payloadFor('b', guest.getSignedGame()), 2_000)
+    eq(seg.verifySegmentEvent(hostChain.events[hostChain.events.length - 1]), null, 'configureSigning: host segment verifies (verifySegmentEvent null)')
+    eq(seg.verifySegmentEvent(guestChain.events[guestChain.events.length - 1]), null, 'configureSigning: guest segment verifies')
+    ok(chain.verifyChain(hostChain).ok && chain.verifyChain(guestChain).ok, 'configureSigning: both chains verify with the appended segments')
+
+    witness.leave()
+    host.leave()
+    guest.leave()
+  }
+
+  console.log('\n· A6 Lane C: configureSigning(null) is byte-for-byte v5 (casual untouched) …')
+  {
+    const pair = makeMockPair()
+    // Built WITH a constructor identity, then explicitly CLEARED before hosting —
+    // the casual path the store takes for an unrated game must be exactly v5.
+    const host = track(new MpNetSession(pair.hostFactory, { signing: signingOf(HOST_I) }))
+    host.configureSigning(null)
+    const guest = track(new MpNetSession(pair.guestFactory))
+    const he = tap(host)
+    const ge = tap(guest)
+    const { code } = await host.host(CFG(60_000, 0), 'H')
+    await guest.join(code, 'G')
+    await waitEvent(he, (e) => e.type === 'start', { label: 'casual start (host)' })
+    await waitEvent(ge, (e) => e.type === 'start', { label: 'casual start (guest)' })
+    const helloRaw = pair.room.wires.find((w) => wire.parseWireMsg(w.text)?.t === 'hello')
+    const helloObj = JSON.parse(helloRaw.text)
+    eq(helloObj.v, 6, 'configureSigning(null): hello still rides v=6')
+    ok(!('root' in helloObj) && !('key' in helloObj), 'configureSigning(null): hello carries NO identity keys (byte-identical v5)')
+    eq(host.getSignedGame(), null, 'configureSigning(null): no signed game (unsigned)')
+    await host.sendMove('e2e4')
+    await waitEvent(ge, (e) => e.type === 'move' && e.uci === 'e2e4', { label: 'casual move relayed' })
+    const mvRaw = [...pair.room.wires].reverse().find((w) => wire.parseWireMsg(w.text)?.t === 'move')
+    const mvObj = JSON.parse(mvRaw.text)
+    ok(!('sig' in mvObj), "configureSigning(null): move JSON has no 'sig' key")
+    eq(Object.keys(mvObj).sort().join(','), 'clockMs,gameId,ply,t,uci', 'configureSigning(null): move keys are exactly the v5 set')
+    host.leave()
+    guest.leave()
+  }
+
+  // ==========================================================================
+  // 11. A6 M2 root-fix: a witness that seats AFTER `start` (the guest handshaked
+  //   first) is CAUGHT UP — mpSession replays the mirrored start + every signed
+  //   move to just that late witness, so its WitnessCore initializes, verifies
+  //   the full chain, resumes the wclk cadence, and still produces a valid wend.
+  //   Before the fix a late witness never saw `start` (host mirrors it once), so
+  //   the boot forced a 9s guest-join delay to seat the witness first; this
+  //   proves the delay can drop to ~0.
+  // ==========================================================================
+  console.log('\n· A6 M2: a witness seated AFTER start is caught up (start + moves replayed) …')
+  {
+    const pair = makeMockPair()
+    const host = track(new MpNetSession(pair.hostFactory, { signing: signingOf(HOST_I) }))
+    const guest = track(new MpNetSession(pair.guestFactory, { signing: signingOf(GUEST_I) }))
+    const he = tap(host)
+    const ge = tap(guest)
+    const hw = []
+    const gw = []
+    host.onWitnessStream((m) => hw.push(m))
+    guest.onWitnessStream((m) => gw.push(m))
+    const { code } = await host.host(CFG(60_000, 0, 'white'), 'H')
+    // Guest joins FIRST — NO witness in the room yet, so `start` mirrors to nobody.
+    await guest.join(code, 'G')
+    await waitEvent(he, (e) => e.type === 'start', { label: 'host start (late-witness)' })
+    await waitEvent(ge, (e) => e.type === 'start', { label: 'guest start (late-witness)' })
+    // Two SIGNED plies complete before any witness exists.
+    for (const [who, uci, other] of [[host, 'e2e4', ge], [guest, 'e7e5', he]]) {
+      await who.sendMove(uci)
+      await waitEvent(other, (e) => e.type === 'move' && e.uci === uci, { label: `${uci} relayed (pre-witness)` })
+    }
+    // NOW the witness attaches — AFTER start + 2 moves. It greets every peer it
+    // sees (targeted) so the host learns it is a witness and replays the game.
+    const witness = pair.injectPeer({ onJoin: (id, transport) => transport.send(WHELLO, id) })
+    await sleep(20)
+    witness.transport.send(WHELLO) // broadcast too (duplicate for the host — ignored)
+    await sleep(40)
+
+    // The host RESENT the mirrored start + replayed BOTH signed moves to the late
+    // witness (root fix: mpSession.resendGameToWitness on a late onWitnessHello).
+    const startRec = witness.received.find((r) => wire.parseWireMsg(r.text)?.t === 'start')
+    ok(startRec, 'the late witness received the RESENT start (was silently skipped before the fix)')
+    const startMsg = wire.parseWireMsg(startRec.text)
+    ok(typeof startMsg.gameKey === 'string' && startMsg.gameKey.length === 43, 'resent start carries the 43-char gameKey')
+    eq(startMsg.players.w, HOST_I.root, 'resent start names the white (host) root')
+    eq(startMsg.players.b, GUEST_I.root, 'resent start names the black (guest) root')
+    const replay = witness.received.map((r) => wire.parseWireMsg(r.text)).filter((m) => m && m.t === 'move')
+    eq(replay.length, 2, 'both pre-witness moves were replayed to the late witness')
+    eq(`${replay[0].ply},${replay[1].ply}`, '0,1', 'replayed moves are in ply order (0,1)')
+    ok(replay.every((m) => typeof m.sig === 'string' && m.sig.length === 86), 'each replayed move carries its 86-char sig (chain verifiable)')
+    eq(replay[0].uci + ',' + replay[1].uci, 'e2e4,e7e5', 'the replayed moves are the exact pre-witness plies')
+
+    // Boot the real witness core on the resent start and pump (start + replays).
+    const wclock = { t: 21_000_000 }
+    const wcore = new wc.WitnessCore({ wpriv: WIT_I.priv, wkey: WIT_I.key, wroot: WIT_I.root, now: () => wclock.t })
+    wcore.init({
+      gameId: startMsg.gameId,
+      gameKey: startMsg.gameKey,
+      players: { w: { root: HOST_I.root, key: HOST_I.key }, b: { root: GUEST_I.root, key: GUEST_I.key } },
+      firstMover: 'w'
+    })
+    const caught = pump(witness, wcore, wclock)
+    ok(!caught.some((m) => m.t === '__error'), 'the witness follows the replayed transcript with NO chain error')
+    eq(wcore.moves.length, 2, 'the witness verified both replayed plies')
+    eq(
+      seg.verifyMoveChain(startMsg.gameKey, wcore.moves, { w: HOST_I.key, b: GUEST_I.key }),
+      -1,
+      'the caught-up witness chain verifies (verifyMoveChain)'
+    )
+
+    // Two MORE live plies now mirror to the seated witness through the normal path.
+    for (const [who, uci, other] of [[host, 'g1f3', ge], [guest, 'b8c6', he]]) {
+      wclock.t += 1_000
+      await who.sendMove(uci)
+      await waitEvent(other, (e) => e.type === 'move' && e.uci === uci, { label: `${uci} relayed (post-seat)` })
+    }
+    await sleep(30)
+    const more = pump(witness, wcore, wclock)
+    eq(wcore.moves.length, 4, 'the witness followed 2 further LIVE plies (total 4)')
+    const wclks = more.filter((m) => m.t === 'wclk')
+    ok(wclks.some((m) => m.ply === 3), 'the wclk cadence resumes on the caught-up witness (ply 3 after 4 plies)')
+    await waitEvent(hw, (m) => m.t === 'wclk' && m.ply === 3, { label: 'host surfaces caught-up wclk' })
+    await waitEvent(gw, (m) => m.t === 'wclk' && m.ply === 3, { label: 'guest surfaces caught-up wclk' })
+
+    // Terminal: the guest resigns; the late-seated witness signs a valid wend
+    // over the FULL 4-ply transcript, and both players surface it (segment source).
+    wclock.t += 1_000
+    await guest.resign()
+    await waitEvent(he, (e) => e.type === 'resign' && e.by === 'black', { label: 'host resign (late-witness)' })
+    await sleep(20)
+    const endEmits = pump(witness, wcore, wclock)
+    const wend = endEmits.find((m) => m.t === 'wend')
+    ok(wend && wend.result === '1-0' && wend.reason === 'resign', 'the late-seated witness emits a valid resign wend (1-0)')
+    eq(wend.plies, 4, 'the wend covers ALL 4 plies the witness caught up on (replay + live)')
+    const wstream = wcore.wstream()
+    ok(
+      seg.verifyWitnessEnd(wstream, startMsg.gameKey, '1-0', 4, wend.transcript),
+      'the late-seated witness wend signature verifies (verifyWitnessEnd)'
+    )
+    ok(seg.verifyWitnessedResult(wcore.buildWitnessedResult()), 'the late-seated witness produces a valid witnessed result')
+    const hWend = await waitEvent(hw, (m) => m.t === 'wend', { label: 'host surfaces late-witness wend' })
+    const gWend = await waitEvent(gw, (m) => m.t === 'wend', { label: 'guest surfaces late-witness wend' })
+    eq(hWend.sig, wend.sig, 'host surfaced the EXACT wend the late witness broadcast (segment wstream source)')
+    eq(gWend.sig, wend.sig, 'guest surfaced the EXACT wend the late witness broadcast')
+
+    witness.leave()
+    host.leave()
+    guest.leave()
   }
 
   // NB: finding D (a stray mid-game hello nulling peerRoot/peerKey → a later

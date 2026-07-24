@@ -12,12 +12,14 @@ import {
   Lock,
   Scale,
   ShieldAlert,
-  ShieldCheck
+  ShieldCheck,
+  Users
 } from 'lucide-react'
+import { PARAMS_A2 } from '@shared/accounts/witness'
 import type { UiDevice } from '../mock/types'
-import { DEV_FIXTURE, DEVICES, shortB64u } from '../mock/fixtures'
-import { FixturePreviewBadge } from '../mock/FixturePreviewBadge'
+import { shortB64u } from '../mock/fixtures'
 import { useAccountsUi } from '../mock/store'
+import { useAccountNetStatus } from '../net/accountNetStatus'
 import { PinSetupWizard } from '../pin/PinSetupWizard'
 import { PinEntryDialog } from '../pin/PinEntryDialog'
 import { FuseBanCard } from '../pin/FuseBanCard'
@@ -28,9 +30,12 @@ import './hub.css'
  * Security tab (ACCOUNTS-SPEC §1, §9, C-5): device key certificates and
  * revocation, the PIN committee with its lifetime fuse, the ban taxonomy as a
  * reference (everything cites a public signed record — no blocklist), and the
- * recovery export. Devices render from the REAL chain when signed in; the
- * PIN committee is DEV_FIXTURE sample state (committee-held, needs the
- * witness network) and labels itself as such.
+ * recovery export. A6 M4: devices render from the REAL chain; whether a PIN is
+ * anchored is a REAL chain fact (a 'pin' committee-anchor event), and committee
+ * reachability is read LIVE off the presence directory (net/accountNetStatus,
+ * §4) — so the panel degrades HONESTLY ("waiting for a committee") instead of
+ * asserting a fabricated committee state. The lifetime failure counter is
+ * committee-held (C-2): it is described from the real params, never faked.
  */
 
 function enrolledDate(ts: number): string {
@@ -106,19 +111,31 @@ function DeviceRow({ device }: { device: UiDevice }): JSX.Element {
 
 export function SecurityTab(): JSX.Element {
   const ui = useAccountsUi()
-  const pin = ui.pin
+  const net = useAccountNetStatus()
 
   const [wizardOpen, setWizardOpen] = useState(false)
   const [entryOpen, setEntryOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [fuseOpen, setFuseOpen] = useState(false)
 
-  // REAL device rows derived from the chain's cert/revoke events when signed
-  // in (mock/store deriveDevices); the fixture set only backs the preview.
-  const devices = ui.devices ?? DEVICES
+  // REAL device rows derived from the chain's cert/revoke events (this tab only
+  // mounts signed-in; deriveDevices yields at least this device).
+  const devices = ui.devices ?? []
   const revokedCount = devices.filter((d) => d.revoked).length
   const activeCount = devices.length - revokedCount
-  const failPct = Math.min(100, Math.round((pin.failures / pin.lifetimeCap) * 100))
+
+  // PIN status — all REAL: the §1 committee params, whether a PIN committee is
+  // anchored in this account's own chain (a 'pin' event), and how many
+  // committee-capable machines are reachable right now (live, §4). The lifetime
+  // failure count is committee-held (C-2) — described, never fabricated.
+  const committeeT = PARAMS_A2.pinT
+  const committeeN = PARAMS_A2.pinN
+  const fuseCap = PARAMS_A2.pinLifetimeFails
+  const fuseRefill = PARAMS_A2.pinRefill
+  const fuseBanDays = PARAMS_A2.pinBanDays
+  const pinAnchored = (ui.chainEvents ?? []).some((e) => e.type === 'pin')
+  const committeeReachable = net.committeeReachable
+  const committeeReady = committeeReachable >= committeeT
 
   return (
     <div className="ahub-security">
@@ -131,10 +148,6 @@ export function SecurityTab(): JSX.Element {
           <span className="panel-title" id="ahub-devices-title">
             Devices
           </span>
-          {/* Signed out, the list falls back to the fixture set — say so. */}
-          {ui.devices === null && DEV_FIXTURE && (
-            <FixturePreviewBadge label="Sample devices — sign in to derive your real chain" />
-          )}
           <span className="muted small num">
             {activeCount} enrolled · {revokedCount} revoked
           </span>
@@ -161,7 +174,7 @@ export function SecurityTab(): JSX.Element {
         </p>
       </section>
 
-      {/* ---- PIN (§1): the witnessed-zone gate and its lifetime fuse ---- */}
+      {/* ---- PIN (§1): the witnessed-zone gate, over the LIVE committee ---- */}
       <section className="panel" aria-labelledby="ahub-pin-title">
         <div className="panel-head">
           <span className="ahub-head-icon" aria-hidden>
@@ -170,12 +183,11 @@ export function SecurityTab(): JSX.Element {
           <span className="panel-title" id="ahub-pin-title">
             PIN — the witnessed-zone gate
           </span>
-          {/* Committee-held state needs the witness network (C-2): the whole
-              PIN surface is DEV_FIXTURE sample data until transport ships. */}
-          {DEV_FIXTURE && <FixturePreviewBadge />}
-          {pin.set ? (
+          {/* Whether a PIN is anchored is a REAL chain fact (a 'pin' committee
+              anchor event), not a fixture — no PIN written ⇒ honestly "Not set". */}
+          {pinAnchored ? (
             <span className="ahub-pill is-success">
-              <Check size={11} aria-hidden /> Set · {pin.committee.t}-of-{pin.committee.n} committee
+              <Check size={11} aria-hidden /> Set · {committeeT}-of-{committeeN} committee
             </span>
           ) : (
             <span className="ahub-pill is-warn">Not set</span>
@@ -185,37 +197,52 @@ export function SecurityTab(): JSX.Element {
           <p className="ahub-lede muted small">
             Your password alone gives full local, offline, and unrated play. The PIN gates the
             witnessed zone — rated play, lease takeover, witnessing a new device. It is verified by
-            a {pin.committee.t}-of-{pin.committee.n} committee that holds shares and a failure
-            counter, and can neither learn the PIN nor derive your keys.
+            a {committeeT}-of-{committeeN} committee that holds shares and a failure counter, and
+            can neither learn the PIN nor derive your keys.
           </p>
 
-          {pin.set ? (
-            <>
-              <div className="ahub-fusemeter">
-                <div className="ahub-fusemeter-top">
-                  <span className="ahub-fusemeter-label">
-                    <Flame size={13} aria-hidden /> Lifetime failures
-                  </span>
-                  <span className="small num">
-                    <b>{pin.failures}</b> / {pin.lifetimeCap}
-                  </span>
-                </div>
-                <span
-                  className="ahub-meter"
-                  role="img"
-                  aria-label={`${pin.failures} of ${pin.lifetimeCap} lifetime PIN failures recorded`}
-                >
-                  <span className="ahub-meter-fill is-warn" style={{ width: `${failPct}%` }} />
-                </span>
-                <p className="muted small">
-                  The counter never resets — not on success, not on re-provisioning. At{' '}
-                  {pin.lifetimeCap} the fuse trips: a 90-day witnessed-zone ban published as a
-                  threshold-signed record. Each served ban refills headroom by {pin.refill}.
-                  &ldquo;Lifetime&rdquo; means lifetime.
-                </p>
-              </div>
+          {/* LIVE committee reachability (§1/§4), straight off the presence
+              directory — the committee runs on the witness network, so with too
+              few reachable members it WAITS honestly, never a dead control and
+              never a fabricated "set" state. */}
+          <div className={`ahub-standing ${committeeReady ? 'is-good' : 'is-bad'}`}>
+            {committeeReady ? (
+              <Users size={16} aria-hidden />
+            ) : (
+              <ShieldAlert size={16} aria-hidden />
+            )}
+            <span>
+              {committeeReady ? (
+                <>
+                  <b>Committee reachable</b> — {committeeReachable} committee-capable machine
+                  {committeeReachable === 1 ? '' : 's'} online (≥ {committeeT} for a threshold
+                  committee).{' '}
+                  {pinAnchored ? 'Verification runs over them.' : 'Enough to provision a PIN.'}
+                </>
+              ) : committeeReachable > 0 ? (
+                <>
+                  <b>Committee forming</b> — {committeeReachable} of {committeeT} committee-capable
+                  machines reachable. Provisioning and verification wait for a full {committeeT}-of-
+                  {committeeN} committee; local and unrated play are unaffected.
+                </>
+              ) : net.peerLive ? (
+                <>
+                  <b>Waiting for a committee</b> — no committee-capable machine is reachable yet.
+                  The {committeeT}-of-{committeeN} committee runs on the witness network and forms
+                  as members come online.
+                </>
+              ) : (
+                <>
+                  <b>Overlay offline</b> — the committee runs over the fabric, which comes up on
+                  sign-in. Until then the PIN is inert; local and unrated play are unaffected.
+                </>
+              )}
+            </span>
+          </div>
 
-              <div className="ahub-pin-actions">
+          <div className="ahub-pin-actions">
+            {pinAnchored ? (
+              <>
                 <button
                   type="button"
                   className="btn ghost ahub-ibtn"
@@ -226,19 +253,43 @@ export function SecurityTab(): JSX.Element {
                 <button type="button" className="btn ahub-ibtn" onClick={() => setEntryOpen(true)}>
                   <ShieldCheck size={14} aria-hidden /> Try a witnessed session
                 </button>
-              </div>
-              <p className="muted small">
-                Changing the PIN re-provisions the committee as a PIN-gated handoff — shares move,
-                the failure counter carries forward. A fresh committee never starts at zero.
-              </p>
-            </>
-          ) : (
-            <div className="ahub-pin-actions">
+              </>
+            ) : (
               <button type="button" className="btn ahub-ibtn" onClick={() => setWizardOpen(true)}>
                 <KeyRound size={14} aria-hidden /> Set up a PIN
               </button>
-            </div>
+            )}
+          </div>
+          {pinAnchored && (
+            <p className="muted small">
+              Changing the PIN re-provisions the committee as a PIN-gated handoff — shares move, the
+              failure counter carries forward. A fresh committee never starts at zero.
+            </p>
           )}
+
+          {/* The lifetime fuse (§1) — reference semantics from the REAL params.
+              The live failure count is COMMITTEE-HELD (threshold-replicated,
+              C-2); it surfaces here from the committee once a PIN is provisioned
+              — never a fabricated count. */}
+          <div className="ahub-fusemeter">
+            <div className="ahub-fusemeter-top">
+              <span className="ahub-fusemeter-label">
+                <Flame size={13} aria-hidden /> Lifetime fuse
+              </span>
+              <span className="small num">
+                cap {fuseCap} · +{fuseRefill}/ban
+              </span>
+            </div>
+            <p className="muted small">
+              The committee counts lifetime PIN failures — it never resets, not on success, not on
+              re-provisioning. At {fuseCap} the fuse trips: a {fuseBanDays}-day witnessed-zone ban
+              published as a threshold-signed record. Each served ban refills headroom by{' '}
+              {fuseRefill}.{' '}
+              {pinAnchored
+                ? 'Your current count is held by the committee and surfaces here once it reports over the live network.'
+                : 'Once you provision a PIN, your live count appears here from the committee.'}
+            </p>
+          </div>
 
           <div className="ahub-fuse-showcase">
             <button
@@ -252,7 +303,7 @@ export function SecurityTab(): JSX.Element {
               ) : (
                 <ChevronRight size={14} aria-hidden />
               )}
-              What a tripped fuse looks like
+              What a tripped fuse looks like (example)
             </button>
             {fuseOpen && (
               <div className="ahub-fuse-demo">
@@ -328,7 +379,7 @@ export function SecurityTab(): JSX.Element {
                   PIN-fuse ban <span className="ahub-pill is-warn">90 days</span>
                 </span>
                 <span className="muted small">
-                  {pin.lifetimeCap} lifetime PIN failures trip the committee&rsquo;s fuse: a
+                  {fuseCap} lifetime PIN failures trip the committee&rsquo;s fuse: a
                   threshold-signed fuse-tripped record published under your key — a public signed
                   fact that every lease grant and every witness must check.
                 </span>

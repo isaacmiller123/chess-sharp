@@ -1,7 +1,6 @@
 import type { JSX } from 'react'
 import { Scale, ShieldCheck, Users } from 'lucide-react'
 import { width } from '@shared/accounts/mm/pairing'
-import { DEV_FIXTURE } from '../mock/fixtures'
 import { FixturePreviewBadge } from '../mock/FixturePreviewBadge'
 
 /**
@@ -50,7 +49,16 @@ const BAND_DESC: Record<WidthBand, string> = {
  * no number (neither T nor the ±window) is ever rendered — the §7 widening
  * stays invisible on every compliant surface.
  */
-export function TrustWidthMeter({ tMicro }: { tMicro: number }): JSX.Element {
+export function TrustWidthMeter({
+  tMicro,
+  sample
+}: {
+  tMicro: number
+  /** Render the "sample data" badge — set by the fixture showcase only. The
+   *  LIVE lobby feeds this meter the account's REAL §7 trust (trustT over the
+   *  fold), so it renders no badge (A6 M2 un-fixture). */
+  sample?: boolean
+}): JSX.Element {
   const w = width(tMicro)
   const frac = w / WIDTH_FLOOR
   const band = widthBand(tMicro)
@@ -62,9 +70,7 @@ export function TrustWidthMeter({ tMicro }: { tMicro: number }): JSX.Element {
         <span className="arate-meter-title">
           <ShieldCheck size={14} aria-hidden /> Trust-earned precision
         </span>
-        {/* The tMicro feeding this meter is a fixture constant until trust
-            syncs with network transport — the band shown is sample data. */}
-        {DEV_FIXTURE && <FixturePreviewBadge label="Sample band — awaiting network transport" />}
+        {sample && <FixturePreviewBadge label="Sample band — awaiting network transport" />}
         <span className={`arate-meter-bandlabel is-${band}`}>{BAND_LABEL[band]}</span>
       </div>
 

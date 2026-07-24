@@ -82,6 +82,11 @@ jobs:
                    test-accounts-seams test-accounts-reputation \
                    test-accounts-trust-mm test-accounts-ratings \
                    test-accounts-tier1 test-accounts-tier2 \
+                   test-accounts-browser-fabric test-accounts-peer test-accounts-witness-runner test-accounts-live-slice \
+                   test-accounts-matchmaking test-accounts-lease-runner \
+                   test-accounts-shard-duty test-accounts-viewer-client test-accounts-pin-client \
+                   test-accounts-social-client \
+                   test-accounts-judge-runner test-accounts-verdict-client \
                    test-accounts-social test-accounts-mailbox \
                    test-accounts-social-transport test-accounts-a7-roundb test-accounts-verdict-transport \
                    test-accounts-embed test-a4-ui test-web-accounts-wiring \

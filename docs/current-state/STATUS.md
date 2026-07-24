@@ -663,3 +663,119 @@ only at read time (`ratingEvidenceOf`), keeping embedded state deterministic (no
   the accounts/judge/web suites; typecheck (node/web/server) + desktop/web/server builds all exit 0.
 - **A-final live:** ACCOUNTS_DECENTRALIZED default ON, interim /api/auth 410-gated, env-reversible
   (test-afinal-flag 67 asserts).
+
+## Decentralized accounts — Phase A6 STARTED: go-live wiring (2026-07-23)
+Owner directive: make the spec's A1–A6 REAL and LIVE (anyone can make an account + play as intended)
+on mac/windows/browser. Binding contract: docs/building/A6-KICKOFF.md. Go-live audit (real vs mock
+vs unwired) in docs/reviewing/GO-LIVE-AUDIT-2026-07-23.md — confirmed the A1–A5 substrate is real+
+tested but NOTHING was wired live (only unsigned mp + interim server accounts ran; TrysteroFabric/
+operator peer never mounted; account UI = DEV_FIXTURE). A6 wires the tested substrate into the
+running app.
+- **M1 vertical slice BUILT + verified headless (2026-07-23):** 5 file-disjoint lanes in the new
+  src/renderer/src/features/account/net/ dir + one lead schema add (`pregame-snapshot`
+  FabricRequestKind). Lane A browserFabric+iceConfig (real trystero WebRTC transport, C-11 ICE
+  resolver); Lane B peerService+kvStore (per-client overlay node + witness/committee serve +
+  IndexedDB KV, §11 caps); Lane C signing wiring (mpSession.configureSigning + onlineStore
+  signing-provider/segment-publisher seams — casual play byte-identical); Lane D witnessRunner
+  (drives WitnessCore to produce wclk/wend — the missing runtime piece); Lane E segmentWriter +
+  preGame snapshot + THE M1 SLICE PROOF. Suites green from lead shell: test-accounts-live-slice 50
+  (two chains carry matching rated segments, both verifyChain green, both ladders move off 1200),
+  witness-runner 59, browser-fabric 19, peer 49, mp-v6 208 (+21 signing), mp 277 (casual
+  byte-untouched), fabric 63, typecheck clean. Registered in package.json + build.yml.
+  Lead integration (renderer boot + game-over publisher + witness path + real-relay smoke) IN
+  PROGRESS. Remaining: M2 matchmaking/lease/ladders · M3 storage/reconstruction live · M4 social/
+  PIN/presence/mailbox + un-fixture UI · M5 anticheat live · M6/A-final walkthrough + flip.
+
+## A6-M1 LIVE-WIRED + verified (2026-07-23)
+A signed, witnessed, RATED online game now appends matching countersigned segments to BOTH players'
+self-carried chains over REAL WebRTC (trystero 0.25.2 + werift), proven end-to-end by
+scripts/smoke-live-slice.mjs (18 asserts, 3 peers each in its own worker over a real trystero
+transport + localhost Nostr relay — public relays rate-limit bare-node; browsers don't). Both
+chains verifyChain green, same game key/transcript/witness-terminal-sig (§3 entanglement), a4 fold
+moved both Blitz ladders off 1200. Wiring: account/net/{accountNetBoot (peer starts on sign-in via
+createBrowserFabric+kv+heartbeat), segmentPublisher (SignedGameOutcome→buildAndPublishSegment +
+pre-game snapshot exchange), witnessController (idle instance witnesses a room)}; mpSession
+verifyWitnessEndMsg additively surfaces the RATED wend (casual byte-identical, test-mp 277). Builds:
+electron-vite + web + server green; typecheck clean. HONEST M1 boundary (→ M2/M3/M6): witness
+assignment is MANUAL (window.__chessWitness or the operator peer); no pool auto-matchmaking; landed
+segment doesn't live-refresh UI ladders yet; public-relay+coturn reliability is ops; certs/checkpoints
+in pre-game snapshot are M2/M3. NEXT M2: overlay matchmaking (auto-pair opponents+witnesses), live
+write-lease, ladders update in-app.
+
+## A6 M2-live, M3-live, M4-live, M5-built + M2 bugs fixed (2026-07-23/24)
+- M2 LIVE-WIRED + smoke green (44 asserts): two STRANGERS auto-pair with NO room code over real
+  WebRTC, distinct 3rd-peer witness, both hold a live write-lease at one monotonic epoch, real
+  'pairing' event anchors in both chains, countersigned rated 'segment' lands in both chains,
+  both ladders move; honest C-10 2-user wait.
+- M2 root-fix (3 integration bugs): matchmaking pool re-entrancy (notify on REMOTE only),
+  witnessController head-seed without gameKey, mpSession resends start/resync to a late-seated
+  witness (KILLED the 9s WITNESS_SEAT_DELAY_MS). Casual byte-identical (test-mp 277); mp-v6 227.
+- M3 LIVE: shard duty/publish-on-write + throttled finalSync (per-game so owner-gone reconstruction
+  holds after ONE game) + background repair + write-time pointers + §11 KV budget; reconstruction
+  viewer un-fixtured. Suites: shard-duty 68, viewer-client 65.
+- M4 LIVE: social (presence/mailbox/friend edges, §10 anti-spam sybil-proof — 52), PIN committee
+  (setup+fuse — 52), and the account UI un-fixtured (PIN/social/overview/security/gamechrome/profile).
+- M5 BUILT: judgeRunner Tier-1 (56, real pinned WASM), verdictClient Tier-2/self-ban/verdict-rows
+  (81), fairplay UI un-fixtured to the REAL pinned hash. NOT yet live-wired into the game-over path
+  (the M5 judge hook + pinClient.publishFuse to shard space = the last integration).
+- BOOT (accountNetBoot): M3 storage gate + KV budget + publish-on-write + repair loop; M4 PIN +
+  social start on sign-in; rootSigningKey() added (named export, not on window). Signed-out/casual =
+  byte-identical no-op. Full combined tree green (typecheck + electron/web/server builds).
+- REMAINING: M5 judge live-wire into game-over + publishFuse to shard space; then M6/A-final —
+  the acceptance run (make account → match stranger → witnessed rated game → reconstruct → anticheat)
+  + no-dead-button audit + flip ACCOUNTS_DECENTRALIZED default + kill interim cookies.
+
+## A6 M6 / A-FINAL COMPLETE — the §1 acceptance gate is GREEN on the live wire (2026-07-24)
+- **THE ACCEPTANCE SMOKE (scripts/smoke-acceptance.mjs · `npm run smoke:acceptance`) — ALL GREEN, 74
+  asserts, stable across repeated runs.** FOUR FRESH argon2id accounts, each in its own worker over the
+  REAL trystero 0.25.2 + werift WebRTC transport (localhost Nostr relay signaling — the A6-KICKOFF §4
+  sanctioned harness that KEEPS the real transport; a bare-node mesh trips public-pool rate-limiting, the
+  werift ICE is 100% real over 127.0.0.1 host candidates), running the whole §1 sentence asserted step by
+  step: (1) each root is INDEPENDENTLY re-derived from (name,password) via deriveIdentity — a real §1
+  account, reproducible (C-5), not a test keypair; (2) two STRANGERS auto-pair with NO room code (shared
+  gameKey = signed-pool rendezvous), host=white; (3) a DISTINCT third peer self-assigns as WITNESS, the
+  witnessed 'pairing' anchors + verifies in BOTH chains at lease epoch 1; (4) a scripted rated Blitz game →
+  countersigned 'segment' lands in BOTH chains (verifyChain green, verifySegmentEvent null, same
+  game/transcript/witness-terminal-sig), the a4 fold moves BOTH ladders off 1200 (winner up, loser down);
+  (5) the M5 Tier-1 judge runs over the finished SIGNED transcript on BOTH instances → a Tier1Record naming
+  the played game + the chess:Blitz ladder, both sides scored, IDENTICAL tier1Digest (the §8 cross-instance
+  parity); (6) both players finalSync their chain into shard space (40 rows + self chain-pointer), the OWNER
+  (white) SIGNS OFF, and a FOURTH fresh peer RECONSTRUCTS white from shard space with the owner OFFLINE —
+  status 'expected', chain BIT-FAITHFUL to white's bytes, real folded profile (genesis display name + the 1
+  Blitz game). PHASE 2 — honest 2-user degradation: 2 peers, no witness → 'waiting-witness' (opponentFound,
+  NO game opened, no lease grabbed — never a fake pairing, C-10); CASUAL unsigned play still starts + moves
+  (byte-identical v5). New helper: scripts/smoke/acceptancePeerWorker.ts (the M2 mmPeerWorker superset —
+  argon2id identity + M3 storage-duty gate/repair + onPublished→Tier-1 judge + finalSync + a viewer role).
+- **A-FINAL FLIPPED (default ON) + the acceptance gate justifies it.** scripts/build-server.mjs injects
+  __ACCOUNTS_DECENTRALIZED_DEFAULT__='on', so EVERY shipped bundle (dist-server, Docker) resolves
+  ACCOUNTS_DECENTRALIZED ON and the interim /api/auth answers 410 Gone. The emergency lever
+  (ACCOUNTS_DECENTRALIZED=0) + interim session-cookie coexistence on the content/persistence planes stay
+  intact (server/afinal.ts), so no deploy ships account-less by surprise and an honest user's per-user data
+  is never stranded behind an unreachable path. test-afinal-flag GREEN (67 asserts): shipped default ON,
+  interim 410-gated whole-namespace, env-reversible both ways, /healthz + /api/ipc + /api/review + statics
+  untouched.
+- **NO-DEAD-BUTTON AUDIT — near-zero, as expected.** Every remaining DEV_FIXTURE / FixturePreviewBadge
+  surface is a SIGNED-OUT / dev-showcase preview that a LIVE component replaces when signed in: DataTab
+  mounts LiveStoragePanel (real readStorageStats) when a peer exists and the mock StoragePanel only
+  signed-out; the live RatedLobby renders RatedLobbyLive (real fold/trust/live matchmaking) while the
+  "Sample matchmaking — awaiting network transport" badge lives only in the dev RatedLobbyShowcase body
+  (mounted with an `initial` prop, never in-app); ChainViewer / ProfilePage / TrustWidthMeter badges are all
+  clearly-labeled "sign in…" / no-root previews. The ONE genuine disabled control is SecurityTab's device
+  "Revoke" (disabled with the reason stated, never a mock signature) — FLAGGED not fixed: enabling it is a
+  PIN/committee-gated witnessed-lane 'revoke' append (a real feature, not a trivial fix). No trivial
+  fairplay/hub dead buttons remained.
+- **HONEST RESIDUALS for a real cross-machine / phone deploy** (NOT yet perfect): (a) PUBLIC-RELAY
+  reliability + a coturn TURN server for NAT-hard peers are ops work — the smoke signals over a localhost
+  relay because a bare-node mesh trips public-pool rate-limiting; real browsers spread across the public
+  trystero pool avoid that, but public-relay flakiness is unproven here. (b) A freshly-online owner that
+  shards then closes within seconds relies on a routing-table refresh (peer.bootstrap) before finalSync so
+  a sparsely-bootstrapped peer replicates shards OFF-owner — the app's 60s presence cadence heals this over
+  time, but the fast path is smoke-explicit. (c) background-tab keepalive (presence heartbeat + shard duty
+  while backgrounded) is untested. (d) the in-worker Tier-1 uses the sanctioned spec-faithful UCI double
+  (test-accounts-judge-runner's engine); the real pinned-WASM judge runs in the live game-over path
+  (accountNetBoot) and its determinism is proven by test-accounts-judge-runner §7 + test-judge-node, but is
+  not exercised by THIS smoke.
+- GATES (all green): smoke-acceptance 74 (x2 stable); test-afinal-flag 67; typecheck node/web/server x3
+  clean; electron + web + server builds green; test-mp 277 (casual byte-identical) + test-mp-store +
+  test-mp-v6; broad desktop wall 33/33 suites (every accounts suite incl. reconstruct, tier1/2, judge-runner,
+  viewer-client, live-slice, matchmaking, shard-duty). A6 COMPLETE.

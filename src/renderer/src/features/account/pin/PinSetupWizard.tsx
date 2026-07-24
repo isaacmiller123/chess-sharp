@@ -1,4 +1,4 @@
-import { useEffect, useState, type JSX } from 'react'
+import { useState, useSyncExternalStore, type JSX } from 'react'
 import {
   AlertCircle,
   ArrowLeft,
@@ -9,103 +9,88 @@ import {
   EyeOff,
   Infinity as InfinityIcon,
   KeyRound,
+  Loader2,
   Lock,
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
+  Users,
+  WifiOff,
   X
 } from 'lucide-react'
 import { OverlayDialog } from '../../../components/OverlayDialog'
-import { DEV_FIXTURE, PIN_STATUS, WITNESS_SET, fakeB64u, shortB64u } from '../mock/fixtures'
-import { FixturePreviewBadge } from '../mock/FixturePreviewBadge'
-import { accountsUiStore } from '../mock/store'
+import {
+  getPinClientState,
+  runPinProvision,
+  subscribePinClient,
+  type PinClientState
+} from '../net/pinClient'
 import './pin.css'
 
 /**
  * §1 PIN setup, four steps: what the PIN gates → choose digits → bind the
- * T-of-N committee (animated mock provisioning) → the deal, stated plainly
- * (lifetime-100 fuse, no reset on success, refill R after a served ban).
- * DEV_FIXTURE preview flow (labeled in the UI): renders from fixtures only;
- * finishing flips accountsUiStore.pinConfigured().
+ * T-of-N committee (LIVE: shares are dealt to the distance-drawn committee over
+ * the account-peer overlay, a witnessed root-signed record fixes the seats) →
+ * the deal, stated plainly (lifetime-100 fuse, no reset on success, refill R
+ * after a served ban). With no committee reachable the bind step WAITS honestly
+ * — it never fakes a provisioning animation.
  */
-
-const COMMITTEE = PIN_STATUS.committee
-
-interface CommitteeSeat {
-  key: string
-  label: string
-  distance: number
-  /** id-only seats (no handle known) render in mono. */
-  mono: boolean
-}
-
-/**
- * The committee is drawn by key-distance from the witness fabric (§1/§4). The
- * fixture fabric names six nodes; the remaining seats to reach N are farther
- * nodes known only by node id.
- */
-const SEATS: CommitteeSeat[] = [
-  ...WITNESS_SET.map((w) => ({
-    key: w.nodeId,
-    label: w.handle,
-    distance: w.distance,
-    mono: false
-  })),
-  {
-    key: fakeB64u('pin-committee-seat-6'),
-    label: shortB64u(fakeB64u('pin-committee-seat-6')),
-    distance: 6,
-    mono: true
-  },
-  {
-    key: fakeB64u('pin-committee-seat-7'),
-    label: shortB64u(fakeB64u('pin-committee-seat-7')),
-    distance: 7,
-    mono: true
-  }
-]
-  .sort((a, b) => a.distance - b.distance)
-  .slice(0, COMMITTEE.n)
 
 const STEP_LABELS = ['What it gates', 'Choose a PIN', 'Bind committee', 'The deal']
-
-/** Mock provisioning cadence — one committee seat ticks per interval. */
-const SEAT_TICK_MS = 420
 
 /** Keep only digits, capped at the 8-digit maximum. */
 function digitsOnly(v: string): string {
   return v.replace(/\D/g, '').slice(0, 8)
 }
 
+function usePinClient(): PinClientState {
+  return useSyncExternalStore(subscribePinClient, getPinClientState, getPinClientState)
+}
+
 export function PinSetupWizard({ onClose }: { onClose: () => void }): JSX.Element {
+  const pin = usePinClient()
   const [step, setStep] = useState(0)
-  const [pin, setPin] = useState('')
+  const [pinVal, setPinVal] = useState('')
   const [confirm, setConfirm] = useState('')
   const [show, setShow] = useState(false)
-  const [placed, setPlaced] = useState(0)
+  const [busy, setBusy] = useState(false)
+  const [bound, setBound] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  // Whether the account already had a PIN when the wizard opened — a genuine
+  // change re-provisions via the PIN-gated committee handoff (a follow-up).
+  const [wasSet] = useState(pin.phase === 'set' || pin.phase === 'banned')
 
-  // Mock committee provisioning: seats tick one by one while the provisioning
-  // step is showing; leaving the step resets progress via re-entry.
-  useEffect(() => {
-    if (step !== 2) return
-    setPlaced(0)
-    const iv = window.setInterval(() => {
-      setPlaced((p) => {
-        const next = Math.min(p + 1, SEATS.length)
-        if (next === SEATS.length) window.clearInterval(iv)
-        return next
-      })
-    }, SEAT_TICK_MS)
-    return () => window.clearInterval(iv)
-  }, [step])
+  const { t, n } = pin.committee
+  const lenOk = pinVal.length >= 4 && pinVal.length <= 8
+  const mismatch = confirm.length > 0 && !pinVal.startsWith(confirm)
+  const match = lenOk && confirm === pinVal
 
-  const lenOk = pin.length >= 4 && pin.length <= 8
-  const mismatch = confirm.length > 0 && !pin.startsWith(confirm)
-  const match = lenOk && confirm === pin
-  const bound = placed >= SEATS.length
+  // Honest committee readiness (drives the bind step — never a fake).
+  const notReady =
+    pin.phase === 'signed-out'
+      ? { Icon: KeyRound, line: 'Sign in first — a PIN binds to your account root and its committee.' }
+      : pin.phase === 'no-peer'
+        ? { Icon: WifiOff, line: 'Connecting to the network… binding a committee needs the account peer online.' }
+        : pin.phase === 'no-committee'
+          ? { Icon: Users, line: `Waiting for a committee — it needs ${n} nearby machines by key-distance to answer.` }
+          : null
+  const canProvision = !wasSet && !notReady && pin.phase === 'unset'
+
+  async function provision(): Promise<void> {
+    if (busy || !canProvision) return
+    setBusy(true)
+    setErr(null)
+    const res = await runPinProvision(pinVal)
+    setBusy(false)
+    if (res.ok) {
+      setBound(true)
+      setErr(null)
+    } else {
+      setErr(res.reason ?? 'provision-failed')
+    }
+  }
 
   function finish(): void {
-    accountsUiStore.pinConfigured()
     onClose()
   }
 
@@ -118,9 +103,6 @@ export function PinSetupWizard({ onClose }: { onClose: () => void }): JSX.Elemen
     >
       <div className="shell-modal-head">
         <h2 id="apin-setup-title">Set up your PIN</h2>
-        {DEV_FIXTURE && (
-          <FixturePreviewBadge label="Preview flow — the real committee arrives with network transport" />
-        )}
         <button type="button" className="shell-modal-close" aria-label="Close" onClick={onClose}>
           <X size={18} aria-hidden />
         </button>
@@ -199,8 +181,8 @@ export function PinSetupWizard({ onClose }: { onClose: () => void }): JSX.Elemen
                     inputMode="numeric"
                     autoComplete="off"
                     maxLength={8}
-                    value={pin}
-                    onChange={(e) => setPin(digitsOnly(e.target.value))}
+                    value={pinVal}
+                    onChange={(e) => setPinVal(digitsOnly(e.target.value))}
                   />
                   <button
                     type="button"
@@ -212,16 +194,16 @@ export function PinSetupWizard({ onClose }: { onClose: () => void }): JSX.Elemen
                     {show ? <EyeOff size={15} aria-hidden /> : <Eye size={15} aria-hidden />}
                   </button>
                 </div>
-                {pin.length === 0 ? (
+                {pinVal.length === 0 ? (
                   <p className="apin-check hint">4–8 digits.</p>
                 ) : !lenOk ? (
                   <p className="apin-check hint">
-                    {4 - pin.length} more digit{4 - pin.length === 1 ? '' : 's'} to reach the
+                    {4 - pinVal.length} more digit{4 - pinVal.length === 1 ? '' : 's'} to reach the
                     4-digit minimum.
                   </p>
                 ) : (
                   <p className="apin-check ok">
-                    <Check size={12} aria-hidden /> {pin.length}-digit PIN.
+                    <Check size={12} aria-hidden /> {pinVal.length}-digit PIN.
                   </p>
                 )}
               </div>
@@ -256,57 +238,86 @@ export function PinSetupWizard({ onClose }: { onClose: () => void }): JSX.Elemen
 
           {step === 2 && (
             <>
-              <div className="apin-prov-head">
-                <p className="apin-lede">
-                  Drawing a{' '}
-                  <strong>
-                    {COMMITTEE.t}-of-{COMMITTEE.n}
-                  </strong>{' '}
-                  committee by key-distance from the witness fabric…
-                </p>
-                <span className="apin-prov-count num">
-                  {placed} / {SEATS.length}
-                </span>
-              </div>
-              <ul className="apin-seats" aria-busy={!bound}>
-                {SEATS.map((seat, i) => {
-                  const done = i < placed
-                  const dealing = i === placed && !bound
-                  return (
-                    <li key={seat.key} className={`apin-seat${done ? ' is-done' : ''}`}>
-                      {done ? (
-                        <CircleCheck size={16} aria-hidden className="apin-seat-check" />
-                      ) : (
-                        <span
-                          className={`apin-seat-dot${dealing ? ' apin-seat-wait' : ''}`}
-                          aria-hidden
-                        />
-                      )}
-                      <span className="apin-seat-id">
-                        <span className={`apin-seat-name${seat.mono ? ' mono' : ''}`}>
-                          {seat.label}
+              {wasSet ? (
+                <div className="apin-purpose" role="status">
+                  <span className="apin-purpose-icon">
+                    <RefreshCw size={16} aria-hidden />
+                  </span>
+                  <p className="apin-lede">
+                    A PIN is already set for this account. <strong>Changing it</strong> re-provisions
+                    the committee as a PIN-gated handoff — shares move to fresh seats and the lifetime
+                    failure counter carries forward, never back to zero. That handoff flow arrives
+                    with committee re-provisioning; your current PIN and committee stay in force.
+                  </p>
+                </div>
+              ) : notReady ? (
+                <div className="apin-purpose" role="status">
+                  <span className="apin-purpose-icon">
+                    <notReady.Icon size={16} aria-hidden />
+                  </span>
+                  <p className="apin-lede">{notReady.line}</p>
+                </div>
+              ) : (
+                <>
+                  <div className="apin-prov-head">
+                    <p className="apin-lede">
+                      Binding a{' '}
+                      <strong>
+                        {t}-of-{n}
+                      </strong>{' '}
+                      committee by key-distance from the witness fabric…
+                    </p>
+                    <span className="apin-prov-count num">
+                      {pin.seats.filter((s) => s.provisioned).length} / {pin.seats.length}
+                    </span>
+                  </div>
+                  <ul className="apin-seats" aria-busy={busy}>
+                    {pin.seats.map((seat) => (
+                      <li key={seat.nodeId} className={`apin-seat${seat.provisioned ? ' is-done' : ''}`}>
+                        {seat.provisioned ? (
+                          <CircleCheck size={16} aria-hidden className="apin-seat-check" />
+                        ) : (
+                          <span
+                            className={`apin-seat-dot${busy ? ' apin-seat-wait' : ''}`}
+                            aria-hidden
+                          />
+                        )}
+                        <span className="apin-seat-id">
+                          <span className="apin-seat-name mono">{seat.label}</span>
+                          <span className="apin-seat-sub num">committee-capable peer</span>
                         </span>
-                        <span className="apin-seat-sub num">key-distance {seat.distance}</span>
-                      </span>
-                      <span className="apin-seat-state">
-                        {done ? 'share placed · counter replicated' : dealing ? 'dealing share…' : ''}
-                      </span>
-                    </li>
-                  )
-                })}
-              </ul>
-              {bound && (
-                <p className="apin-check ok" role="status">
-                  <Check size={12} aria-hidden /> Committee bound — a witnessed, root-signed record
-                  fixes these {COMMITTEE.n} seats.
-                </p>
+                        <span className="apin-seat-state">
+                          {seat.provisioned
+                            ? 'share placed · counter replicated'
+                            : busy
+                              ? 'dealing share…'
+                              : 'ready'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {bound ? (
+                    <p className="apin-check ok" role="status">
+                      <Check size={12} aria-hidden /> Committee bound — a witnessed, root-signed
+                      record fixes these {n} seats.
+                    </p>
+                  ) : err ? (
+                    <p className="apin-check err" role="alert">
+                      <AlertCircle size={12} aria-hidden />{' '}
+                      {err === 'no-committee'
+                        ? `Not enough committee-capable machines online yet (needs ${n}).`
+                        : `Provisioning could not complete (${err}).`}
+                    </p>
+                  ) : (
+                    <p className="apin-foot-note">
+                      Seats hold threshold shares plus a threshold-replicated failure counter. They
+                      can neither learn your PIN nor derive your keys — and any future re-provision
+                      is a PIN-gated handoff that carries the counter forward, so a fresh committee
+                      never starts at zero.
+                    </p>
+                  )}
+                </>
               )}
-              <p className="apin-foot-note">
-                Seats hold threshold shares plus a threshold-replicated failure counter. They can
-                neither learn your PIN nor derive your keys — and any future re-provision is a
-                PIN-gated handoff that carries the counter forward, so a fresh committee never
-                starts at zero.
-              </p>
             </>
           )}
 
@@ -321,13 +332,11 @@ export function PinSetupWizard({ onClose }: { onClose: () => void }): JSX.Elemen
                     <ShieldAlert size={16} aria-hidden />
                   </span>
                   <div>
-                    <p className="apin-deal-title">
-                      {PIN_STATUS.lifetimeCap} lifetime failures trips the fuse
-                    </p>
+                    <p className="apin-deal-title">{pin.lifetimeCap} lifetime failures trips the fuse</p>
                     <p className="apin-deal-sub">
-                      On failure {PIN_STATUS.lifetimeCap} the committee emits a threshold-signed
-                      fuse-tripped record — a 90-day witnessed-zone ban, published as a public fact
-                      any verifier can check.
+                      On failure {pin.lifetimeCap} the committee emits a threshold-signed fuse-tripped
+                      record — a 90-day witnessed-zone ban, published as a public fact any verifier
+                      can check.
                     </p>
                   </div>
                 </div>
@@ -349,12 +358,11 @@ export function PinSetupWizard({ onClose }: { onClose: () => void }): JSX.Elemen
                   </span>
                   <div>
                     <p className="apin-deal-title">
-                      A served ban refills {PIN_STATUS.refill} failures of headroom
+                      A served ban refills {pin.refill} failures of headroom
                     </p>
                     <p className="apin-deal-sub">
-                      After the 90 days, the count stands where it stood — you get{' '}
-                      {PIN_STATUS.refill} further failures before the next trip. Lifetime means
-                      lifetime.
+                      After the 90 days, the count stands where it stood — you get {pin.refill}{' '}
+                      further failures before the next trip. Lifetime means lifetime.
                     </p>
                   </div>
                 </div>
@@ -370,21 +378,52 @@ export function PinSetupWizard({ onClose }: { onClose: () => void }): JSX.Elemen
             type="button"
             className="btn ghost apin-back"
             onClick={() => setStep((s) => s - 1)}
+            disabled={busy}
           >
             <ArrowLeft size={14} aria-hidden /> Back
           </button>
         )}
-        {step < 3 ? (
-          <button
-            type="button"
-            className="btn apin-next"
-            disabled={(step === 1 && !match) || (step === 2 && !bound)}
-            onClick={() => setStep((s) => s + 1)}
-          >
-            {step === 1 ? 'Provision committee' : 'Continue'}
-            <ChevronRight size={14} aria-hidden />
+        {step === 0 && (
+          <button type="button" className="btn apin-next" onClick={() => setStep(1)}>
+            Continue <ChevronRight size={14} aria-hidden />
           </button>
-        ) : (
+        )}
+        {step === 1 && (
+          <button type="button" className="btn apin-next" disabled={!match} onClick={() => setStep(2)}>
+            Bind committee <ChevronRight size={14} aria-hidden />
+          </button>
+        )}
+        {step === 2 &&
+          (bound ? (
+            <button type="button" className="btn apin-next" onClick={() => setStep(3)}>
+              Continue <ChevronRight size={14} aria-hidden />
+            </button>
+          ) : wasSet ? (
+            // A PIN is already bound — the change/handoff flow is a follow-up, so
+            // there is no provision action to offer here. Give an honest LIVE
+            // terminal ("your current PIN stays in force"), never a frozen button.
+            <button type="button" className="btn apin-next" onClick={onClose}>
+              <Check size={14} aria-hidden /> Keep current PIN
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn apin-next"
+              disabled={!canProvision || busy}
+              onClick={() => void provision()}
+            >
+              {busy ? (
+                <>
+                  <Loader2 size={14} aria-hidden /> Provisioning…
+                </>
+              ) : (
+                <>
+                  <KeyRound size={14} aria-hidden /> Provision committee
+                </>
+              )}
+            </button>
+          ))}
+        {step === 3 && (
           <button type="button" className="btn apin-next" onClick={finish}>
             <Check size={14} aria-hidden /> Done — PIN active
           </button>

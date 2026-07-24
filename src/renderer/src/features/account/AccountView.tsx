@@ -6,14 +6,14 @@ import {
   ShieldCheck,
   Swords,
   UserRound,
-  Users,
-  FlaskConical
+  Users
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAccountsUi } from './mock/store'
 import { SignedOutCard } from './auth/SignedOutCard'
 import { OverviewSection } from './hub/OverviewSection'
 import { SecurityTab } from './hub/SecurityTab'
+import { NetStatusPill } from './hub/NetStatusPill'
 import { ProfileTab } from './profile/ProfileTab'
 import { PeopleTab } from './social/PeopleTab'
 import { DataTab } from './data/DataTab'
@@ -24,15 +24,15 @@ import './account.css'
 
 /**
  * Decentralized-accounts UI (docs/ACCOUNTS-SPEC.md). A6 WIRED: identity, keys,
- * chain, profile, ratings/reputation/standing and devices render from the
- * REAL keyring + signed chain (mock/store.ts over src/web/accounts.ts);
- * network/overlay-dependent surfaces still render DEV_FIXTURE sample data and
- * say so — the pill below enumerates them, and each such surface mounts its
- * own FixturePreviewBadge. The tab set covers the spec's user-facing surface:
- * identity/keys (§1), the chain (§2), social (§3, §10), the witness fabric in
- * game chrome (§4), storage/overlay (§5, §11), ratings display states (§6),
- * reputation (§6b), trust-width matchmaking (§7), fair play (§8), and
- * standing/bans (§9).
+ * chain, profile, ratings/reputation/standing and devices render from the REAL
+ * keyring + signed chain (mock/store.ts over src/web/accounts.ts); the
+ * overlay-dependent surfaces read the LIVE account peer (net/accountNetStatus)
+ * and degrade HONESTLY when a transport isn't reached — never a fixture, never a
+ * dead button. The tab-strip pill shows live overlay presence (§4). The tab set
+ * covers the spec's user-facing surface: identity/keys (§1), the chain (§2),
+ * social (§3, §10), the witness fabric in game chrome (§4), storage/overlay
+ * (§5, §11), ratings display states (§6), reputation (§6b), trust-width
+ * matchmaking (§7), fair play (§8), and standing/bans (§9).
  */
 
 export type AccountTab =
@@ -87,12 +87,7 @@ export default function AccountView(): JSX.Element {
             </button>
           )
         })}
-        <span
-          className="account-preview-pill"
-          title="Identity, chain, profile, ratings, reputation, standing and devices are live (local, derived from your signed chain). Sample data until the overlay ships: presence, friends and mailbox, other players' profiles, the witness set and overlay status, shard/storage duty, fair-play verdicts and judge receipts, the PIN committee, rated-lobby matchmaking, and the in-game chrome showcase. Every such surface carries its own 'Sample data' badge (grep DEV_FIXTURE)."
-        >
-          <FlaskConical size={12} aria-hidden /> Offline preview on network surfaces
-        </span>
+        <NetStatusPill style={{ marginLeft: 'auto' }} />
       </div>
 
       <div className="account-tab-body">

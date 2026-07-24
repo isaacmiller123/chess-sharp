@@ -1,31 +1,68 @@
-import { type JSX } from 'react'
-import { Check, Radio, RefreshCw, ShieldAlert, Signature, Swords } from 'lucide-react'
-import { DEV_FIXTURE, MOCK_NOW, PIN_FUSE_TRIPPED, fakeB64u, shortB64u } from '../mock/fixtures'
-import { FixturePreviewBadge } from '../mock/FixturePreviewBadge'
+import { useSyncExternalStore, type JSX } from 'react'
+import { Check, Radio, RefreshCw, ShieldAlert, ShieldCheck, Signature, Swords } from 'lucide-react'
+import {
+  getPinClientState,
+  subscribePinClient,
+  type PinClientState,
+  type PinFuseView
+} from '../net/pinClient'
 import './pin.css'
 
 /**
  * §1 fuse-tripped state, rendered as what it is: a public, threshold-signed
- * record any verifier checks independently — not a notification, so there is
- * no dismiss. DEV_FIXTURE showcase (labeled in the UI): the record and its
- * countdown are sample data against MOCK_NOW in witnessed time (§4/C-7).
+ * record any verifier checks independently — not a notification, so there is no
+ * dismiss. LIVE: it renders the account's REAL fuse record from the PIN client
+ * when the fuse is active; when it is not, it says so honestly (the witnessed
+ * zone is open) rather than fabricating a ban. The ban clock runs on
+ * diversity-bound witnessed time (§4/C-7); staleness is shown against this
+ * device's clock only as a rough remaining-days readout.
  */
 
 const DAY_MS = 86_400_000
-
 const DATE_FMT: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' }
 
-export function FuseBanCard(): JSX.Element {
-  const status = PIN_FUSE_TRIPPED
-  const fuse = status.fuse
-  if (!fuse) return <></> // fixture always ships one; keeps the type honest
+function usePinClient(): PinClientState {
+  return useSyncExternalStore(subscribePinClient, getPinClientState, getPinClientState)
+}
 
+export function FuseBanCard(): JSX.Element {
+  const pin = usePinClient()
+  const fuse = pin.fuse
+
+  // No active fuse: the honest open-zone state — never a fabricated ban record.
+  if (!fuse) return <FuseOpenState cap={pin.lifetimeCap} />
+
+  return <FuseTrippedCard fuse={fuse} />
+}
+
+/** The witnessed zone is open — no fuse record under this account's key. */
+function FuseOpenState({ cap }: { cap: number }): JSX.Element {
+  return (
+    <section className="apin-fuse" aria-labelledby="apin-fuse-title">
+      <header className="apin-fuse-head">
+        <ShieldCheck size={20} aria-hidden className="apin-fuse-head-icon" />
+        <div className="apin-fuse-headcopy">
+          <h3 className="apin-fuse-title" id="apin-fuse-title">
+            Witnessed zone open — no fuse record
+          </h3>
+          <p className="apin-fuse-sub">
+            No threshold-signed fuse-tripped record exists under this account&rsquo;s key. If your
+            committee ever records {cap} lifetime PIN failures, it emits one here — a public signed
+            fact any verifier checks on its own, gating a 90-day witnessed-zone ban.
+          </p>
+        </div>
+      </header>
+    </section>
+  )
+}
+
+function FuseTrippedCard({ fuse }: { fuse: PinFuseView }): JSX.Element {
+  const now = Date.now()
   const banDays = Math.max(1, Math.round((fuse.expiryWts - fuse.trippedWts) / DAY_MS))
-  const served = Math.min(banDays, Math.max(0, Math.floor((MOCK_NOW - fuse.trippedWts) / DAY_MS)))
-  const remaining = Math.max(0, Math.ceil((fuse.expiryWts - MOCK_NOW) / DAY_MS))
+  const served = Math.min(banDays, Math.max(0, Math.floor((now - fuse.trippedWts) / DAY_MS)))
+  const remaining = Math.max(0, Math.ceil((fuse.expiryWts - now) / DAY_MS))
   const trippedDate = new Date(fuse.trippedWts).toLocaleDateString(undefined, DATE_FMT)
   const expiryDate = new Date(fuse.expiryWts).toLocaleDateString(undefined, DATE_FMT)
-  const recordId = shortB64u(fakeB64u('pin-fuse-record'))
 
   return (
     <section className="apin-fuse" aria-labelledby="apin-fuse-title">
@@ -36,16 +73,14 @@ export function FuseBanCard(): JSX.Element {
             PIN fuse tripped — witnessed zone locked
           </h3>
           <p className="apin-fuse-sub">
-            Failure {fuse.fails} of {status.lifetimeCap} hit the lifetime cap, and the committee
+            Failure {fuse.fails} of {fuse.lifetimeCap} hit the lifetime cap, and the committee
             emitted a threshold-signed fuse-tripped record under this account&rsquo;s key. It is a
-            public signed fact any verifier checks on its own — it expires, it doesn&rsquo;t
-            delete.
+            public signed fact any verifier checks on its own — it expires, it doesn&rsquo;t delete.
           </p>
         </div>
         <span className="apin-fuse-pill">
           <Signature size={12} aria-hidden /> Threshold-signed record
         </span>
-        {DEV_FIXTURE && <FixturePreviewBadge label="Sample record — awaiting network transport" />}
       </header>
 
       <div className="apin-fuse-body">
@@ -57,18 +92,18 @@ export function FuseBanCard(): JSX.Element {
           <div className="apin-fact">
             <span className="apin-fact-k">Lifetime failures</span>
             <span className="apin-fact-v">
-              {fuse.fails} of {status.lifetimeCap}
+              {fuse.fails} of {fuse.lifetimeCap}
             </span>
           </div>
           <div className="apin-fact">
             <span className="apin-fact-k">Signed by</span>
             <span className="apin-fact-v">
-              {fuse.signers} of {status.committee.n} committee
+              {fuse.signers} of {fuse.committeeN} committee
             </span>
           </div>
           <div className="apin-fact">
             <span className="apin-fact-k">Record</span>
-            <span className="apin-fact-v mono">{recordId}</span>
+            <span className="apin-fact-v mono">{fuse.recordId}</span>
           </div>
         </div>
 
@@ -86,10 +121,7 @@ export function FuseBanCard(): JSX.Element {
               aria-valuenow={served}
               aria-label={`${served} of ${banDays} ban days served`}
             >
-              <div
-                className="apin-fuse-bar-fill"
-                style={{ width: `${(served / banDays) * 100}%` }}
-              />
+              <div className="apin-fuse-bar-fill" style={{ width: `${(served / banDays) * 100}%` }} />
             </div>
             <p className="apin-fuse-track-copy num">
               {served} of {banDays} days served · expires {expiryDate} in{' '}
@@ -131,8 +163,8 @@ export function FuseBanCard(): JSX.Element {
           <RefreshCw size={15} aria-hidden />
           <span>
             When the ban expires the counter stays at {fuse.fails} — it refills{' '}
-            <strong>{status.refill} failures of headroom</strong>, and the next trip needs{' '}
-            {status.refill} further failures. <strong>Lifetime means lifetime.</strong>
+            <strong>{fuse.refill} failures of headroom</strong>, and the next trip needs {fuse.refill}{' '}
+            further failures. <strong>Lifetime means lifetime.</strong>
           </span>
         </p>
       </div>

@@ -1,0 +1,96 @@
+# Chess# PRODUCTION stack — the whole thing a million people connect through.
+#
+#   cd deploy
+#   cp .env.production.example .env.production   # then EDIT it
+#   docker compose --env-file .env.production -f docker-compose.prod.yml up --build -d
+#
+# Brings online, behind automatic HTTPS:
+#   app.DOMAIN    — the web app (static SPA + Fastify; COOP/COEP isolated)
+#   relay.DOMAIN  — the Nostr signaling relay (WebRTC rendezvous)
+#   turn.DOMAIN   — coturn TURN (relays the ~10-20% of pairs behind strict NAT)
+#
+# WHY THIS SCALES TO A MILLION: gameplay is peer-to-peer (WebRTC data channels).
+# No central game server, no game database. The web tier only ships static
+# assets (CDN-frontable, trivially horizontal). The relay carries small ephemeral
+# signaling events (run more replicas / more relay hostnames as you grow). TURN
+# carries only strict-NAT pairs' media — size it by bandwidth, add nodes and list
+# them all in VITE_ICE_SERVERS. See DEPLOY.md § Scaling.
+
+name: chess-sharp
+
+services:
+  # ── The web app (built with OUR relay/ICE baked in) ────────────────────────
+  web:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        VITE_ICE_SERVERS: ${VITE_ICE_SERVERS}
+        VITE_NOSTR_RELAYS: ${VITE_NOSTR_RELAYS}
+    image: chess-sharp-web:prod
+    environment:
+      TRUST_PROXY: ${TRUST_PROXY:-1}   # behind Caddy
+      NODE_ENV: production
+    volumes:
+      - web-data:/data                 # decentralized ⇒ this is tiny/optional
+    expose:
+      - '8080'
+    restart: unless-stopped
+
+  # ── TLS reverse proxy (Let's Encrypt, automatic) ───────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [web, relay]
+    restart: unless-stopped
+
+  # ── Nostr signaling relay (WebRTC rendezvous) ──────────────────────────────
+  relay:
+    image: scsibug/nostr-rs-relay:latest
+    volumes:
+      - ./relay.config.toml:/usr/src/app/config.toml:ro
+      - relay-data:/usr/src/app/db
+    expose:
+      - '8080'
+    restart: unless-stopped
+
+  # ── coturn TURN server ─────────────────────────────────────────────────────
+  # Host networking: TURN needs a wide UDP relay-port range reachable from the
+  # internet (docker port-mapping a 16k range is impractical). Open 3478/udp+tcp
+  # and 49160-65535/udp in the VPS firewall/security-group. The conf is rendered
+  # from turnserver.conf with sed (env → values) at boot; no envsubst needed.
+  coturn:
+    image: coturn/coturn:latest
+    network_mode: host
+    environment:
+      EXTERNAL_IP: ${EXTERNAL_IP}
+      DOMAIN: ${DOMAIN}
+      TURN_PASSWORD: ${TURN_PASSWORD}
+    volumes:
+      - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        sed
+        -e "s|\${EXTERNAL_IP}|$${EXTERNAL_IP}|g"
+        -e "s|\${DOMAIN}|$${DOMAIN}|g"
+        -e "s|\${TURN_PASSWORD}|$${TURN_PASSWORD}|g"
+        /etc/coturn/turnserver.conf > /tmp/turnserver.conf
+        && exec turnserver -c /tmp/turnserver.conf
+    restart: unless-stopped
+
+volumes:
+  web-data:
+  caddy-data:
+  caddy-config:
+  relay-data:

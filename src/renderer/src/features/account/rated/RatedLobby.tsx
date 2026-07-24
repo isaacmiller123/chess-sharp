@@ -24,9 +24,14 @@ import {
   type PairView
 } from '@shared/accounts/mm/pairing'
 import { pairViewOf } from '@shared/accounts/ratings/display'
-import type { LadderKey, RatingDisplay } from '../mock/types'
+import { trustT } from '@shared/accounts/mm/trust'
+import type { LadderKey, RatingDisplay, UiLadder, UiOwnAccount } from '../mock/types'
 import { DEV_FIXTURE, OVERLAY_STATUS, OWN_ACCOUNT, PROFILES, WITNESS_SET } from '../mock/fixtures'
 import { FixturePreviewBadge } from '../mock/FixturePreviewBadge'
+import { useAccountsUi } from '../mock/store'
+import { foldChainA4 } from '../store/derive'
+import { MM_DEFAULT_TC, ladderIdOf, matchmakingStore, useMatchmaking } from '../net/matchmaking'
+import { loadOwnChain } from '../../../../../web/accounts'
 import { TrustWidthMeter } from './TrustWidthMeter'
 import './rated.css'
 
@@ -128,7 +133,15 @@ export interface RatedLobbyInitial {
   view?: FoundView
 }
 
-export function RatedLobby({ initial }: { initial?: RatedLobbyInitial } = {}): JSX.Element {
+/**
+ * The DEV_FIXTURE showcase — the §6/§7 matchmaking SURFACE demonstrated over
+ * sample data (a mock search machine, a demo spillover opponent). Reached ONLY
+ * when a caller passes `initial` (the A4-UI conformance suite + showcase embeds
+ * that pin the found-card rules per ladder). The app's live `<RatedLobby />`
+ * (no `initial`) renders `RatedLobbyLive` instead. This body is unchanged from
+ * the preview build so its shared-projection invariants stay asserted.
+ */
+function RatedLobbyShowcase({ initial }: { initial: RatedLobbyInitial }): JSX.Element {
   const [ladderKey, setLadderKey] = useState<LadderKey>(initial?.ladder ?? 'Blitz')
   const [phase, setPhase] = useState<SearchPhase>(initial?.phase ?? 'idle')
   const [view, setView] = useState<FoundView>(initial?.view ?? 'ranked')
@@ -257,7 +270,7 @@ export function RatedLobby({ initial }: { initial?: RatedLobbyInitial } = {}): J
         </div>
 
         <div className="arate-col">
-          <TrustWidthMeter tMicro={PREVIEW_TRUST_MICRO} />
+          <TrustWidthMeter tMicro={PREVIEW_TRUST_MICRO} sample />
         </div>
 
         <div className="arate-flow">
@@ -443,4 +456,331 @@ export function RatedLobby({ initial }: { initial?: RatedLobbyInitial } = {}): J
       </div>
     </section>
   )
+}
+
+// ===========================================================================
+// LIVE lobby (A6 M2 un-fixture) — real fold ladders + live matchmaking status
+// + the honest 2-user degradation (C-10). This is what the app renders; it uses
+// NO fixtures: ladders come from the signed-in account's chain fold, trust from
+// trustT over that fold, the third-machine count + search phase from the live
+// matchmaking engine over the account peer's overlay (net/matchmaking.ts).
+// ===========================================================================
+
+/**
+ * THIS account's §7 trust (trustT over the live fold) in micro-units — the
+ * meter's geometry input AND the seek PairView's tMicro (both share the one
+ * recomputable value, §7). Null while loading / signed out, so the meter waits
+ * rather than rendering a wrong band. Recomputes when the chain advances (a
+ * landed rated segment moves trust).
+ */
+function useOwnTrustMicro(account: UiOwnAccount | null): number | null {
+  const [tMicro, setTMicro] = useState<number | null>(null)
+  const key = account ? `${account.rootPub}:${account.chainHeight}` : ''
+  useEffect(() => {
+    let alive = true
+    if (!account) {
+      setTMicro(null)
+      return undefined
+    }
+    void (async () => {
+      try {
+        const chain = await loadOwnChain()
+        const { fold } = foldChainA4(chain)
+        const t = trustT(fold.trust, fold.rep, Date.now())
+        if (alive) setTMicro(t)
+      } catch {
+        if (alive) setTMicro(null)
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [key])
+  return tMicro
+}
+
+function RatedLobbyLive(): JSX.Element {
+  const { account } = useAccountsUi()
+  const mm = useMatchmaking()
+  const [ladderKey, setLadderKey] = useState<LadderKey>('Blitz')
+  const tMicro = useOwnTrustMicro(account)
+
+  // Live third-machine status for the header + the honest C-10 boundary. Refresh
+  // on mount + while idle; cancel any running search on unmount (tab leave).
+  useEffect(() => {
+    matchmakingStore.refreshWitnessStatus()
+    const id = window.setInterval(() => {
+      if (matchmakingStore.getState().phase === 'idle') matchmakingStore.refreshWitnessStatus()
+    }, 4000)
+    return () => {
+      window.clearInterval(id)
+      matchmakingStore.cancelRatedSearch()
+    }
+  }, [])
+
+  const ladders = account?.ladders ?? []
+  const ladder = ladders.find((l) => l.key === ladderKey) ?? null
+  const hiddenLadder = ladder ? ladder.display.state !== 'ranked' : false
+  const witnessesUp = mm.witnessesReachable
+  const canSeek = !!account && ladder !== null && tMicro !== null && mm.peerLive
+
+  function viewFor(l: UiLadder, t: number): PairView {
+    return pairViewOf(account!.rootPub, ladderIdOf(l.key), l.state, t, l.key)
+  }
+  function pickLadder(key: LadderKey): void {
+    if (mm.phase !== 'idle') matchmakingStore.cancelRatedSearch()
+    setLadderKey(key)
+  }
+  function startSearch(): void {
+    if (!canSeek || !ladder || tMicro === null) return
+    void matchmakingStore.startRatedSearch({
+      ladderKey,
+      tc: MM_DEFAULT_TC[ladderKey],
+      view: viewFor(ladder, tMicro)
+    })
+  }
+  function cancel(): void {
+    matchmakingStore.cancelRatedSearch()
+  }
+
+  if (!account) {
+    return (
+      <section className="panel arate-lobby" aria-label="Rated lobby">
+        <header className="panel-head arate-head">
+          <span className="arate-head-icon" aria-hidden>
+            <Swords size={15} />
+          </span>
+          <h3 className="panel-title">Rated lobby</h3>
+        </header>
+        <div className="arate-body">
+          <div className="arate-unavail" role="status">
+            <span className="arate-unavail-icon" aria-hidden>
+              <UserRound size={16} />
+            </span>
+            <span>Sign in to a decentralized account to play rated, witnessed games.</span>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  return (
+    <section className="panel arate-lobby" aria-label="Rated lobby">
+      <header className="panel-head arate-head">
+        <span className="arate-head-icon" aria-hidden>
+          <Swords size={15} />
+        </span>
+        <h3 className="panel-title">Rated lobby</h3>
+        <span className={`arate-net num${witnessesUp > 0 ? ' is-ok' : ' is-out'}`}>
+          <Network size={12} aria-hidden />
+          {!mm.peerLive
+            ? 'connecting to the network…'
+            : witnessesUp > 0
+              ? `${witnessesUp} witness${witnessesUp === 1 ? '' : 'es'} reachable`
+              : 'no witness reachable'}
+        </span>
+      </header>
+
+      <div className="arate-body">
+        <div className="arate-col">
+          <span className="arate-label" id="arate-ladder-label">
+            Ladder
+          </span>
+          <div className="arate-ladders" role="group" aria-labelledby="arate-ladder-label">
+            {ladders.map((l) => {
+              const Icon = LADDER_ICON[l.key]
+              const on = l.key === ladderKey
+              const ranked = l.display.state === 'ranked'
+              return (
+                <button
+                  key={l.key}
+                  type="button"
+                  className={`arate-ladder${on ? ' on' : ''}`}
+                  aria-pressed={on}
+                  onClick={() => pickLadder(l.key)}
+                >
+                  <span className="arate-ladder-name">
+                    <Icon size={14} aria-hidden /> {l.key}
+                  </span>
+                  <span className={`arate-ladder-state num${ranked ? ' is-ranked' : ''}`}>
+                    {displayLabel(l.display)}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          {hiddenLadder && (
+            <p className="arate-hidden-note">
+              <EyeOff size={13} aria-hidden />
+              <span>
+                Until your {ladderKey} rating reveals, you&rsquo;ll see an{' '}
+                <b>Unranked opponent pool</b> — no opponent ratings or brackets anywhere:
+                matchmaking, in-game, or post-game. Every fresh root re-pays this judged, hidden
+                stretch — that&rsquo;s what prices rerolling.
+              </span>
+            </p>
+          )}
+
+          <p className="arate-unlimited">
+            <InfinityIcon size={13} aria-hidden />
+            No Unlimited ladder — without a clock stream there are no timing forensics, so
+            unlimited games are unrated by design.
+          </p>
+        </div>
+
+        <div className="arate-col">
+          {tMicro !== null ? (
+            <TrustWidthMeter tMicro={tMicro} />
+          ) : (
+            <div className="arate-meter" role="status">
+              <div className="arate-meter-head">
+                <span className="arate-meter-title">
+                  <ShieldCheck size={14} aria-hidden /> Trust-earned precision
+                </span>
+              </div>
+              <p className="arate-meter-curve">Reading your trust from the chain…</p>
+            </div>
+          )}
+        </div>
+
+        <div className="arate-flow">
+          {mm.phase === 'idle' && (
+            <div className="arate-idle">
+              <button
+                type="button"
+                className="btn arate-play"
+                onClick={startSearch}
+                disabled={!canSeek}
+              >
+                <Swords size={16} aria-hidden /> Play rated
+              </button>
+              <span className="arate-idle-sub">
+                {!mm.peerLive
+                  ? 'Connecting to the accounts network…'
+                  : witnessesUp === 0
+                    ? `${ladderKey} · rated play waits for a third machine (a witness)`
+                    : hiddenLadder
+                      ? `${ladderKey} · unranked pool — provisionals pair with provisionals first`
+                      : `${ladderKey} · the window opens tight around your rating — trust earns precision`}
+              </span>
+            </div>
+          )}
+
+          {mm.phase === 'idle' && mm.peerLive && witnessesUp === 0 && (
+            <div className="arate-unavail" role="status">
+              <span className="arate-unavail-icon" aria-hidden>
+                <Network size={16} />
+              </span>
+              <span>
+                <b>Rated play is unavailable until a third machine appears.</b> Every rated game
+                needs a witness that is neither player — with no third machine reachable, rated play
+                honestly waits for one. The operator&rsquo;s always-awake peer makes this window
+                negligible. Casual and offline play are unaffected.
+              </span>
+            </div>
+          )}
+
+          {mm.phase === 'searching' && (
+            <div className="arate-search" role="status" aria-busy="true">
+              <span className="arate-spin" aria-hidden>
+                <Loader2 size={18} />
+              </span>
+              <span className="arate-search-main">
+                {hiddenLadder ? (
+                  <>
+                    <span className="arate-search-big">Searching the unranked opponent pool…</span>
+                    <span className="arate-search-sub">
+                      zero rating signal on either side — your surfaces show no numbers until reveal
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="arate-search-big">Searching your pairing band…</span>
+                    <span className="arate-search-sub">
+                      widening until a legal pairing appears — the exact window is never shown (§7)
+                    </span>
+                  </>
+                )}
+                <span className="arate-search-witness">
+                  <ShieldCheck size={13} aria-hidden /> a witness will be drawn from your canonical
+                  set ({witnessesUp} reachable)
+                </span>
+              </span>
+              <button type="button" className="btn ghost small arate-cancel" onClick={cancel}>
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {mm.phase === 'waiting-witness' && (
+            <div className="arate-unavail" role="status" aria-live="polite">
+              <span className="arate-unavail-icon" aria-hidden>
+                <ShieldCheck size={16} />
+              </span>
+              <span>
+                <b>Opponent found — waiting for a witness (a third machine).</b> A legal pairing is
+                ready, but every rated game needs a witness who is neither player, and none is
+                reachable right now. We&rsquo;ll pair you the instant one appears — never a game
+                without a witness (§4). Casual play is unaffected.
+              </span>
+              <button type="button" className="btn ghost small arate-cancel" onClick={cancel}>
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {mm.phase === 'paired' && (
+            <div className="arate-found">
+              <div className="arate-found-head">
+                <span className="arate-found-title" role="status">
+                  <CircleCheck size={15} aria-hidden /> Pairing found
+                </span>
+              </div>
+              <p className="arate-found-caption">
+                A legal opponent from the {ladderKey} pool — pairing legality verified by both
+                clients (shared pairingLegal over the same public values), witness drawn from your
+                canonical set. Connecting you to the board…
+              </p>
+              <div className="arate-found-meta">
+                <span>
+                  <ShieldCheck size={13} aria-hidden /> Witness: a third machine, neither player,
+                  entanglement-distant
+                </span>
+                <span>
+                  <Users size={13} aria-hidden /> No room code exchanged — the pool paired you
+                  directly
+                </span>
+              </div>
+              <div className="arate-found-actions">
+                <button type="button" className="btn ghost" onClick={cancel}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {mm.phase === 'signed-out' && (
+            <div className="arate-unavail" role="status">
+              <span className="arate-unavail-icon" aria-hidden>
+                <Network size={16} />
+              </span>
+              <span>Connecting to the accounts network — your peer is starting up.</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/**
+ * The rated lobby (§7 matchmaking surface). LIVE by default (the app's
+ * `<RatedLobby />`): real fold ladders, real trust, live matchmaking status, and
+ * the honest 2-user degradation (C-10). A caller that passes `initial` gets the
+ * DEV_FIXTURE showcase instead (the A4-UI conformance suite + showcase embeds).
+ */
+export function RatedLobby({ initial }: { initial?: RatedLobbyInitial } = {}): JSX.Element {
+  if (initial) return <RatedLobbyShowcase initial={initial} />
+  return <RatedLobbyLive />
 }

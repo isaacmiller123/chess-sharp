@@ -1,4 +1,4 @@
-import { useEffect, useState, type JSX, type KeyboardEvent } from 'react'
+import { useState, useSyncExternalStore, type JSX, type KeyboardEvent } from 'react'
 import {
   AlertTriangle,
   Check,
@@ -6,26 +6,33 @@ import {
   EyeOff,
   Fingerprint,
   KeyRound,
+  Loader2,
   Lock,
   RefreshCw,
+  ShieldAlert,
+  Users,
+  WifiOff,
   X
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { OverlayDialog } from '../../../components/OverlayDialog'
-import { DEV_FIXTURE } from '../mock/fixtures'
-import { FixturePreviewBadge } from '../mock/FixturePreviewBadge'
-import { accountsUiStore, useAccountsUi } from '../mock/store'
+import {
+  getPinClientState,
+  runPinVerify,
+  subscribePinClient,
+  type PinClientState,
+  type PinPurpose
+} from '../net/pinClient'
 import './pin.css'
 
 /**
  * §1/§4 PIN-gated actions: lease takeover, first witnessed device contact,
- * committee handoff. A wrong PIN spends a lifetime failure against the
- * committee counter (never resets — C-2); a correct one plays a brief
- * threshold-OPRF evaluation before resolving. DEV_FIXTURE preview flow
- * (labeled in the UI): the committee and SAMPLE_PIN are sample state.
+ * committee handoff. LIVE: the entry runs the real threshold OPRF against the
+ * account's bound committee over the account-peer overlay (pinClient) — a wrong
+ * PIN spends a lifetime failure against the committee's replicated counter
+ * (never resets — C-2), and a fuse-banned account is refused by the committee
+ * itself. No committee reachable ⇒ an HONEST wait state, never a fake evaluation.
  */
-
-type PinPurpose = 'lease-takeover' | 'device-witness' | 'committee-handoff'
 
 const PURPOSE_COPY: Record<
   PinPurpose,
@@ -51,18 +58,16 @@ const PURPOSE_COPY: Record<
   }
 }
 
-/** The preview accepts this PIN; anything else spends a lifetime failure. */
-const SAMPLE_PIN = '2468'
-
-/** Failure count at which the meter and copy escalate to danger. */
-const CRITICAL_AT = 90
-
-/** Ms between committee answers in the mock threshold evaluation. */
-const ANSWER_TICK_MS = 260
+/** Failure count within this many of the cap escalates the copy to danger. */
+const CRITICAL_MARGIN = 10
 
 /** Keep only digits, capped at the 8-digit maximum. */
 function digitsOnly(v: string): string {
   return v.replace(/\D/g, '').slice(0, 8)
+}
+
+function usePinClient(): PinClientState {
+  return useSyncExternalStore(subscribePinClient, getPinClientState, getPinClientState)
 }
 
 export function PinEntryDialog({
@@ -70,73 +75,66 @@ export function PinEntryDialog({
   onClose,
   onSuccess
 }: {
-  purpose: 'lease-takeover' | 'device-witness' | 'committee-handoff'
+  purpose: PinPurpose
   onClose: () => void
   onSuccess?: () => void
 }): JSX.Element {
-  const ui = useAccountsUi()
+  const pin = usePinClient()
   const [value, setValue] = useState('')
   const [show, setShow] = useState(false)
   const [phase, setPhase] = useState<'input' | 'checking' | 'success'>('input')
-  const [answered, setAnswered] = useState(0)
-  const [failed, setFailed] = useState(false)
+  const [failReason, setFailReason] = useState<string | null>(null)
 
-  const { t, n } = ui.pin.committee
-  const failures = ui.pin.failures
-  const cap = ui.pin.lifetimeCap
-  const critical = failures >= CRITICAL_AT
-
-  // Checking: committee answers arrive one by one until the threshold is met.
-  useEffect(() => {
-    if (phase !== 'checking') return
-    const iv = window.setInterval(() => {
-      setAnswered((a) => {
-        const next = Math.min(a + 1, t)
-        if (next === t) window.clearInterval(iv)
-        return next
-      })
-    }, ANSWER_TICK_MS)
-    return () => window.clearInterval(iv)
-  }, [phase, t])
-
-  // Threshold met → a short beat, then the success line.
-  useEffect(() => {
-    if (phase !== 'checking' || answered < t) return
-    const to = window.setTimeout(() => setPhase('success'), 350)
-    return () => window.clearTimeout(to)
-  }, [phase, answered, t])
-
-  // Success lingers long enough to read, then resolves the flow.
-  useEffect(() => {
-    if (phase !== 'success') return
-    const to = window.setTimeout(() => {
-      onSuccess?.()
-      onClose()
-    }, 1300)
-    return () => window.clearTimeout(to)
-  }, [phase, onSuccess, onClose])
-
+  const { t, n } = pin.committee
+  const cap = pin.lifetimeCap
+  const failures = pin.failures ?? 0
+  const critical = failures >= cap - CRITICAL_MARGIN
   const copy = PURPOSE_COPY[purpose]
-  const canSubmit = phase === 'input' && value.length >= 4
 
-  function submit(): void {
+  // The committee must be live + a PIN provisioned to run an evaluation. Any other
+  // phase is surfaced honestly (no fake evaluation, no dead control).
+  const notReady =
+    pin.phase === 'signed-out'
+      ? { Icon: KeyRound, line: 'Sign in to open a witnessed session — the PIN gates the witnessed zone.' }
+      : pin.phase === 'no-peer'
+        ? { Icon: WifiOff, line: 'Connecting to the network… a witnessed session needs the account peer online.' }
+        : pin.phase === 'no-committee'
+          ? { Icon: Users, line: `Waiting for your PIN committee — it needs ${n} nearby machines to answer.` }
+          : pin.phase === 'unset'
+            ? { Icon: KeyRound, line: 'No PIN is set for this account yet — set one up first.' }
+            : null
+
+  const banned = pin.phase === 'banned'
+  const canSubmit = phase === 'input' && value.length >= 4 && !notReady && !banned
+
+  async function submit(): Promise<void> {
     if (!canSubmit) return
-    if (value === SAMPLE_PIN) {
-      setAnswered(0)
-      setPhase('checking')
-    } else {
-      accountsUiStore.recordPinFailure()
-      setFailed(true)
-      setValue('')
+    setFailReason(null)
+    setPhase('checking')
+    const res = await runPinVerify(value, purpose)
+    if (res.ok) {
+      setPhase('success')
+      window.setTimeout(() => {
+        onSuccess?.()
+        onClose()
+      }, 1200)
+      return
     }
+    // A wrong PIN (or a committee that could not be reached) returns to input with
+    // the honest reason; a fuse trip flips the whole dialog to the banned state.
+    setValue('')
+    setFailReason(res.reason ?? 'verify-failed')
+    setPhase('input')
   }
 
   function onInputKeyDown(e: KeyboardEvent<HTMLInputElement>): void {
     if (e.key === 'Enter') {
       e.preventDefault()
-      submit()
+      void submit()
     }
   }
+
+  const showBanned = banned || failReason === 'fuse-active'
 
   return (
     <OverlayDialog
@@ -147,9 +145,6 @@ export function PinEntryDialog({
     >
       <div className="shell-modal-head">
         <h2 id="apin-entry-title">{copy.title}</h2>
-        {DEV_FIXTURE && (
-          <FixturePreviewBadge label="Preview flow — the real committee arrives with network transport" />
-        )}
         <button type="button" className="shell-modal-close" aria-label="Close" onClick={onClose}>
           <X size={18} aria-hidden />
         </button>
@@ -164,7 +159,25 @@ export function PinEntryDialog({
             <p className="apin-lede">{copy.body}</p>
           </div>
 
-          {phase === 'input' ? (
+          {showBanned ? (
+            <div className="apin-fail is-critical" role="alert">
+              <p className="apin-fail-line">
+                <ShieldAlert size={14} aria-hidden /> Witnessed zone locked — the PIN fuse has
+                tripped.
+              </p>
+              <p className="apin-fail-sub num">
+                The committee refuses to serve a fuse-banned root; no witnessed session can open
+                until the ban expires. Everything unwitnessed still works on your password alone.
+              </p>
+            </div>
+          ) : notReady ? (
+            <div className="apin-purpose" role="status">
+              <span className="apin-purpose-icon">
+                <notReady.Icon size={16} aria-hidden />
+              </span>
+              <p className="apin-lede">{notReady.line}</p>
+            </div>
+          ) : phase === 'input' ? (
             <>
               <div className="apin-field">
                 <label className="apin-field-label" htmlFor="apin-entry-input">
@@ -192,10 +205,12 @@ export function PinEntryDialog({
                     {show ? <EyeOff size={15} aria-hidden /> : <Eye size={15} aria-hidden />}
                   </button>
                 </div>
-                <p className="apin-check hint">Preview — the sample PIN is {SAMPLE_PIN}.</p>
+                <p className="apin-check hint">
+                  Verified by your {t}-of-{n} committee — none of them ever sees these digits.
+                </p>
               </div>
 
-              {failed ? (
+              {failReason === 'wrong-pin' ? (
                 <div className={`apin-fail${critical ? ' is-critical' : ''}`} role="alert">
                   <p className="apin-fail-line">
                     <AlertTriangle size={14} aria-hidden /> PIN rejected — the committee recorded
@@ -213,27 +228,33 @@ export function PinEntryDialog({
                       ` ${cap - failures} left before the fuse trips: a 90-day witnessed-zone ban.`}
                   </p>
                 </div>
-              ) : (
+              ) : failReason && failReason !== 'fuse-active' ? (
+                <p className="apin-check err" role="alert">
+                  <AlertTriangle size={12} aria-hidden /> Could not reach the committee ({failReason}
+                  ) — try again once it is online.
+                </p>
+              ) : pin.failures !== null ? (
                 <p className="apin-counter muted small num">
                   Committee counter: {failures} of {cap} lifetime failures on record.
                 </p>
-              )}
+              ) : null}
             </>
           ) : (
             <div className="apin-eval" role="status" aria-busy={phase === 'checking'}>
               <div className="apin-eval-dots" aria-hidden>
                 {Array.from({ length: n }, (_, i) => (
-                  <span key={i} className={`apin-eval-dot${i < answered ? ' is-on' : ''}`} />
+                  <span key={i} className={`apin-eval-dot${phase === 'success' ? ' is-on' : ''}`} />
                 ))}
               </div>
               {phase === 'success' ? (
                 <p className="apin-eval-ok">
-                  <Check size={14} aria-hidden /> {t} of {n} committee members answered — nobody
-                  saw your PIN.
+                  <Check size={14} aria-hidden /> {t} of {n} committee members answered — nobody saw
+                  your PIN.
                 </p>
               ) : (
                 <p className="apin-eval-label num">
-                  Evaluating threshold OPRF — {answered} of {t} required answers…
+                  <Loader2 size={13} aria-hidden /> Evaluating the threshold OPRF across your
+                  committee…
                 </p>
               )}
             </div>
@@ -250,7 +271,7 @@ export function PinEntryDialog({
         >
           Cancel
         </button>
-        <button type="button" className="btn apin-next" disabled={!canSubmit} onClick={submit}>
+        <button type="button" className="btn apin-next" disabled={!canSubmit} onClick={() => void submit()}>
           <KeyRound size={14} aria-hidden /> {copy.cta}
         </button>
       </div>

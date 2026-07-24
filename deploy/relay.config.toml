@@ -1,0 +1,39 @@
+# nostr-rs-relay config for the Chess# signaling relay (image
+# scsibug/nostr-rs-relay). Chess# uses Nostr purely as a WebRTC signaling
+# rendezvous (trystero) — small ephemeral events, not a social relay — so the
+# limits are tuned for high connection churn + tiny events, and retention is
+# short (signaling events are worthless after the handshake).
+
+[info]
+relay_url = "wss://relay.example.com/"
+name = "Chess# signaling relay"
+description = "WebRTC signaling rendezvous for Chess# (chess-sharp) peer matchmaking."
+
+[database]
+data_directory = "/usr/src/app/db"
+# In-memory-ish: signaling events are ephemeral. Keep the DB small; a cron/
+# restart prunes. (nostr-rs-relay persists; retention below caps growth.)
+
+[network]
+port = 8080
+address = "0.0.0.0"
+
+[options]
+# Reject events older than a day / far in the future — signaling is live-only.
+reject_future_seconds = 1800
+
+[limits]
+# High ceilings: many peers, each publishing frequent small presence/offer
+# events. Tune down if abused.
+messages_per_sec = 0
+subscriptions_per_min = 0
+max_event_bytes = 131072
+max_ws_message_bytes = 262144
+max_ws_frame_bytes = 262144
+broadcast_buffer = 65536
+event_persist_buffer = 8192
+
+[retention]
+# Signaling events are useless after the handshake — keep the store tiny.
+# (nostr-rs-relay: max_seconds prunes events older than this.)
+max_seconds = 3600

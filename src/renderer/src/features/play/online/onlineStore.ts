@@ -20,6 +20,10 @@
 
 import type { MpByo, MpColor, MpEvent, MpGameConfig, MpClocks } from '@shared/types'
 import { mp } from './mpClient'
+// A6 (Lane C): TYPE-ONLY — fully erased at bundle, so the bare-node store test
+// (which mocks `mp`) never pulls the session/accounts/crypto stack.
+import type { MpSigningConfig, MpWitnessMsg } from './mpSession'
+import type { SignedMove } from '@shared/accounts/segment'
 import { afterMoveCredit, consumeElapsed, normalizeByoyomi, type SideClock } from '../byoyomi'
 import { applyMove, INITIAL_FEN, type Color, type GameResult } from '../../../chess/chess'
 import {
@@ -117,6 +121,48 @@ export interface OnlineSettingsSnapshot {
   /** Gate for the one-shot low-time sound (settings.lowTimeWarning). */
   lowTimeWarning: boolean
 }
+
+// ---------------------------------------------------------------------------
+// A6 (Lane C) — signed rated play seams.
+//
+// The store stays free of the accounts/crypto import (the bare-node store test
+// mocks `mp` and never bundles it): the signed-in device key arrives through a
+// PROVIDER the app boot wires (useOnlineGame.ts), exactly like setSoundSink; and
+// a finished signed+witnessed game's SEGMENT is handed to a PUBLISHER the lead
+// wires to Lane E's buildAndPublishSegment. The store only decides rated↔casual
+// and assembles the writer's inputs — it never reimplements crypto.
+// ---------------------------------------------------------------------------
+
+/** The verified terminal witness end-signature (wend) surfaced by the session. */
+export type MpWitnessEnd = Extract<MpWitnessMsg, { t: 'wend' }>
+
+/** Everything Lane E's segment writer needs from a finished SIGNED, WITNESSED,
+ *  rated game to build + append the countersigned segment to THIS player's
+ *  chain. Opponent head/profile/checkpoint come from Lane E's own pre-game
+ *  snapshot (preGame.ts), not from here. */
+export interface SignedGameOutcome {
+  /** Verified signed-play material from the session (mp.getSignedGame()). */
+  signed: { gameKey: string; players: { w: string; b: string }; moves: readonly SignedMove[] }
+  /** The seated witness identity (mp.getWitnessIdentity()). */
+  witness: { root: string; key: string }
+  /** The witness's terminal countersignature (from mp.onWitnessStream). */
+  wend: MpWitnessEnd
+  /** OUR color in the finished game. */
+  color: 'w' | 'b'
+  /** The result/reason THIS client recorded (its own chain claim; the wend
+   *  carries the witness-adjudicated result/transcript for cross-check). */
+  result: GameResult
+  reason: string
+  /** A4 ladder binding (§6) derived from the game config. */
+  kind: string
+  tc: { baseMs: number; incMs: number }
+  /** The full game config, for any further derivation the writer needs. */
+  config: MpGameConfig
+}
+
+/** The Lane E seam: build + publish THIS player's segment. Wired by the lead
+ *  (useOnlineGame.ts) to segmentWriter.buildAndPublishSegment. */
+export type SegmentPublisher = (outcome: SignedGameOutcome) => void
 
 // ---------------------------------------------------------------------------
 // Constants (mirrors the session's §2 rules so both sides agree locally).
@@ -236,6 +282,21 @@ class OnlineStore {
    *  registered — and always in bare node, where the sound module can't load. */
   private soundSink: ((name: SoundName) => void) | null = null
 
+  /** A6 (Lane C): provider for the signed-in device signing key (boot wires it
+   *  to mpSigningKey). null ⇒ no key ⇒ casual/unsigned (byte-identical v5). */
+  private signingKeyProvider: (() => MpSigningConfig | null) | null = null
+  /** A6 (Lane C): the Lane E segment writer, wired by the lead. null ⇒ segments
+   *  aren't published (the game still plays; it just isn't chain-written). */
+  private segmentPublisher: SegmentPublisher | null = null
+  /** A6 (Lane C): latest verified witness wend for the CURRENT game (from
+   *  mp.onWitnessStream), or null. Reset per game. */
+  private lastWend: MpWitnessEnd | null = null
+  /** A6 (Lane C): the result/reason captured when a SIGNED game ended, awaiting
+   *  the witness wend to assemble the segment. Reset per game. */
+  private pendingSegment: { result: GameResult; reason: string } | null = null
+  /** A6 (Lane C): publish-at-most-once guard for the current game's segment. */
+  private segmentPublished = false
+
   constructor() {
     // Subscribe to the session ONCE, for the app's lifetime. Never unsubscribed.
     mp.onEvent((ev) => this.onEvent(ev))
@@ -244,6 +305,10 @@ class OnlineStore {
     // Optional-chained: the bare-node store test mocks `mp` without this method,
     // and the seam's default (unregistered) is accept — chess-identical.
     mp.setMoveValidator?.((moves, move) => this.validateGuestMove(moves, move))
+    // A6 (Lane C): collect the verified witness stream. Only the terminal wend
+    // assembles a segment; the mock mp (bare-node store test) lacks this method
+    // (optional-chained ⇒ no-op there), and it never fires for an unsigned game.
+    mp.onWitnessStream?.((msg) => this.onWitnessMsg(msg))
   }
 
   /** Host-side legality gate for GUEST moves (called by the session pre-commit).
@@ -282,6 +347,19 @@ class OnlineStore {
    *  the top of this file. Passing null detaches it. */
   setSoundSink(sink: ((name: SoundName) => void) | null): void {
     this.soundSink = sink
+  }
+
+  /** A6 (Lane C): register the signed-in device signing-key provider (boot wires
+   *  it to mpSigningKey). null detaches ⇒ rated games honestly degrade to casual
+   *  when signed out or unwired. */
+  setSigningKeyProvider(provider: (() => MpSigningConfig | null) | null): void {
+    this.signingKeyProvider = provider
+  }
+
+  /** A6 (Lane C): register the segment writer (lead wires it to Lane E's
+   *  buildAndPublishSegment). null detaches ⇒ no segment is published. */
+  setSegmentPublisher(publisher: SegmentPublisher | null): void {
+    this.segmentPublisher = publisher
   }
 
   // ---- derived helpers -----------------------------------------------------
@@ -374,6 +452,11 @@ class OnlineStore {
     }
     this.sans = []
     this.saved = false
+    // A6 (Lane C): reset per-game segment state — a prior game's wend/terminal
+    // must never leak into this one (a signed rematch mints a fresh game key).
+    this.lastWend = null
+    this.pendingSegment = null
+    this.segmentPublished = false
     const initial = cfg.tc.initialMs
     this.set({
       phase: 'game',
@@ -438,7 +521,13 @@ class OnlineStore {
         ...(opts.title ? { title: opts.title } : {})
       }
       this.set({ banner, clock: this.frozenClock(), canAbort: false })
-      if (opts.save) this.saveFinished(result)
+      if (opts.save) {
+        this.saveFinished(result)
+        // A6 (Lane C): if this was a SIGNED game, remember its terminal so the
+        // countersigned segment is published once the witness wend lands. Inert
+        // for casual/unsigned games and when no segment writer is wired.
+        this.captureSignedTerminal(result, reason)
+      }
     } else {
       // Aborted / neutral end: a titled banner with a synthetic draw result so
       // the view can render it, but never saved (opts.save must be false).
@@ -717,10 +806,83 @@ class OnlineStore {
   }
 
   // ==========================================================================
+  // A6 (Lane C) — signed rated play wiring.
+  // ==========================================================================
+
+  /** Configure the session's signed-play identity BEFORE host()/join(). Rated +
+   *  signed-in ⇒ offer our device key (the game becomes SIGNED only if the
+   *  opponent's hello ALSO carries identity — honest degradation otherwise).
+   *  Casual, signed-out, or no provider ⇒ null, which also CLEARS any prior
+   *  rated identity so casual play is byte-identical v5. `oppRoot` pins a
+   *  specific opponent when the matchmaker knows it (M2). */
+  private applySigning(rated: boolean, oppRoot?: string): void {
+    if (!rated) {
+      mp.configureSigning?.(null)
+      return
+    }
+    const key = this.signingKeyProvider?.() ?? null
+    mp.configureSigning?.(key ? { ...key, ...(oppRoot ? { oppRoot } : {}) } : null)
+  }
+
+  /** A verified witness stream message arrived. wclk is advisory (display only
+   *  in M1); the terminal wend is what a segment is built from. Ignores a wend
+   *  addressed to a stale game. */
+  private onWitnessMsg(msg: MpWitnessMsg): void {
+    if (msg.t !== 'wend') return
+    if (msg.gameId !== this.state.gameId) return
+    this.lastWend = msg
+    this.maybePublishSegment()
+  }
+
+  /** A SIGNED game reached a saveable terminal: remember result/reason and try
+   *  to publish (the witness wend may already be in hand, or land moments later).
+   *  Inert for casual/unsigned games and when no writer is wired. */
+  private captureSignedTerminal(result: GameResult, reason: string): void {
+    if (this.segmentPublished || this.pendingSegment) return
+    if (!this.segmentPublisher) return
+    if (!mp.getSignedGame?.()) return // casual/unsigned game ⇒ no segment
+    this.pendingSegment = { result, reason }
+    this.maybePublishSegment()
+  }
+
+  /** Hand the finished SIGNED, WITNESSED game to Lane E's writer once BOTH the
+   *  terminal (pendingSegment) and the witness wend are present. At-most-once.
+   *  No seated witness ⇒ no segment (honest: an unwitnessed rated game is not a
+   *  countersigned segment). Both players run this independently for their own
+   *  chain, embedding the SAME witness wstream. */
+  private maybePublishSegment(): void {
+    if (this.segmentPublished) return
+    const pending = this.pendingSegment
+    const wend = this.lastWend
+    const publisher = this.segmentPublisher
+    if (!pending || !wend || !publisher) return
+    const signed = mp.getSignedGame?.()
+    const witness = mp.getWitnessIdentity?.() ?? null
+    const cfg = this.state.config
+    if (!signed || !witness || !cfg) return
+    this.segmentPublished = true
+    this.pendingSegment = null
+    publisher({
+      signed,
+      witness,
+      wend,
+      color: this.state.myColor === 'white' ? 'w' : 'b',
+      result: pending.result,
+      reason: pending.reason,
+      kind: cfg.game?.kind ?? 'chess',
+      tc: { baseMs: cfg.tc.initialMs, incMs: cfg.tc.incrementMs },
+      config: cfg
+    })
+  }
+
+  // ==========================================================================
   // Actions (§4) — everything the UI can invoke.
   // ==========================================================================
 
-  async host(cfg: MpGameConfig): Promise<void> {
+  /** Host a table. `opts.rated` (default false ⇒ casual, byte-identical v5)
+   *  opts a signed-in host into v6 signed play; the game becomes SIGNED only if
+   *  the joiner also offers identity. Every existing caller (no opts) is casual. */
+  async host(cfg: MpGameConfig, opts?: { rated?: boolean }): Promise<void> {
     const kind = cfg.game?.kind ?? 'chess'
     // Wire v4: the session is game-agnostic — it cannot know that go/gomoku/
     // othello/checkers open with BLACK. Stamp the game's first mover into the
@@ -764,6 +926,9 @@ class OnlineStore {
         return
       }
     }
+    // A6 (Lane C): configure signed play BEFORE opening the room so our hello can
+    // carry identity. Rated + signed-in ⇒ offer signing; else null (casual = v5).
+    this.applySigning(opts?.rated ?? false)
     try {
       const res = await mp.host(cfg)
       this.set({ code: res.code, phase: 'hosting' })
@@ -772,8 +937,14 @@ class OnlineStore {
     }
   }
 
-  async join(code: string): Promise<void> {
+  /** Join a table by code. `opts.rated` (default false ⇒ casual) opts a signed-in
+   *  joiner into v6 signed play; `opts.oppRoot` pins a matchmaker-known opponent.
+   *  Every existing caller (no opts) is casual, byte-identical v5. */
+  async join(code: string, opts?: { rated?: boolean; oppRoot?: string }): Promise<void> {
     this.set({ ...FRESH, phase: 'connecting', error: null })
+    // A6 (Lane C): configure signed play BEFORE dialing so our hello carries
+    // identity (pinned to oppRoot when known); else null (casual = v5).
+    this.applySigning(opts?.rated ?? false, opts?.oppRoot)
     try {
       const res = await mp.join(code)
       if (!res.ok) {
@@ -921,6 +1092,10 @@ class OnlineStore {
     mp.leave()
     this.sans = []
     this.saved = false
+    // A6 (Lane C): drop any pending signed-segment state with the session.
+    this.lastWend = null
+    this.pendingSegment = null
+    this.segmentPublished = false
     // Back to the default game so an idle store always mirrors FRESH (chess).
     this.adapter = chessOnlineAdapter as OnlineGameAdapter<unknown>
     this.gameState = chessOnlineAdapter.init()

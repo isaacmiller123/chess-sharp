@@ -10,6 +10,8 @@
 
 import { joinRoom, getRelaySockets } from 'trystero'
 import { normalizeRoomCode } from '@shared/mp/wire'
+import { resolveIceServers } from '../../account/net/iceConfig'
+import { resolveNostrRelays } from '../../account/net/relayConfig'
 import type { MpTransport, MpTransportFactory, MpTransportListeners } from './mpSession'
 
 /** A unique app namespace so only Chess# builds discover each other. Bumped to v3
@@ -19,27 +21,10 @@ const APP_ID = 'chess-sharp-mp-v3'
 /** How often we sample relay socket state for the "contacting relays" UI (ms). */
 const RELAY_POLL_MS = 2_000
 
-// STUN/TURN for WebRTC NAT traversal. Google STUN is blocked in China, hence the
-// Cloudflare STUN; the TURN entries are a best-effort fallback for symmetric NATs
-// (ICE silently skips any dead server, so extras never hurt).
-const ICE_SERVERS: RTCIceServer[] = [
-  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
-  { urls: 'stun:stun.cloudflare.com:3478' },
-  {
-    urls: [
-      'turn:openrelay.metered.ca:80',
-      'turn:openrelay.metered.ca:443',
-      'turn:openrelay.metered.ca:443?transport=tcp'
-    ],
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  },
-  {
-    urls: ['turn:standard.relay.metered.ca:80', 'turn:standard.relay.metered.ca:443?transport=tcp'],
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  }
-]
+// STUN/TURN for WebRTC NAT traversal now lives in ../../account/net/iceConfig
+// (spec §4 C-11: env/config-replaceable, operator peer as fallback). With no
+// override/env set, resolveIceServers() returns the exact former inline set, so
+// this transport's behavior is unchanged.
 
 /** Create a trystero room for `roomCode` and adapt it to the MpTransport contract. */
 export const createRtcTransport: MpTransportFactory = (
@@ -49,13 +34,17 @@ export const createRtcTransport: MpTransportFactory = (
   // The code we bond on must be canonical so host and guest land in the same room.
   const canonical = normalizeRoomCode(roomCode) ?? roomCode
 
+  // RELAY-SEAM: OUR Nostr signaling relays when VITE_NOSTR_RELAYS is set; null ⇒
+  // no relayConfig ⇒ the trystero fork defaults (byte-identical to before).
+  const relayConfig = resolveNostrRelays()
   const room = joinRoom(
     {
       appId: APP_ID,
       // Encrypt session descriptions with a room-derived key so two players who
       // share the code (and only they) can complete the WebRTC handshake.
       password: 'chs-' + canonical,
-      rtcConfig: { iceServers: ICE_SERVERS }
+      ...(relayConfig ? { relayConfig } : {}),
+      rtcConfig: { iceServers: resolveIceServers() }
     },
     canonical
   )

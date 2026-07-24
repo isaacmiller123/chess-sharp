@@ -33,6 +33,16 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 COPY . .
+# Production P2P config baked into the SPA at build time (vite inlines
+# import.meta.env.VITE_*). Unset => the app keeps its safe public-relay/STUN
+# defaults (iceConfig.ts / relayConfig.ts both fall back cleanly), so a plain
+# `docker build` still produces a working image.
+#   VITE_ICE_SERVERS  — JSON RTCIceServer[] (OUR coturn TURN + STUN)
+#   VITE_NOSTR_RELAYS — comma list or JSON array of OUR wss:// signaling relays
+ARG VITE_ICE_SERVERS=""
+ARG VITE_NOSTR_RELAYS=""
+ENV VITE_ICE_SERVERS=$VITE_ICE_SERVERS \
+    VITE_NOSTR_RELAYS=$VITE_NOSTR_RELAYS
 # build:server emits EVERYTHING dist-server needs at runtime (index.cjs +
 # ipc-bridge.cjs) — the npm script is the single source of truth, so dev/CI/
 # Docker can never drift.

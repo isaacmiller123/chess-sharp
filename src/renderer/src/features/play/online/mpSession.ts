@@ -52,7 +52,7 @@ import {
   generateRoomCode,
   normalizeRoomCode
 } from '@shared/mp/wire'
-import { MoveChainVerifier, sigClock, REASON_FLAG, REASON_RESIGN } from '@shared/mp/witnessCore'
+import { MoveChainVerifier, sigClock, ladderFromConfig, REASON_FLAG, REASON_RESIGN } from '@shared/mp/witnessCore'
 import {
   gameKey as computeGameKey,
   signMove,
@@ -287,8 +287,10 @@ export class MpNetSession {
   private rtt = 0
 
   // ---- v6 signed play + the witness seat --------------------------------------
-  /** Our signing identity, or null (unsigned — every shipped caller). */
-  private readonly signing: MpSigningConfig | null
+  /** Our signing identity, or null (unsigned — every shipped caller). Set at
+   *  construction (opts.signing) OR additively via configureSigning() before a
+   *  host()/join(); frozen for the duration of a live game (see the guard). */
+  private signing: MpSigningConfig | null
   /** Peer identity from its hello (present ⇒ it offers signed play). */
   private peerRoot: string | null = null
   private peerKey: string | null = null
@@ -359,6 +361,22 @@ export class MpNetSession {
   getSignedGame(): { gameKey: string; players: { w: string; b: string }; moves: readonly SignedMove[] } | null {
     if (!this.chain || !this.gameKey || !this.gamePlayers) return null
     return { gameKey: this.gameKey, players: { ...this.gamePlayers }, moves: this.chain.moves }
+  }
+
+  /** v6 (A6 Lane C): set or clear the signed-play identity. ADDITIVE — a caller
+   *  that never touches it stays byte-for-byte v5 (signing null ⇒ no identity in
+   *  hello, no move sig). Casual play passes `null` to guarantee no stale rated
+   *  identity leaks into an unsigned game.
+   *
+   *  GUARDED to pre-host()/join(): the identity is frozen while a game is live
+   *  (`inGame`), so a running signed game's key/players/chain can never change
+   *  under it. Call it BEFORE host()/join(); a mid-game call is a safe no-op
+   *  (the session never throws to the caller). The per-game signed state
+   *  (peerRoot/gameKey/chain) still resets each game via beginGame/resetState —
+   *  this only sets OUR standing identity, read at setupSignedGame/hello time. */
+  configureSigning(cfg: MpSigningConfig | null): void {
+    if (this.inGame) return // frozen mid-game — set signing before host()/join()
+    this.signing = cfg
   }
 
   private emitEvent(ev: MpEvent): void {
@@ -1000,6 +1018,53 @@ export class MpNetSession {
     this.witnessPeerId = fromPeer
     this.witnessRoot = root
     this.witnessKey = key
+    // If this witness seated AFTER the host already sent `start` (the guest
+    // handshaked first), it missed the one-shot mirrored start + every move so
+    // far — so its WitnessCore would never initialize and never countersign.
+    // Replay the started game to JUST this witness so it catches up to the live
+    // transcript. A no-op when the witness seats BEFORE the game starts (the
+    // normal path — `start` then mirrors to it as usual) and for unsigned games.
+    // This is what lets the matchmaking seat race resolve with ~0 delay instead
+    // of forcing the guest to wait for the witness to seat first.
+    this.resendGameToWitness()
+  }
+
+  /** v6: replay the in-progress game to a witness that seated LATE (after the
+   *  one-shot `start`). Sends the same `start` the guest received (so the
+   *  witness inits its WitnessCore with our gameKey/players/config), then every
+   *  committed SIGNED move in ply order (so it verifies the full move-sig chain
+   *  and resumes the wclk cadence + terminal wend). The witness's clock rounding
+   *  is idempotent on the already-integer SignedMove clocks, so each replayed sig
+   *  verifies byte-for-byte. HOST-only + a live SIGNED game only — otherwise a
+   *  no-op, so the witness-seats-first and unsigned flows stay byte-identical.
+   *  Only the seated witness sees it (sendWitness targets it); the players don't. */
+  private resendGameToWitness(): void {
+    if (this.role !== 'host' || !this.witnessPeerId) return
+    if (!this.inGame || this.over) return
+    const chain = this.chain
+    if (!this.config || !this.gameKey || !this.gamePlayers || !chain) return
+    const startMsg: WireMsg = {
+      t: 'start',
+      gameId: this.gameId,
+      yourColor: this.guestColor ?? 'black', // witness ignores this; needs gameKey
+      config: this.config,
+      ...(this.myName ? { name: this.myName } : {}),
+      gameKey: this.gameKey,
+      players: this.gamePlayers
+    }
+    this.sendWitness(startMsg)
+    // Replay each committed signed move (SignedMove.clockMs is {w,b} integers →
+    // wire {white,black}; the witness re-rounds identically, so the sig holds).
+    for (const m of chain.moves) {
+      this.sendWitness({
+        t: 'move',
+        gameId: this.gameId,
+        ply: m.ply,
+        uci: m.move,
+        clockMs: { white: m.clockMs.w, black: m.clockMs.b },
+        sig: m.sig
+      })
+    }
   }
 
   /** v6: verify + surface a witness stream message. Verification failures are
@@ -1019,15 +1084,42 @@ export class MpNetSession {
       if (msg.t === 'wclk') {
         const bytes = witnessClockBytes(this.gameKey, msg.ply, sigClock(msg.clockMs), msg.wts)
         if (!verifySigB64u(msg.sig, bytes, this.witnessKey)) return
-      } else if (
-        !verifyWitnessEnd({ wkey: this.witnessKey, sig: msg.sig }, this.gameKey, msg.result, msg.plies, msg.transcript)
-      ) {
+      } else if (!this.verifyWitnessEndMsg(msg)) {
         return
       }
     } catch {
       return // unencodable witness message — ignore, exactly like a bad sig
     }
     for (const cb of this.witnessListeners) cb(msg)
+  }
+
+  /** v6 (A6 Lane C — the documented mpSession seam): verify a terminal `wend`.
+   *  A RATED witness signs its wend over the FULL rated binding (kind/tc +
+   *  players-by-color + the adjudicated reason — segment.ts RatedBinding, the
+   *  exact bytes SegmentPayload.wstream carries), while an unrated signed game
+   *  signs the LEGACY binding-less bytes. Surface EITHER: the session re-derives
+   *  the rated binding from its OWN config (ladderFromConfig — the same map the
+   *  witness used) + this game's players + the wend's own reason, NEVER trusting
+   *  a witness claim it can't reconstruct. A legacy wend keeps verifying legacy;
+   *  a forged/mismatched wend verifies as neither and is ignored (the witness is
+   *  advisory — it never tears a live game down). Guarded by the caller's
+   *  try/catch: witnessEndBytes → canonicalBytes may throw on an unencodable
+   *  value, which reads as "ignore", exactly like a bad signature. */
+  private verifyWitnessEndMsg(msg: Extract<MpWitnessMsg, { t: 'wend' }>): boolean {
+    if (!this.gameKey || !this.witnessKey) return false
+    const wstream = { wkey: this.witnessKey, sig: msg.sig }
+    // Unrated signed game: binding-less bytes (byte-for-byte the prior path).
+    if (verifyWitnessEnd(wstream, this.gameKey, msg.result, msg.plies, msg.transcript)) return true
+    // Rated game: the binding is ATOMIC (verifySegmentEvent requires rated ⇔
+    // fully bound), so players/reason must ride alongside kind/tc.
+    if (!this.config || !this.gamePlayers) return false
+    const { kind, tc } = ladderFromConfig(this.config)
+    return verifyWitnessEnd(wstream, this.gameKey, msg.result, msg.plies, msg.transcript, {
+      kind,
+      tc,
+      players: this.gamePlayers,
+      reason: msg.reason,
+    })
   }
 
   private armHandshakeWatchdog(): void {

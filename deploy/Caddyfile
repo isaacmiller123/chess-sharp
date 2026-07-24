@@ -1,0 +1,26 @@
+# Caddy — automatic HTTPS (Let's Encrypt) reverse proxy for Chess#.
+# ${DOMAIN} / ${ACME_EMAIL} are substituted from .env.production by compose.
+#
+# Terminates TLS and forwards to the internal web + relay containers. Caddy
+# auto-issues + renews certs for every hostname below.
+
+{
+	email {$ACME_EMAIL}
+}
+
+# ── The web app ──────────────────────────────────────────────────────────────
+app.{$DOMAIN} {
+	encode zstd gzip
+	# The Fastify app already sets COOP/COEP + its own cache headers; just proxy.
+	reverse_proxy web:8080
+}
+
+# Bare apex + www → the app too (nice for sharing a short link).
+{$DOMAIN}, www.{$DOMAIN} {
+	redir https://app.{$DOMAIN}{uri}
+}
+
+# ── The Nostr signaling relay (websocket) ────────────────────────────────────
+relay.{$DOMAIN} {
+	reverse_proxy relay:8080
+}

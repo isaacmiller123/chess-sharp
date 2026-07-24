@@ -1,6 +1,5 @@
 import { useState, type JSX } from 'react'
 import {
-  Ban,
   Eye,
   FileKey,
   Fingerprint,
@@ -9,20 +8,33 @@ import {
   RefreshCw,
   Scale,
   ShieldAlert,
-  Zap
+  ShieldCheck,
+  Zap,
+  Ban
 } from 'lucide-react'
-import { DEV_FIXTURE, JUDGE_CONFIG } from '../mock/fixtures'
-import { FixturePreviewBadge } from '../mock/FixturePreviewBadge'
+import { PARAMS_A5, PARAMS_A5_DIGEST } from '@shared/accounts/judge/params'
+import { useAccountsUi } from '../mock/store'
 import { VerdictViewer } from './VerdictViewer'
 import { SelfBanDialog } from './SelfBanDialog'
 import './fairplay.css'
 
 /**
  * Fair play (ACCOUNTS-SPEC §8, §9, §0) — the canonical judge and its two
- * tiers, the Tier-2 verdict records with receipts, and a preview of the
- * compliant-client self-ban moment. DEV_FIXTURE surface: everything renders
- * from the JUDGE_CONFIG / VERDICTS fixtures and labels itself as sample data.
+ * tiers, the Tier-2 verdict records with receipts, and this client's own
+ * self-ban standing. WIRED (A6 M5, lane L-ui):
+ *
+ *  - The judge card is LIVE. Every value is the REAL pinned rule set from
+ *    PARAMS_A5 (`@shared/accounts/judge/params`) — the same constants the
+ *    browser judge (`src/web/engines/judge.ts`) verifies the wasm against and
+ *    every verdict record embeds (PARAMS_A5_DIGEST). Nothing here is authored.
+ *  - The self-ban standing is a pure fold over THIS account's signed chain
+ *    (mock/store → derive.ts deriveStanding): 'good' or an active self-ban with
+ *    the real record id + witnessed-zone expiry. No fabricated conviction.
+ *  - Verdict records are honest-empty until the judge runner (M5 L-t1/L-t2)
+ *    publishes/adopts them over the live overlay — see VerdictViewer.
  */
+
+const JUDGE_BINARY = 'stockfish-18-lite-single'
 
 /** 80_000 → "80k", 1_200_000 → "1.2M" — compact node budgets for meta lines. */
 function fmtNodes(n: number): string {
@@ -33,8 +45,29 @@ function fmtNodes(n: number): string {
   return `${Math.round(n / 1000)}k`
 }
 
+/** Micro-units → σ (zThresholdMicro 5_000_000 → 5). Trailing-zero-free. */
+function fmtSigma(micro: number): string {
+  return `${Number((micro / 1_000_000).toFixed(2))}`
+}
+
 export function FairPlayTab(): JSX.Element {
-  const [selfBanOpen, setSelfBanOpen] = useState(false)
+  const { account } = useAccountsUi()
+  const [recordOpen, setRecordOpen] = useState(false)
+
+  // Real standing from the signed chain fold — never a fixture. A 'self-ban'
+  // standing carries the public record id and the witnessed-zone expiry.
+  const standing = account?.standing
+  const selfBan = standing && standing.state === 'self-ban' ? standing : null
+  const banEnds = selfBan
+    ? new Date(selfBan.expiresWts).toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+    : null
+
+  const zConvict = fmtSigma(PARAMS_A5.zThresholdMicro)
+  const zEscalate = fmtSigma(PARAMS_A5.zEscalateMicro)
 
   return (
     <div className="afair-root">
@@ -51,7 +84,6 @@ export function FairPlayTab(): JSX.Element {
               years — trusted because reproducible, not because client-resident.
             </p>
           </div>
-          {DEV_FIXTURE && <FixturePreviewBadge />}
           <span className="afair-judge-pill">
             <Fingerprint size={12} aria-hidden /> Bit-deterministic
           </span>
@@ -64,11 +96,13 @@ export function FairPlayTab(): JSX.Element {
             </span>
             <span className="afair-fact-body">
               <span className="afair-fact-label">Engine build</span>
-              <span className="afair-fact-value afair-mono">{JUDGE_CONFIG.binary}</span>
-              <span className="afair-fact-value afair-mono">{JUDGE_CONFIG.binaryHash}</span>
+              <span className="afair-fact-value afair-mono">{JUDGE_BINARY}</span>
+              <span className="afair-fact-value afair-mono">sha256:{PARAMS_A5.judgeWasmSha256}</span>
+              <span className="afair-fact-value afair-mono">rules · {PARAMS_A5_DIGEST.slice(0, 16)}…</span>
               <span className="afair-fact-sub">
-                Single-thread WASM, loaded by content hash on every platform — never the
-                platform-tuned engines used for play and analysis.
+                Single-thread WASM, fetched and verified against this exact content hash on every
+                platform before it can run — never the platform-tuned engines used for play and
+                analysis.
               </span>
             </span>
           </li>
@@ -79,8 +113,8 @@ export function FairPlayTab(): JSX.Element {
             <span className="afair-fact-body">
               <span className="afair-fact-label">Search budget</span>
               <span className="afair-fact-value num">
-                Tier 1 · {fmtNodes(JUDGE_CONFIG.tier1Nodes)} — Tier 2 ·{' '}
-                {fmtNodes(JUDGE_CONFIG.tier2Nodes)} nodes/move
+                Tier 1 · {fmtNodes(PARAMS_A5.t1Nodes)} — Tier 2 · {fmtNodes(PARAMS_A5.t2Nodes)}{' '}
+                nodes/move
               </span>
               <span className="afair-fact-sub">
                 Fixed node counts, never depth or time — wall clocks and thermal throttling
@@ -94,10 +128,12 @@ export function FairPlayTab(): JSX.Element {
             </span>
             <span className="afair-fact-body">
               <span className="afair-fact-label">Candidate lines</span>
-              <span className="afair-fact-value num">MultiPV fixed at {JUDGE_CONFIG.multiPv}</span>
+              <span className="afair-fact-value num">
+                Tier 1 · MultiPV {PARAMS_A5.t1MultiPv} — Tier 2 · MultiPV {PARAMS_A5.t2MultiPv}
+              </span>
               <span className="afair-fact-sub">
-                Engine match is scored against a score-equivalence window over these lines —
-                never exact-move matching.
+                Engine match is scored against a ±{PARAMS_A5.scoreEquivCp} cp score-equivalence
+                window over these lines — never exact-move matching.
               </span>
             </span>
           </li>
@@ -107,7 +143,7 @@ export function FairPlayTab(): JSX.Element {
             </span>
             <span className="afair-fact-body">
               <span className="afair-fact-label">Hash table</span>
-              <span className="afair-fact-value num">Pinned at {JUDGE_CONFIG.hashMb} MB</span>
+              <span className="afair-fact-value num">Pinned at {PARAMS_A5.hashMb} MB</span>
               <span className="afair-fact-sub">
                 Small enough to allocate on the weakest supported device — the same table size
                 everywhere.
@@ -122,8 +158,8 @@ export function FairPlayTab(): JSX.Element {
               <span className="afair-fact-label">Before every judged game</span>
               <span className="afair-fact-value afair-mono">ucinewgame + TT clear</span>
               <span className="afair-fact-sub">
-                On a judge-dedicated engine instance, never shared with the play or analysis
-                pools.
+                Reset {PARAMS_A5.ttReset}, on a judge-dedicated engine instance, never shared with
+                the play or analysis pools.
               </span>
             </span>
           </li>
@@ -157,7 +193,7 @@ export function FairPlayTab(): JSX.Element {
               output feeds the private trust signal — nothing else. Tier 1 never bans.
             </p>
             <span className="afair-tier-meta num">
-              {fmtNodes(JUDGE_CONFIG.tier1Nodes)} nodes/move · seconds on desktop, tens on mobile
+              {fmtNodes(PARAMS_A5.t1Nodes)} nodes/move · seconds on desktop, tens on mobile
             </span>
           </article>
           <article className="afair-tier is-t2">
@@ -169,42 +205,64 @@ export function FairPlayTab(): JSX.Element {
               <span className="afair-tier-badge">the only anticheat ban trigger</span>
             </header>
             <p className="afair-tier-copy">
-              A ban obliges ONLY on the deterministic 5σ conviction (A5-21) — a pure function of
-              the chain, so every compliant client provably knows the moment the obligation
-              exists. The earlier 3σ escalation triggers deeper analysis and nothing else — it
-              never bans. Evidence aggregates over a {JUDGE_CONFIG.kWindow}-game window; no
-              single game convicts.
+              A ban obliges ONLY on the deterministic {zConvict}σ conviction (A5-21) — a pure
+              function of the chain, so every compliant client provably knows the moment the
+              obligation exists. The earlier {zEscalate}σ escalation triggers deeper analysis and
+              nothing else — it never bans. Evidence aggregates over a {PARAMS_A5.reganK}-game
+              window; no single game convicts.
             </p>
             <span className="afair-tier-meta num">
-              {fmtNodes(JUDGE_CONFIG.tier2Nodes)} nodes/move · runnable by anyone — opponent,
-              witness, or a stranger later
+              {fmtNodes(PARAMS_A5.t2Nodes)} nodes/move · runnable by anyone — opponent, witness, or
+              a stranger later
             </span>
           </article>
         </div>
       </section>
 
-      {/* ---- Verdict records ---- */}
+      {/* ---- Verdict records (honest-empty until the judge runner publishes) ---- */}
       <VerdictViewer />
 
-      {/* ---- Self-ban moment preview ---- */}
+      {/* ---- This account's fair-play standing (real chain fold) ---- */}
       <section className="card afair-moment">
         <div className="afair-moment-copy">
-          <strong>The self-ban moment</strong>
-          <span className="muted small">
-            What a compliant client shows when the Tier-2 5σ conviction fires on its own chain —
-            the obligation is visible to everyone, so the client says so out loud.
-          </span>
+          <strong>Your fair-play standing</strong>
+          {selfBan ? (
+            <span className="muted small">
+              A deterministic Tier-2 {zConvict}σ conviction is recorded on your chain — the
+              witnessed zone reopens {banEnds}. The record is public and citable by anyone who
+              replays your chain.
+            </span>
+          ) : (
+            <span className="muted small">
+              No Tier-2 conviction on your chain. If the deterministic {zConvict}σ conviction ever
+              fires, a compliant client appends a signed self-ban before any further
+              witnessed-lane event — the obligation is a pure function of the public chain,
+              visible to everyone.
+            </span>
+          )}
         </div>
-        <button
-          type="button"
-          className="btn ghost afair-moment-btn"
-          onClick={() => setSelfBanOpen(true)}
-        >
-          <ShieldAlert size={15} aria-hidden /> Preview the self-ban moment
-        </button>
+        {selfBan ? (
+          <button
+            type="button"
+            className="btn ghost afair-moment-btn"
+            onClick={() => setRecordOpen(true)}
+          >
+            <ShieldAlert size={15} aria-hidden /> View the self-ban record
+          </button>
+        ) : (
+          <span className="afair-chip is-clean">
+            <ShieldCheck size={12} aria-hidden /> Clear
+          </span>
+        )}
       </section>
 
-      {selfBanOpen && <SelfBanDialog onClose={() => setSelfBanOpen(false)} />}
+      {selfBan && recordOpen && (
+        <SelfBanDialog
+          record={selfBan.record}
+          expiresWts={selfBan.expiresWts}
+          onClose={() => setRecordOpen(false)}
+        />
+      )}
     </div>
   )
 }
