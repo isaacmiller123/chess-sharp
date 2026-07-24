@@ -516,11 +516,18 @@ async function run(outdir) {
     await host.gameEnded('1/2-1/2', 'stalemate')
     await guest.gameEnded('1/2-1/2', 'stalemate')
     await waitEvent(ge, (e) => e.type === 'gameOver' && e.result === '1/2-1/2', { label: 'guest gameOver' })
-    await sleep(20)
+    // The guest's draw esig reaches the witness asynchronously (host forwards
+    // it over macrotask-scheduled mock delivery), so re-pump until the wend is
+    // minted rather than racing a single fixed sleep — a 20ms sleep flaked on
+    // slower Windows CI where the esig had not yet landed when pump() ran. pump()
+    // only drains whatever newly arrived, so repeat calls are safe.
+    let wend
+    for (let i = 0; i < 200 && !wend; i++) {
+      wend = pump(witness, wcore, wclock).find((m) => m.t === 'wend')
+      if (!wend) await sleep(10)
+    }
     const goWire = lastWire(pair, (m) => m.t === 'gameOver')
     ok(goWire && typeof goWire.msg.esig === 'string' && goWire.msg.esig.length === 86, 'gameOver carries the esig on the wire')
-    const endEmits = pump(witness, wcore, wclock)
-    const wend = endEmits.find((m) => m.t === 'wend')
     ok(wend && wend.result === '1/2-1/2' && wend.reason === 'stalemate', 'witness wend requires BOTH players’ draw esigs')
 
     // Signed rematch: fresh gameKey, same players.
