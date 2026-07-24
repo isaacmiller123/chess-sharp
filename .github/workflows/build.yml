@@ -67,6 +67,10 @@ jobs:
       # BOTH OS legs (they need no engine binaries or display — headless esbuild
       # bundles). Engine-dependent suites (bots-ui live probes) stay local-only.
       - name: Game & platform suites
+        # Skippable for a fast release when the suites already passed on the other
+        # leg: put [skip-tests] in the tagged commit message. Packaging/publish
+        # still run. Normal pushes always run the full wall.
+        if: ${{ !contains(github.event.head_commit.message, '[skip-tests]') }}
         shell: bash
         run: |
           for t in test-games-kernel test-ffish-games test-go test-checkers \
